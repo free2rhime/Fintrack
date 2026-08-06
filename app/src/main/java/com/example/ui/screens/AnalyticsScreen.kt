@@ -33,10 +33,22 @@ import com.example.domain.analytics.CategoryExpenseShare
 import com.example.domain.analytics.DashboardMetrics
 import com.example.domain.analytics.MonthlyDataPoint
 import com.example.domain.analytics.SmartFinancialInsights
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import com.example.ui.components.CategoryDistributionChart
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.MonthlyCashFlowBarChart
+import com.example.ui.components.MonthlyCashFlowSplineChart
 import com.example.ui.components.PeriodSelectorChipRow
+import com.example.ui.components.SavingsTrendLineChart
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
 
@@ -52,6 +64,8 @@ fun AnalyticsScreen(
     onCurrencyChanged: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isSplineChart by remember { mutableStateOf(true) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -211,7 +225,7 @@ fun AnalyticsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // MONTHLY CASH FLOW CHART
+        // NET SAVINGS SMOOTHED SPLINE CHART
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -221,14 +235,86 @@ fun AnalyticsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(imageVector = Icons.Default.BarChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(imageVector = Icons.Default.ShowChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Income vs Expense Trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Net Savings Trend (Smoothed)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                MonthlyCashFlowBarChart(dataPoints = monthlyDataPoints, currency = metrics.currency)
+                SavingsTrendLineChart(dataPoints = monthlyDataPoints, currency = metrics.currency)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // MONTHLY CASH FLOW CHART (Smoothed Spline & Bar Chart modes)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.BarChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Income vs Expense Trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+
+                    // Chart Type Segmented Pills
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(2.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSplineChart) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { isSplineChart = true }
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                "Spline",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSplineChart) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (!isSplineChart) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { isSplineChart = false }
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                "Bars",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (!isSplineChart) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (isSplineChart) {
+                    MonthlyCashFlowSplineChart(dataPoints = monthlyDataPoints, currency = metrics.currency)
+                } else {
+                    MonthlyCashFlowBarChart(dataPoints = monthlyDataPoints, currency = metrics.currency)
+                }
             }
         }
 

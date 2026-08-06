@@ -105,37 +105,18 @@ fun TransactionsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Search Bar & Currency Toggle Header
+            // Header Title & Currency Toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = {
-                        searchQuery = it
-                        onSearchQueryChanged(it)
-                    },
-                    placeholder = { Text("Search description, category...") },
-                    leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Search") },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = {
-                                searchQuery = ""
-                                onSearchQueryChanged("")
-                            }) {
-                                Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear")
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("search_transactions_input"),
-                    shape = RoundedCornerShape(16.dp),
-                    singleLine = true
+                Text(
+                    text = "Transactions",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
 
                 CurrencyToggle(
@@ -143,6 +124,35 @@ fun TransactionsScreen(
                     onCurrencyChanged = onCurrencyChanged
                 )
             }
+
+            // Search Bar full-width row
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    onSearchQueryChanged(it)
+                },
+                placeholder = { Text("Search description, category...") },
+                leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Search") },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = {
+                            searchQuery = ""
+                            onSearchQueryChanged("")
+                        }) {
+                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear")
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .testTag("search_transactions_input"),
+                shape = RoundedCornerShape(16.dp),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Period Selector Chips
             PeriodSelectorChipRow(
@@ -166,10 +176,12 @@ fun TransactionsScreen(
                 FilterChip(
                     selected = isAllSelected,
                     onClick = { onCategoryFilterSelected("Expense", null) },
-                    label = { Text("All Categories") },
+                    label = { Text("All Categories", fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
 
@@ -184,7 +196,13 @@ fun TransactionsScreen(
                                 onCategoryFilterSelected("Expense", catName)
                             }
                         },
-                        label = { Text(catName) }
+                        label = { Text(catName, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }

@@ -14,6 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 
 enum class BottomNavItem(
     val title: String,
@@ -47,7 +50,16 @@ fun FinTrackBottomNavigation(
                         contentDescription = item.title
                     )
                 },
-                label = { Text(item.title) },
+                label = {
+                    Text(
+                        text = item.title,
+                        maxLines = 1,
+                        softWrap = false,
+                        fontSize = 10.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 modifier = Modifier.testTag("bottom_nav_${item.title.lowercase()}")
             )
         }
