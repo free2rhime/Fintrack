@@ -1,0 +1,6 @@
+{
+  "name": "FinTrack",
+  "description": "Premium Android personal finance app for tracking transactions, analytics, and currency exchange with offline-first Room persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
