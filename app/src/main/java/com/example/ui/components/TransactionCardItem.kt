@@ -143,6 +143,48 @@ fun TransactionCardItem(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
+
+                        // Conversion Status Badge
+                        if (transaction.conversionStatus == "PENDING") {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer
+                            ) {
+                                Text(
+                                    text = "EUR Pending",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        } else if (transaction.conversionStatus == "FAILED") {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Text(
+                                    text = "EUR Failed",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        } else if (transaction.conversionStatus == "UNVERIFIED" || transaction.exchangeRateSource != "BNR_OFFICIAL") {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                            ) {
+                                Text(
+                                    text = "Unverified Rate",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -159,8 +201,19 @@ fun TransactionCardItem(
                         color = amountColor
                     )
 
+                    val eurSubtext = when {
+                        transaction.conversionStatus == "OFFICIAL" && transaction.exchangeRateSource == "BNR_OFFICIAL" ->
+                            "($amountSymbol€$formattedEur)"
+                        transaction.conversionStatus == "PENDING" ->
+                            "(EUR Pending)"
+                        transaction.conversionStatus == "FAILED" ->
+                            "(EUR Conversion Failed)"
+                        else ->
+                            "(Unverified Rate)"
+                    }
+
                     Text(
-                        text = "($amountSymbol€$formattedEur)",
+                        text = eurSubtext,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

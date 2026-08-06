@@ -8,30 +8,42 @@ import com.example.data.model.TransactionEntity
 import java.io.File
 
 object CsvExporter {
+
+    fun generateCsvContent(transactions: List<TransactionEntity>): String {
+        val csvHeader = "Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory\n"
+        val sb = StringBuilder(csvHeader)
+
+        for (tx in transactions) {
+            val line = listOf(
+                tx.id,
+                tx.date,
+                tx.amountRON,
+                tx.amountEUR,
+                tx.exchangeRate,
+                tx.date, // Requested rate date
+                tx.exchangeRateDate, // Effective BNR rate date
+                tx.exchangeRateSource,
+                tx.conversionStatus,
+                "\"${tx.description.replace("\"", "\"\"")}\"",
+                tx.type,
+                tx.account,
+                "\"${tx.category.replace("\"", "\"\"")}\"",
+                "\"${tx.subCategory.replace("\"", "\"\"")}\""
+            ).joinToString(",")
+            sb.append(line).append("\n")
+        }
+        return sb.toString()
+    }
+
+    fun writeTransactionsToFile(file: File, transactions: List<TransactionEntity>): File {
+        file.writeText(generateCsvContent(transactions))
+        return file
+    }
+
     fun exportTransactionsToCsv(context: Context, transactions: List<TransactionEntity>) {
         try {
-            val csvHeader = "ID,Date,Description,Amount_RON,Amount_EUR,ExchangeRate,Type,Account,Category,SubCategory,Destination\n"
-            val sb = StringBuilder(csvHeader)
-
-            for (tx in transactions) {
-                val line = listOf(
-                    tx.id,
-                    tx.date,
-                    "\"${tx.description.replace("\"", "\"\"")}\"",
-                    tx.amountRON,
-                    tx.amountEUR,
-                    tx.exchangeRate,
-                    tx.type,
-                    tx.account,
-                    "\"${tx.category.replace("\"", "\"\"")}\"",
-                    "\"${tx.subCategory.replace("\"", "\"\"")}\"",
-                    "\"${(tx.destination ?: "").replace("\"", "\"\"")}\""
-                ).joinToString(",")
-                sb.append(line).append("\n")
-            }
-
             val file = File(context.cacheDir, "fintrack_transactions.csv")
-            file.writeText(sb.toString())
+            writeTransactionsToFile(file, transactions)
 
             val uri = FileProvider.getUriForFile(
                 context,
@@ -42,7 +54,7 @@ object CsvExporter {
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "FinTrack Transactions Export")
+                putExtra(Intent.EXTRA_SUBJECT, "FinTrack Audited Transactions Export")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
 

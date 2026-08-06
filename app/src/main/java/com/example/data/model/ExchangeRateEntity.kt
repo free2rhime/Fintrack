@@ -7,6 +7,10 @@ import androidx.room.PrimaryKey
 data class ExchangeRateEntity(
     @PrimaryKey
     val date: String, // YYYY-MM-DD
-    val rate: Double, // EUR to RON (e.g., 4.9750)
-    val cachedAt: Long = System.currentTimeMillis()
+    val requestedDate: String = date,
+    val effectiveDate: String = date,
+    val rate: Double, // EUR to RON (e.g., 4.9765)
+    val source: String = "BNR_OFFICIAL",
+    val fetchedAt: Long = System.currentTimeMillis(),
+    val status: String = "OFFICIAL" // "OFFICIAL", "PENDING", "FAILED", "UNVERIFIED"
 )

@@ -29,5 +29,7 @@ data class TransactionEntity(
     val subCategory: String,
     val destination: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val exchangeRateSource: String? = "BNR_OFFICIAL", // "BNR_OFFICIAL", "UNVERIFIED"
+    val conversionStatus: String? = "OFFICIAL" // "OFFICIAL", "PENDING", "FAILED", "UNVERIFIED"
 )

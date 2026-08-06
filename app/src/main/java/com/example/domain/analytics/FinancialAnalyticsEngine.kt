@@ -18,7 +18,9 @@ data class DashboardMetrics(
     val categoryConcentrationPercent: Double = 0.0,
     val currency: String = "RON",
     val periodLabel: String = "Last Month",
-    val transactionCount: Int = 0
+    val transactionCount: Int = 0,
+    val excludedNonOfficialCount: Int = 0,
+    val hasIncompleteEurData: Boolean = false
 )
 
 data class CategoryExpenseShare(
@@ -131,14 +133,30 @@ object FinancialAnalyticsEngine {
         var incomeSum = 0.0
         var expenseSum = 0.0
         val categoryExpenses = mutableMapOf<String, Double>()
+        var excludedNonOfficialCount = 0
 
         for (tx in transactions) {
-            val amount = if (useRon) tx.amountRON else tx.amountEUR
-            if (tx.type == "Income") {
-                incomeSum += amount
-            } else if (tx.type == "Expense") {
-                expenseSum += amount
-                categoryExpenses[tx.category] = (categoryExpenses[tx.category] ?: 0.0) + amount
+            val isOfficial = tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL"
+            if (useRon) {
+                val amount = tx.amountRON
+                if (tx.type == "Income") {
+                    incomeSum += amount
+                } else if (tx.type == "Expense") {
+                    expenseSum += amount
+                    categoryExpenses[tx.category] = (categoryExpenses[tx.category] ?: 0.0) + amount
+                }
+            } else {
+                if (isOfficial) {
+                    val amount = tx.amountEUR
+                    if (tx.type == "Income") {
+                        incomeSum += amount
+                    } else if (tx.type == "Expense") {
+                        expenseSum += amount
+                        categoryExpenses[tx.category] = (categoryExpenses[tx.category] ?: 0.0) + amount
+                    }
+                } else {
+                    excludedNonOfficialCount++
+                }
             }
         }
 
@@ -162,7 +180,9 @@ object FinancialAnalyticsEngine {
             categoryConcentrationPercent = roundOneDecimal(concentrationPct),
             currency = currency,
             periodLabel = periodLabel,
-            transactionCount = transactions.size
+            transactionCount = transactions.size,
+            excludedNonOfficialCount = excludedNonOfficialCount,
+            hasIncompleteEurData = (!useRon) && (excludedNonOfficialCount > 0)
         )
     }
 
@@ -175,7 +195,11 @@ object FinancialAnalyticsEngine {
         type: String = "Expense"
     ): List<CategoryExpenseShare> {
         val useRon = currency == "RON"
-        val filtered = transactions.filter { it.type == type }
+        val filtered = if (useRon) {
+            transactions.filter { it.type == type }
+        } else {
+            transactions.filter { it.type == type && it.conversionStatus == "OFFICIAL" && it.exchangeRateSource == "BNR_OFFICIAL" }
+        }
         val totalAmount = filtered.sumOf { if (useRon) it.amountRON else it.amountEUR }
 
         if (totalAmount <= 0.0) return emptyList()
@@ -210,8 +234,15 @@ object FinancialAnalyticsEngine {
             var inc = 0.0
             var exp = 0.0
             for (tx in txList) {
-                val amt = if (useRon) tx.amountRON else tx.amountEUR
-                if (tx.type == "Income") inc += amt else exp += amt
+                if (useRon) {
+                    val amt = tx.amountRON
+                    if (tx.type == "Income") inc += amt else exp += amt
+                } else {
+                    if (tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL") {
+                        val amt = tx.amountEUR
+                        if (tx.type == "Income") inc += amt else exp += amt
+                    }
+                }
             }
             MonthlyDataPoint(
                 monthYearLabel = formatYearMonthLabel(yearMonth),

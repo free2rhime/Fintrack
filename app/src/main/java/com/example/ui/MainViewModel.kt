@@ -9,6 +9,7 @@ import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.CategoryRepository
 import com.example.data.repository.SettingsRepository
+import com.example.data.repository.PreparedRepairItem
 import com.example.data.repository.TransactionRepository
 import com.example.data.service.ExchangeRateService
 import com.example.data.util.SampleDataSeeder
@@ -26,20 +27,50 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import com.example.data.util.CsvExporter
+import kotlinx.coroutines.Dispatchers
+import java.io.File
+
+data class DiscrepancyItem(
+    val transactionId: String,
+    val date: String,
+    val description: String,
+    val amountRON: Double,
+    val oldRate: Double,
+    val correctRate: Double,
+    val effectiveBnrDate: String,
+    val oldAmountEUR: Double,
+    val correctAmountEUR: Double,
+    val differenceEUR: Double
+)
+
+data class DiscrepancyReport(
+    val items: List<DiscrepancyItem>,
+    val totalDiscrepancyEUR: Double,
+    val backupFilePath: String? = null
+)
+
 data class MainUiState(
     val selectedTab: Int = 0, // 0: Dashboard, 1: Transactions, 2: Analytics, 3: Categories, 4: Settings
     val activeTransactionForEdit: TransactionEntity? = null,
     val showTransactionDialog: Boolean = false,
     val isDuplicateMode: Boolean = false,
     val showCategoryDialog: Boolean = false,
-    val userNotification: String? = null
+    val userNotification: String? = null,
+    val discrepancyReport: DiscrepancyReport? = null,
+    val isAuditingHistoricalRates: Boolean = false
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = FinTrackDatabase.getDatabase(application)
     private val exchangeRateService = ExchangeRateService(database.exchangeRateDao())
-    val transactionRepository = TransactionRepository(database.transactionDao(), exchangeRateService)
+    val transactionRepository = TransactionRepository(
+        transactionDao = database.transactionDao(),
+        exchangeRateService = exchangeRateService,
+        exchangeRateDao = database.exchangeRateDao(),
+        database = database
+    )
     val categoryRepository = CategoryRepository(database.categoryDao())
     val settingsRepository = SettingsRepository(application)
 
@@ -316,6 +347,133 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateThemeMode(mode: String) {
         viewModelScope.launch {
             settingsRepository.updateThemeMode(mode)
+        }
+    }
+
+    fun generateDiscrepancyReport() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(isAuditingHistoricalRates = true)
+            val unverified = transactionRepository.getUnverifiedTransactions()
+            val items = mutableListOf<DiscrepancyItem>()
+
+            for (tx in unverified) {
+                val bnrResult = exchangeRateService.getOfficialRate(tx.date)
+                if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
+                    val correctEUR = ExchangeRateService.calculateAmountEUR(tx.amountRON, bnrResult.rate)
+                    val diff = kotlin.math.abs(correctEUR - tx.amountEUR)
+                    items.add(
+                        DiscrepancyItem(
+                            transactionId = tx.id,
+                            date = tx.date,
+                            description = tx.description,
+                            amountRON = tx.amountRON,
+                            oldRate = tx.exchangeRate,
+                            correctRate = bnrResult.rate,
+                            effectiveBnrDate = bnrResult.effectiveDate,
+                            oldAmountEUR = tx.amountEUR,
+                            correctAmountEUR = correctEUR,
+                            differenceEUR = Math.round(diff * 100.0) / 100.0
+                        )
+                    )
+                }
+            }
+
+            // Create backup CSV before applying corrections
+            val allTxs = transactionRepository.getAllTransactionsList()
+            val backupFile = File(getApplication<Application>().cacheDir, "fintrack_backup_before_repair.csv")
+            CsvExporter.writeTransactionsToFile(backupFile, allTxs)
+
+            val totalDiff = items.sumOf { it.differenceEUR }
+            val report = DiscrepancyReport(
+                items = items,
+                totalDiscrepancyEUR = Math.round(totalDiff * 100.0) / 100.0,
+                backupFilePath = backupFile.absolutePath
+            )
+
+            _uiState.value = _uiState.value.copy(
+                isAuditingHistoricalRates = false,
+                discrepancyReport = report
+            )
+        }
+    }
+
+    private val isSyncingPending = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun confirmAndApplyRepair() {
+        val report = uiState.value.discrepancyReport ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val allTxs = transactionRepository.getAllTransactionsList()
+                val backupFile = File(getApplication<Application>().cacheDir, "fintrack_backup_before_repair.csv")
+
+                CsvExporter.writeTransactionsToFile(backupFile, allTxs)
+
+                // Perform strict 6-point backup validation
+                if (!validateBackupFile(backupFile, allTxs.size)) {
+                    _uiState.value = _uiState.value.copy(
+                        discrepancyReport = null,
+                        userNotification = "Repair aborted: CSV backup validation failed."
+                    )
+                    return@launch
+                }
+
+                val preparedItems = mutableListOf<PreparedRepairItem>()
+                for (item in report.items) {
+                    val tx = transactionRepository.getTransactionById(item.transactionId) ?: continue
+                    preparedItems.add(PreparedRepairItem(tx, item.correctRate, item.effectiveBnrDate))
+                }
+
+                val updatedCount = transactionRepository.applyRepairBatch(preparedItems)
+
+                _uiState.value = _uiState.value.copy(
+                    discrepancyReport = null,
+                    userNotification = "Applied official BNR rates to $updatedCount transaction(s)."
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    discrepancyReport = null,
+                    userNotification = "Error applying repair: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun validateBackupFile(file: File, expectedCount: Int): Boolean {
+        try {
+            if (!file.exists()) return false
+            if (!file.canRead()) return false
+            if (file.length() <= 0) return false
+
+            val lines = file.readLines()
+            if (lines.isEmpty()) return false
+
+            val header = lines.first()
+            if (!header.startsWith("Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR")) return false
+
+            val dataRows = lines.drop(1).filter { it.isNotBlank() }
+            if (dataRows.size < expectedCount) return false
+
+            return true
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    fun dismissDiscrepancyReport() {
+        _uiState.value = _uiState.value.copy(discrepancyReport = null)
+    }
+
+    fun syncPendingConversions() {
+        if (isSyncingPending.getAndSet(true)) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val count = transactionRepository.syncPendingConversions()
+                if (count > 0) {
+                    showNotification("Synced $count pending EUR conversions with BNR")
+                }
+            } finally {
+                isSyncingPending.set(false)
+            }
         }
     }
 
