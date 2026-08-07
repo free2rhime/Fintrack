@@ -105,9 +105,27 @@ class TransactionRepository(
             exchangeRateDate = bnrResult.effectiveDate,
             exchangeRateSource = "BNR_OFFICIAL",
             conversionStatus = status,
+            destination = if (source.type == "Income") source.destination else null,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
+    }
+
+    suspend fun getDescriptionSuggestions(query: String, limit: Int = 8): List<String> {
+        if (query.trim().length < 2) return emptyList()
+        return transactionDao.getDescriptionSuggestions(query.trim(), limit)
+    }
+
+    suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) {
+        if (transactions.isEmpty()) return
+        val db = database
+        if (db != null) {
+            db.withTransaction {
+                transactionDao.insertAllTransactions(transactions)
+            }
+        } else {
+            transactionDao.insertAllTransactions(transactions)
+        }
     }
 
     suspend fun getUnverifiedTransactions(): List<TransactionEntity> {

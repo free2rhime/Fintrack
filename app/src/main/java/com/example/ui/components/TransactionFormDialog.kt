@@ -1,16 +1,13 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +17,8 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -33,14 +32,16 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -50,9 +51,11 @@ import com.example.data.model.CategoryEntity
 import com.example.data.model.TransactionEntity
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +64,7 @@ fun TransactionFormDialog(
     isDuplicateMode: Boolean,
     categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
+    onSearchDescriptions: (suspend (String) -> List<String>)? = null,
     onSave: (
         id: String?,
         date: String,
@@ -73,7 +77,12 @@ fun TransactionFormDialog(
         destination: String?
     ) -> Unit
 ) {
-    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
+    val utcFormat = remember {
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+    }
+    val todayStr = remember { utcFormat.format(Date()) }
 
     var type by remember { mutableStateOf(initialTransaction?.type ?: "Expense") }
     var amountText by remember {
@@ -96,8 +105,36 @@ fun TransactionFormDialog(
 
     var amountError by remember { mutableStateOf(false) }
     var descError by remember { mutableStateOf(false) }
+    var destinationError by remember { mutableStateOf(false) }
 
-    // Filter subcategories by type
+    // Description autocomplete suggestions
+    var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var suggestionsExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(description) {
+        if (description.trim().length >= 2 && onSearchDescriptions != null) {
+            delay(200)
+            val results = onSearchDescriptions(description.trim())
+            suggestions = results.take(8)
+            suggestionsExpanded = suggestions.isNotEmpty()
+        } else {
+            suggestions = emptyList()
+            suggestionsExpanded = false
+        }
+    }
+
+    // Material 3 DatePicker Dialog state
+    var showDatePicker by remember { mutableStateOf(false) }
+    val initialMillis = remember(date) {
+        try {
+            utcFormat.parse(date)?.time ?: System.currentTimeMillis()
+        } catch (e: Exception) {
+            System.currentTimeMillis()
+        }
+    }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+
+    // Category / Subcategory dropdown filtering
     val availableCategoryItems = remember(type, categories) {
         categories.filter { it.type == type }
     }
@@ -157,12 +194,14 @@ fun TransactionFormDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Type Toggle (Income / Expense)
+                // Type Toggle (Expense / Income)
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         selected = type == "Expense",
                         onClick = {
                             type = "Expense"
+                            destination = ""
+                            destinationError = false
                             subCategory = ""
                             val firstMatch = categories.find { it.type == "Expense" }
                             if (firstMatch != null) category = firstMatch.name
@@ -176,6 +215,7 @@ fun TransactionFormDialog(
                         selected = type == "Income",
                         onClick = {
                             type = "Income"
+                            destinationError = false
                             subCategory = ""
                             val firstMatch = categories.find { it.type == "Income" }
                             if (firstMatch != null) category = firstMatch.name
@@ -206,36 +246,110 @@ fun TransactionFormDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Description
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = {
-                        description = it
-                        descError = false
-                    },
-                    label = { Text("Description") },
-                    isError = descError,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("tx_input_desc"),
-                    shape = RoundedCornerShape(12.dp)
-                )
+                // Description with Autocomplete suggestions
+                ExposedDropdownMenuBox(
+                    expanded = suggestionsExpanded,
+                    onExpandedChange = { suggestionsExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = {
+                            description = it
+                            descError = false
+                        },
+                        label = { Text("Description") },
+                        isError = descError,
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                            .testTag("tx_input_desc"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    if (suggestions.isNotEmpty()) {
+                        ExposedDropdownMenu(
+                            expanded = suggestionsExpanded,
+                            onDismissRequest = { suggestionsExpanded = false }
+                        ) {
+                            suggestions.forEach { sug ->
+                                DropdownMenuItem(
+                                    text = { Text(sug) },
+                                    onClick = {
+                                        description = sug
+                                        suggestionsExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Date
+                // Date Picker trigger
                 OutlinedTextField(
                     value = date,
-                    onValueChange = { date = it },
+                    onValueChange = {},
+                    readOnly = true,
                     label = { Text("Date (YYYY-MM-DD)") },
                     trailingIcon = {
-                        Icon(imageVector = Icons.Default.CalendarToday, contentDescription = "Date")
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(imageVector = Icons.Default.CalendarToday, contentDescription = "Select Date")
+                        }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDatePicker = true },
                     shape = RoundedCornerShape(12.dp)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // Income Destination Field (Required for Income)
+                if (type == "Income") {
+                    Text(
+                        text = "Destination *",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (destinationError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = destination == "Bubu",
+                            onClick = {
+                                destination = "Bubu"
+                                destinationError = false
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                        ) {
+                            Text("Bubu")
+                        }
+
+                        SegmentedButton(
+                            selected = destination == "Piticania",
+                            onClick = {
+                                destination = "Piticania"
+                                destinationError = false
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                        ) {
+                            Text("Piticania")
+                        }
+                    }
+
+                    if (destinationError) {
+                        Text(
+                            text = "Please select a destination account (Bubu or Piticania)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
                 // Subcategory Dropdown (Primary Selection)
                 ExposedDropdownMenuBox(
@@ -327,17 +441,6 @@ fun TransactionFormDialog(
                     }
                 }
 
-                if (type == "Income") {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = destination,
-                        onValueChange = { destination = it },
-                        label = { Text("Destination Account (Optional)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Save / Confirm Action Button
@@ -350,6 +453,10 @@ fun TransactionFormDialog(
                         }
                         if (description.isBlank()) {
                             descError = true
+                            return@Button
+                        }
+                        if (type == "Income" && destination.isBlank()) {
+                            destinationError = true
                             return@Button
                         }
 
@@ -381,6 +488,33 @@ fun TransactionFormDialog(
                     )
                 }
             }
+        }
+    }
+
+    // Material 3 Date Picker Dialog
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val selectedMillis = datePickerState.selectedDateMillis
+                        if (selectedMillis != null) {
+                            date = utcFormat.format(Date(selectedMillis))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }

@@ -28,6 +28,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY date DESC, createdAt DESC")
     suspend fun getAllTransactionsList(): List<TransactionEntity>
 
+    @Query("SELECT description FROM transactions WHERE description IS NOT NULL AND TRIM(description) != '' AND LOWER(description) LIKE '%' || LOWER(:query) || '%' GROUP BY description ORDER BY MAX(createdAt) DESC, COUNT(*) DESC LIMIT :limit")
+    suspend fun getDescriptionSuggestions(query: String, limit: Int = 8): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity)
 

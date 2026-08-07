@@ -303,9 +303,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    suspend fun getDescriptionSuggestions(query: String): List<String> {
+        return transactionRepository.getDescriptionSuggestions(query)
+    }
+
+    fun updateSelectedTypeFilter(type: String) {
+        viewModelScope.launch {
+            // Check if active category is invalid for new type
+            val currentSettings = filterSettings.value
+            val activeCat = currentSettings.selectedExpenseCategory ?: currentSettings.selectedIncomeCategory
+            val availableCats = categories.value.filter { if (type == "All") true else it.type == type }
+            if (activeCat != null && availableCats.none { it.name.equals(activeCat, ignoreCase = true) || it.subCategory.equals(activeCat, ignoreCase = true) }) {
+                settingsRepository.updateCategoryFilter(type, null)
+            }
+            settingsRepository.updateSelectedType(type)
+        }
+    }
+
     fun updateCategoryFilter(type: String, categoryName: String?) {
         viewModelScope.launch {
             settingsRepository.updateCategoryFilter(type, categoryName)
+        }
+    }
+
+    fun importCsv(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val csvContent = inputStream?.bufferedReader()?.use { it.readText() } ?: ""
+                if (csvContent.isBlank()) {
+                    showNotification("CSV file is empty or could not be read.")
+                    return@launch
+                }
+
+                val allExistingTxs = transactionRepository.getAllTransactionsList()
+                val existingIds = allExistingTxs.map { it.id }.toSet()
+
+                val importResult = com.example.data.util.CsvImporter.parseAndValidateCsv(
+                    csvContent = csvContent,
+                    existingIds = existingIds,
+                    exchangeRateService = exchangeRateService
+                )
+
+                if (importResult.transactionsToInsert.isNotEmpty()) {
+                    transactionRepository.insertBatchWithTransaction(importResult.transactionsToInsert)
+                }
+
+                val summaryMsg = "Imported ${importResult.transactionsToInsert.size} transaction(s) (${importResult.insertedCount} new, ${importResult.updatedCount} updated, ${importResult.skippedCount} skipped)."
+                showNotification(summaryMsg)
+            } catch (e: Exception) {
+                showNotification("Import error: ${e.message}")
+            }
         }
     }
 

@@ -43,6 +43,10 @@ import com.example.data.model.FilterSettings
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.theme.ExpenseRed
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+
 @Composable
 fun SettingsScreen(
     filterSettings: FilterSettings,
@@ -50,10 +54,16 @@ fun SettingsScreen(
     onCurrencyChanged: (String) -> Unit,
     onThemeModeChanged: (String) -> Unit,
     onExportCsv: () -> Unit,
+    onImportCsv: (Uri) -> Unit = {},
     onSeedDemoData: () -> Unit,
     onResetData: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val csvPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { onImportCsv(it) }
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -273,6 +283,21 @@ fun SettingsScreen(
                     Icon(imageVector = Icons.Default.FileDownload, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Export Transactions to CSV", fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = { csvPickerLauncher.launch("*/*") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("import_csv_button"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Storage, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Import Transactions from CSV", fontWeight = FontWeight.Bold)
                 }
             }
         }

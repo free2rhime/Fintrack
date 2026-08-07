@@ -50,6 +50,12 @@ import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.PeriodSelectorChipRow
 import com.example.ui.components.TransactionCardItem
 
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
     transactions: List<TransactionEntity>,
@@ -57,6 +63,7 @@ fun TransactionsScreen(
     filterSettings: FilterSettings,
     onPeriodSelected: (String) -> Unit,
     onCurrencyChanged: (String) -> Unit,
+    onTypeFilterSelected: (String) -> Unit = {},
     onCategoryFilterSelected: (String, String?) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onAddTransactionClicked: () -> Unit,
@@ -81,13 +88,16 @@ fun TransactionsScreen(
         filtered.groupBy { it.date }
     }
 
-    val allCategoriesList = remember(categories, transactions) {
-        val catNames = categories.map { it.name }.filter { it.isNotBlank() }
-        val txCatNames = transactions.map { it.category }.filter { it.isNotBlank() }
-        (catNames + txCatNames).distinct()
+    val filteredCategoriesList = remember(categories, filterSettings.selectedType) {
+        if (filterSettings.selectedType == "All") {
+            categories.map { it.name }.filter { it.isNotBlank() }.distinct()
+        } else {
+            categories.filter { it.type == filterSettings.selectedType }.map { it.name }.filter { it.isNotBlank() }.distinct()
+        }
     }
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddTransactionClicked,
@@ -109,7 +119,7 @@ fun TransactionsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -146,19 +156,53 @@ fun TransactionsScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .padding(horizontal = 16.dp, vertical = 2.dp)
                     .testTag("search_transactions_input"),
                 shape = RoundedCornerShape(16.dp),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Period Selector Chips
             PeriodSelectorChipRow(
                 selectedPeriod = filterSettings.selectedPeriod,
                 onPeriodSelected = onPeriodSelected
             )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Compact Type Filter Segmented Control (All / Income / Expense)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = filterSettings.selectedType == "All",
+                        onClick = { onTypeFilterSelected("All") },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
+                    ) {
+                        Text("All")
+                    }
+                    SegmentedButton(
+                        selected = filterSettings.selectedType == "Income",
+                        onClick = { onTypeFilterSelected("Income") },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
+                    ) {
+                        Text("Income")
+                    }
+                    SegmentedButton(
+                        selected = filterSettings.selectedType == "Expense",
+                        onClick = { onTypeFilterSelected("Expense") },
+                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)
+                    ) {
+                        Text("Expense")
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(6.dp))
 
@@ -175,7 +219,7 @@ fun TransactionsScreen(
 
                 FilterChip(
                     selected = isAllSelected,
-                    onClick = { onCategoryFilterSelected("Expense", null) },
+                    onClick = { onCategoryFilterSelected(filterSettings.selectedType, null) },
                     label = { Text("All Categories", fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -185,15 +229,15 @@ fun TransactionsScreen(
                     )
                 )
 
-                allCategoriesList.forEach { catName ->
+                filteredCategoriesList.forEach { catName ->
                     val isSelected = activeCategoryFilter == catName
                     FilterChip(
                         selected = isSelected,
                         onClick = {
                             if (isSelected) {
-                                onCategoryFilterSelected("Expense", null)
+                                onCategoryFilterSelected(filterSettings.selectedType, null)
                             } else {
-                                onCategoryFilterSelected("Expense", catName)
+                                onCategoryFilterSelected(filterSettings.selectedType, catName)
                             }
                         },
                         label = { Text(catName, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },

@@ -10,7 +10,8 @@ import java.util.UUID
     indices = [
         Index(value = ["date"]),
         Index(value = ["category"]),
-        Index(value = ["type"])
+        Index(value = ["type"]),
+        Index(value = ["description"])
     ]
 )
 data class TransactionEntity(

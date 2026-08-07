@@ -72,6 +72,11 @@ object FinancialAnalyticsEngine {
             if (endDate != null && endDate.isNotEmpty()) {
                 match = match && tx.date <= endDate
             }
+
+            if (!ignoreCategoryFilter && settings.selectedType != "All") {
+                match = match && tx.type.equals(settings.selectedType, ignoreCase = true)
+            }
+
             if (settings.searchQuery.isNotBlank() && !ignoreCategoryFilter) {
                 val q = settings.searchQuery.trim().lowercase(Locale.ROOT)
                 val matchesText = tx.description.lowercase(Locale.ROOT).contains(q) ||

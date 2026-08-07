@@ -21,6 +21,7 @@ class SettingsRepository(private val context: Context) {
         val CUSTOM_END_DATE = stringPreferencesKey("custom_end_date")
         val SELECTED_INCOME_CAT = stringPreferencesKey("selected_income_cat")
         val SELECTED_EXPENSE_CAT = stringPreferencesKey("selected_expense_cat")
+        val SELECTED_TYPE = stringPreferencesKey("selected_type")
         val THEME_MODE = stringPreferencesKey("theme_mode") // "system", "dark", "light"
     }
 
@@ -30,6 +31,7 @@ class SettingsRepository(private val context: Context) {
             selectedCurrency = prefs[PreferencesKeys.SELECTED_CURRENCY] ?: "RON",
             customStartDate = prefs[PreferencesKeys.CUSTOM_START_DATE] ?: "",
             customEndDate = prefs[PreferencesKeys.CUSTOM_END_DATE] ?: "",
+            selectedType = prefs[PreferencesKeys.SELECTED_TYPE] ?: "All",
             selectedIncomeCategory = prefs[PreferencesKeys.SELECTED_INCOME_CAT],
             selectedExpenseCategory = prefs[PreferencesKeys.SELECTED_EXPENSE_CAT]
         )
@@ -56,6 +58,12 @@ class SettingsRepository(private val context: Context) {
             prefs[PreferencesKeys.CUSTOM_START_DATE] = startDate
             prefs[PreferencesKeys.CUSTOM_END_DATE] = endDate
             prefs[PreferencesKeys.SELECTED_PERIOD] = "Custom Range"
+        }
+    }
+
+    suspend fun updateSelectedType(type: String) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferencesKeys.SELECTED_TYPE] = type
         }
     }
 

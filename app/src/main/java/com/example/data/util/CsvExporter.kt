@@ -10,7 +10,7 @@ import java.io.File
 object CsvExporter {
 
     fun generateCsvContent(transactions: List<TransactionEntity>): String {
-        val csvHeader = "Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory\n"
+        val csvHeader = "Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory,Destination\n"
         val sb = StringBuilder(csvHeader)
 
         for (tx in transactions) {
@@ -28,7 +28,8 @@ object CsvExporter {
                 tx.type,
                 tx.account,
                 "\"${tx.category.replace("\"", "\"\"")}\"",
-                "\"${tx.subCategory.replace("\"", "\"\"")}\""
+                "\"${tx.subCategory.replace("\"", "\"\"")}\"",
+                "\"${(tx.destination ?: "").replace("\"", "\"\"")}\""
             ).joinToString(",")
             sb.append(line).append("\n")
         }

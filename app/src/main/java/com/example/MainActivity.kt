@@ -131,6 +131,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
                     filterSettings = filterSettings,
                     onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
                     onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
+                    onTypeFilterSelected = { type -> viewModel.updateSelectedTypeFilter(type) },
                     onCategoryFilterSelected = { type, cat -> viewModel.updateCategoryFilter(type, cat) },
                     onSearchQueryChanged = { viewModel.updateSearchQuery(it) },
                     onAddTransactionClicked = { viewModel.openNewTransactionDialog("Expense") },
@@ -166,6 +167,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
                         onThemeModeChanged = { viewModel.updateThemeMode(it) },
                         onExportCsv = { CsvExporter.exportTransactionsToCsv(context, allTxs) },
+                        onImportCsv = { uri -> viewModel.importCsv(context, uri) },
                         onSeedDemoData = { viewModel.seedDemoData() },
                         onResetData = { viewModel.resetData() }
                     )
@@ -179,6 +181,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
                     isDuplicateMode = uiState.isDuplicateMode,
                     categories = categories,
                     onDismiss = { viewModel.dismissTransactionDialog() },
+                    onSearchDescriptions = { query -> viewModel.getDescriptionSuggestions(query) },
                     onSave = { id, date, desc, amt, type, acc, cat, sub, dest ->
                         viewModel.saveTransaction(id, date, desc, amt, type, acc, cat, sub, dest)
                     }
