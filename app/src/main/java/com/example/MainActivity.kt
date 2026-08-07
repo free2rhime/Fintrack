@@ -93,6 +93,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             FinTrackBottomNavigation(
                 selectedTabIndex = uiState.selectedTab,
@@ -113,16 +114,11 @@ fun FinTrackApp(viewModel: MainViewModel) {
                 0 -> DashboardScreen(
                     metrics = metrics,
                     filterSettings = filterSettings,
-                    recentTransactions = periodFilteredTxs,
                     monthlyDataPoints = monthlyDataPoints,
                     categoryShares = categoryExpenseShares,
                     smartInsights = smartInsights,
                     onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
-                    onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
-                    onAddTransactionClicked = { type -> viewModel.openNewTransactionDialog(type) },
-                    onDuplicateClicked = { tx -> viewModel.openDuplicateTransactionDialog(tx) },
-                    onEditClicked = { tx -> viewModel.openEditTransactionDialog(tx) },
-                    onDeleteClicked = { tx -> viewModel.deleteTransaction(tx) }
+                    onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
                 )
 
                 1 -> TransactionsScreen(
@@ -154,8 +150,10 @@ fun FinTrackApp(viewModel: MainViewModel) {
                 3 -> CategoriesScreen(
                     categories = categories,
                     onAddCategory = { name, type, sub -> viewModel.addCategory(name, type, sub) },
-                    onUpdateCategory = { cat -> viewModel.updateCategory(cat) },
-                    onDeleteCategory = { cat -> viewModel.deleteCategory(cat) }
+                    onUpdateCategoryGroup = { oldName, newName, type -> viewModel.updateCategoryGroup(oldName, newName, type) },
+                    onDeleteCategoryGroup = { name, type -> viewModel.deleteCategoryGroup(name, type) },
+                    onUpdateSubcategory = { id, sub -> viewModel.updateSubcategory(id, sub) },
+                    onDeleteSubcategory = { id -> viewModel.deleteSubcategory(id) }
                 )
 
                 4 -> {
@@ -185,6 +183,25 @@ fun FinTrackApp(viewModel: MainViewModel) {
                     onSave = { id, date, desc, amt, type, acc, cat, sub, dest ->
                         viewModel.saveTransaction(id, date, desc, amt, type, acc, cat, sub, dest)
                     }
+                )
+            }
+
+            // CSV Import Preview Dialog
+            uiState.csvPreviewData?.let { preview ->
+                val context = LocalContext.current
+                com.example.ui.components.CsvImportPreviewDialog(
+                    previewData = preview,
+                    onDuplicateModeChanged = { mode -> viewModel.updateCsvDuplicateMode(mode) },
+                    onConfirmImport = { viewModel.executeCsvImport(context) },
+                    onDismiss = { viewModel.dismissCsvPreview() }
+                )
+            }
+
+            // CSV Import Result Dialog
+            uiState.csvImportFinalResult?.let { result ->
+                com.example.ui.components.CsvImportResultDialog(
+                    result = result,
+                    onDismiss = { viewModel.dismissCsvResult() }
                 )
             }
         }

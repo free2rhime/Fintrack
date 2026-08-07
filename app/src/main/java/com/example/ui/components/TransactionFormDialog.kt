@@ -52,10 +52,10 @@ import com.example.data.model.TransactionEntity
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
 import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,12 +77,7 @@ fun TransactionFormDialog(
         destination: String?
     ) -> Unit
 ) {
-    val utcFormat = remember {
-        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-    }
-    val todayStr = remember { utcFormat.format(Date()) }
+    val todayStr = remember { LocalDate.now(ZoneId.systemDefault()).toString() }
 
     var type by remember { mutableStateOf(initialTransaction?.type ?: "Expense") }
     var amountText by remember {
@@ -105,7 +100,6 @@ fun TransactionFormDialog(
 
     var amountError by remember { mutableStateOf(false) }
     var descError by remember { mutableStateOf(false) }
-    var destinationError by remember { mutableStateOf(false) }
 
     // Description autocomplete suggestions
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -127,7 +121,8 @@ fun TransactionFormDialog(
     var showDatePicker by remember { mutableStateOf(false) }
     val initialMillis = remember(date) {
         try {
-            utcFormat.parse(date)?.time ?: System.currentTimeMillis()
+            val parsed = LocalDate.parse(date, DateTimeFormatter.ISO_LOCAL_DATE)
+            parsed.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
         } catch (e: Exception) {
             System.currentTimeMillis()
         }
@@ -201,7 +196,6 @@ fun TransactionFormDialog(
                         onClick = {
                             type = "Expense"
                             destination = ""
-                            destinationError = false
                             subCategory = ""
                             val firstMatch = categories.find { it.type == "Expense" }
                             if (firstMatch != null) category = firstMatch.name
@@ -215,7 +209,6 @@ fun TransactionFormDialog(
                         selected = type == "Income",
                         onClick = {
                             type = "Income"
-                            destinationError = false
                             subCategory = ""
                             val firstMatch = categories.find { it.type == "Income" }
                             if (firstMatch != null) category = firstMatch.name
@@ -340,20 +333,15 @@ fun TransactionFormDialog(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // Subcategory Dropdown (Primary Selection)
+                // Subcategory Dropdown (Read-Only Selector)
                 ExposedDropdownMenuBox(
                     expanded = subCategoryExpanded,
                     onExpandedChange = { subCategoryExpanded = !subCategoryExpanded }
                 ) {
                     OutlinedTextField(
                         value = subCategory,
-                        onValueChange = { newSub ->
-                            subCategory = newSub
-                            val match = availableCategoryItems.find { it.subCategory.equals(newSub, ignoreCase = true) }
-                            if (match != null) {
-                                category = match.name
-                            }
-                        },
+                        onValueChange = {},
+                        readOnly = true,
                         label = { Text("Subcategory (Select First)") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = subCategoryExpanded) },
                         modifier = Modifier
@@ -484,7 +472,10 @@ fun TransactionFormDialog(
                     onClick = {
                         val selectedMillis = datePickerState.selectedDateMillis
                         if (selectedMillis != null) {
-                            date = utcFormat.format(Date(selectedMillis))
+                            date = Instant.ofEpochMilli(selectedMillis)
+                                .atZone(ZoneId.of("UTC"))
+                                .toLocalDate()
+                                .toString()
                         }
                         showDatePicker = false
                     }

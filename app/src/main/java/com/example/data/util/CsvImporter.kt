@@ -1,28 +1,82 @@
 package com.example.data.util
 
+import androidx.room.withTransaction
+import com.example.data.db.FinTrackDatabase
+import com.example.data.model.CategoryEntity
 import com.example.data.model.TransactionEntity
-import com.example.data.service.ExchangeRateService
+import java.io.File
+import java.time.LocalDate
 import java.util.UUID
+import kotlin.math.abs
 
-data class CsvImportResult(
+enum class CsvDuplicateMode {
+    SKIP_EXISTING,
+    UPDATE_EXISTING
+}
+
+data class CsvRowValidationError(
+    val rowNumber: Int,
+    val field: String,
+    val message: String
+)
+
+data class MissingCategoryItem(
+    val name: String,
+    val subCategory: String,
+    val type: String
+)
+
+data class CsvPreviewData(
+    val totalRows: Int,
+    val validRowsCount: Int,
+    val invalidRowsCount: Int,
+    val newIdsCount: Int,
+    val existingIdsCount: Int,
+    val proposedUpdatesCount: Int,
+    val proposedSkipsCount: Int,
+    val totalRonIncome: Double,
+    val totalRonExpense: Double,
+    val officialCount: Int,
+    val unverifiedCount: Int,
+    val pendingCount: Int,
+    val missingCategories: List<MissingCategoryItem>,
+    val rowErrors: List<CsvRowValidationError>,
+    val validTransactionsToImport: List<TransactionEntity>,
+    val duplicateMode: CsvDuplicateMode,
+    val rawCsvContent: String
+)
+
+data class CsvImportFinalResult(
+    val success: Boolean,
     val insertedCount: Int,
     val updatedCount: Int,
     val skippedCount: Int,
-    val errors: List<String>,
-    val transactionsToInsert: List<TransactionEntity>
+    val failedCount: Int,
+    val categoriesCreatedCount: Int,
+    val subcategoriesCreatedCount: Int,
+    val pendingCount: Int,
+    val unverifiedCount: Int,
+    val backupFilePath: String? = null,
+    val errorMessage: String? = null
+)
+
+data class CsvLineParseResult(
+    val tokens: List<String>,
+    val isUnclosedQuote: Boolean
 )
 
 object CsvImporter {
 
-    fun parseCsvLine(line: String): List<String> {
+    fun parseCsvLine(line: String): CsvLineParseResult {
         val tokens = mutableListOf<String>()
         val sb = StringBuilder()
         var inQuotes = false
         var i = 0
-        while (i < line.length) {
+        val len = line.length
+        while (i < len) {
             val c = line[i]
             if (c == '"') {
-                if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
+                if (inQuotes && i + 1 < len && line[i + 1] == '"') {
                     sb.append('"')
                     i++
                 } else {
@@ -37,162 +91,427 @@ object CsvImporter {
             i++
         }
         tokens.add(sb.toString())
-        return tokens
+        return CsvLineParseResult(tokens, inQuotes)
     }
 
-    suspend fun parseAndValidateCsv(
+    fun parseAndValidate(
         csvContent: String,
-        existingIds: Set<String>,
-        exchangeRateService: ExchangeRateService
-    ): CsvImportResult {
-        val lines = csvContent.lines().filter { it.isNotBlank() }
-        if (lines.isEmpty()) {
-            return CsvImportResult(0, 0, 0, listOf("CSV file is empty"), emptyList())
+        existingTransactions: List<TransactionEntity>,
+        existingCategories: List<CategoryEntity>,
+        duplicateMode: CsvDuplicateMode = CsvDuplicateMode.SKIP_EXISTING
+    ): CsvPreviewData {
+        val cleanCsv = csvContent.removePrefix("\uFEFF")
+        val lines = cleanCsv.lines()
+
+        val rawRows = lines.filterIndexed { idx, line ->
+            idx == 0 || line.isNotBlank()
         }
 
-        val headerRow = parseCsvLine(lines.first()).map { it.trim().lowercase() }
+        if (rawRows.isEmpty() || rawRows.first().isBlank()) {
+            return CsvPreviewData(
+                totalRows = 0,
+                validRowsCount = 0,
+                invalidRowsCount = 0,
+                newIdsCount = 0,
+                existingIdsCount = 0,
+                proposedUpdatesCount = 0,
+                proposedSkipsCount = 0,
+                totalRonIncome = 0.0,
+                totalRonExpense = 0.0,
+                officialCount = 0,
+                unverifiedCount = 0,
+                pendingCount = 0,
+                missingCategories = emptyList(),
+                rowErrors = listOf(CsvRowValidationError(1, "Header", "CSV file is empty or unparseable")),
+                validTransactionsToImport = emptyList(),
+                duplicateMode = duplicateMode,
+                rawCsvContent = csvContent
+            )
+        }
+
+        val headerParse = parseCsvLine(rawRows.first())
+        val headerRow = headerParse.tokens.map { it.trim().lowercase() }
         val colMap = headerRow.withIndex().associate { it.value to it.index }
 
-        fun getVal(row: List<String>, colName: String): String? {
-            val idx = colMap[colName.lowercase()] ?: return null
-            return if (idx < row.size) row[idx].trim() else null
+        fun getVal(row: List<String>, vararg names: String): String? {
+            for (name in names) {
+                val idx = colMap[name.lowercase()] ?: continue
+                if (idx < row.size) {
+                    val value = row[idx].trim()
+                    if (value.isNotEmpty()) return value
+                }
+            }
+            return null
         }
 
-        var insertedCount = 0
-        var updatedCount = 0
-        var skippedCount = 0
-        val errors = mutableListOf<String>()
-        val txsToSave = mutableListOf<TransactionEntity>()
+        val existingIds = existingTransactions.map { it.id }.toSet()
+        val validTransactions = mutableListOf<TransactionEntity>()
+        val rowErrors = mutableListOf<CsvRowValidationError>()
+        val missingCategoriesSet = mutableSetOf<MissingCategoryItem>()
 
-        val dateRegex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
+        var officialCount = 0
+        var unverifiedCount = 0
+        var pendingCount = 0
+        var newIdsCount = 0
+        var existingIdsCount = 0
+        var totalRonIncome = 0.0
+        var totalRonExpense = 0.0
 
-        for ((lineIdx, line) in lines.drop(1).withIndex()) {
+        val totalDataRows = rawRows.drop(1).count { it.isNotBlank() }
+
+        for ((lineIdx, line) in rawRows.drop(1).withIndex()) {
             val rowNum = lineIdx + 2
-            val tokens = parseCsvLine(line)
+            if (line.isBlank()) continue
+
+            val parseResult = parseCsvLine(line)
+            if (parseResult.isUnclosedQuote) {
+                rowErrors.add(CsvRowValidationError(rowNum, "CSV", "Multiline quoted field or unclosed quote detected"))
+                continue
+            }
+
+            val tokens = parseResult.tokens
             if (tokens.all { it.isBlank() }) continue
 
-            val txIdRaw = getVal(tokens, "transaction_id")
-            val dateRaw = getVal(tokens, "transaction_date") ?: getVal(tokens, "date")
-            val amountRonRaw = getVal(tokens, "amount_ron") ?: getVal(tokens, "amountron")
-            val typeRaw = getVal(tokens, "type")
-            val descRaw = getVal(tokens, "description")
-            val accountRaw = getVal(tokens, "account")
-            val categoryRaw = getVal(tokens, "category")
-            val subCategoryRaw = getVal(tokens, "subcategory")
-            val destinationRaw = getVal(tokens, "destination")
+            var rowHasErrors = false
 
-            val amountEurRaw = getVal(tokens, "amount_eur") ?: getVal(tokens, "amounteur")
-            val exchangeRateRaw = getVal(tokens, "exchange_rate") ?: getVal(tokens, "exchangerate")
-            val exchangeRateDateRaw = getVal(tokens, "effective_bnr_rate_date") ?: getVal(tokens, "exchange_rate_date")
-            val exchangeRateSourceRaw = getVal(tokens, "exchange_rate_source")
-            val conversionStatusRaw = getVal(tokens, "conversion_status")
+            // 1. Date Validation
+            val dateRaw = getVal(tokens, "transaction_date", "date", "requested_rate_date")
+            val txDate: LocalDate? = if (!dateRaw.isNullOrBlank()) {
+                try {
+                    LocalDate.parse(dateRaw)
+                } catch (e: Exception) {
+                    null
+                }
+            } else null
 
-            if (dateRaw.isNullOrBlank() || !dateRegex.matches(dateRaw)) {
-                skippedCount++
-                errors.add("Row $rowNum: Invalid or missing date '$dateRaw'")
-                continue
+            if (txDate == null) {
+                rowErrors.add(CsvRowValidationError(rowNum, "Date", "Invalid or missing LocalDate '$dateRaw' (expected YYYY-MM-DD)"))
+                rowHasErrors = true
             }
 
+            // 2. Amount RON Validation
+            val amountRonRaw = getVal(tokens, "amount_ron", "amountron", "ron")
             val amountRON = amountRonRaw?.toDoubleOrNull()
-            if (amountRON == null || amountRON < 0.0) {
-                skippedCount++
-                errors.add("Row $rowNum: Invalid or missing amount_ron '$amountRonRaw'")
-                continue
+            if (amountRON == null || amountRON <= 0.0) {
+                rowErrors.add(CsvRowValidationError(rowNum, "Amount_RON", "Amount RON must be strictly > 0 (got '$amountRonRaw')"))
+                rowHasErrors = true
             }
 
-            val type = when (typeRaw?.trim()?.lowercase()) {
+            // 3. Type Validation
+            val typeRaw = getVal(tokens, "type")?.lowercase()
+            val normType = when (typeRaw) {
                 "income" -> "Income"
                 "expense" -> "Expense"
                 else -> null
             }
-            if (type == null) {
-                skippedCount++
-                errors.add("Row $rowNum: Invalid transaction type '$typeRaw' (must be Income or Expense)")
-                continue
+            if (normType == null) {
+                rowErrors.add(CsvRowValidationError(rowNum, "Type", "Type must be Income or Expense (got '${getVal(tokens, "type")}')"))
+                rowHasErrors = true
             }
 
-            if (descRaw.isNullOrBlank()) {
-                skippedCount++
-                errors.add("Row $rowNum: Missing description")
-                continue
+            // 4. Account Validation
+            val accountRaw = getVal(tokens, "account")?.lowercase()
+            val normAccount = when (accountRaw) {
+                "card" -> "Card"
+                "cash" -> "Cash"
+                "meal tickets", "mealtickets", "meal_tickets" -> "Meal Tickets"
+                else -> null
+            }
+            if (normAccount == null) {
+                rowErrors.add(CsvRowValidationError(rowNum, "Account", "Account must be Card, Cash, or Meal Tickets (got '${getVal(tokens, "account")}')"))
+                rowHasErrors = true
             }
 
-            if (accountRaw.isNullOrBlank()) {
-                skippedCount++
-                errors.add("Row $rowNum: Missing account")
-                continue
-            }
+            // 5. Category & Subcategory Validation
+            val categoryRaw = getVal(tokens, "category")?.trim()
+            val subCategoryRaw = getVal(tokens, "subcategory", "sub_category")?.trim()
 
             if (categoryRaw.isNullOrBlank()) {
-                skippedCount++
-                errors.add("Row $rowNum: Missing category")
-                continue
+                rowErrors.add(CsvRowValidationError(rowNum, "Category", "Category is required"))
+                rowHasErrors = true
+            }
+            if (subCategoryRaw.isNullOrBlank()) {
+                rowErrors.add(CsvRowValidationError(rowNum, "Subcategory", "Subcategory is required"))
+                rowHasErrors = true
             }
 
-            val subCategory = if (!subCategoryRaw.isNullOrBlank()) subCategoryRaw else categoryRaw
-            val destination = if (type == "Income" && !destinationRaw.isNullOrBlank()) destinationRaw else null
-
-            val id = if (!txIdRaw.isNullOrBlank()) txIdRaw else UUID.randomUUID().toString()
-            val isExisting = existingIds.contains(id)
-
-            // Resolve EUR and exchange rate safely
-            var finalRate = exchangeRateRaw?.toDoubleOrNull() ?: 0.0
-            var finalAmountEUR = amountEurRaw?.toDoubleOrNull() ?: 0.0
-            var finalRateDate = exchangeRateDateRaw ?: dateRaw
-            var finalRateSource = if (!exchangeRateSourceRaw.isNullOrBlank()) exchangeRateSourceRaw else "BNR_OFFICIAL"
-            var finalStatus = if (!conversionStatusRaw.isNullOrBlank()) conversionStatusRaw else "OFFICIAL"
-
-            if (finalAmountEUR <= 0.0 || finalRate <= 0.0 || finalStatus != "OFFICIAL") {
-                val bnrResult = exchangeRateService.getOfficialRate(dateRaw)
-                if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
-                    finalRate = bnrResult.rate
-                    finalRateDate = bnrResult.effectiveDate
-                    finalAmountEUR = ExchangeRateService.calculateAmountEUR(amountRON, bnrResult.rate)
-                    finalRateSource = "BNR_OFFICIAL"
-                    finalStatus = "OFFICIAL"
-                } else {
-                    finalRate = 0.0
-                    finalAmountEUR = 0.0
-                    finalRateDate = dateRaw
-                    finalRateSource = "BNR_OFFICIAL"
-                    finalStatus = "PENDING"
+            if (!categoryRaw.isNullOrBlank() && !subCategoryRaw.isNullOrBlank() && normType != null) {
+                // Check if subcategory already belongs to a DIFFERENT category or type in DB
+                val conflictingCat = existingCategories.find {
+                    it.subCategory.equals(subCategoryRaw, ignoreCase = true) &&
+                    (!it.name.equals(categoryRaw, ignoreCase = true) || !it.type.equals(normType, ignoreCase = true))
                 }
+                if (conflictingCat != null) {
+                    rowErrors.add(
+                        CsvRowValidationError(
+                            rowNum,
+                            "Subcategory",
+                            "Subcategory '$subCategoryRaw' belongs to category '${conflictingCat.name}' (${conflictingCat.type}), not '$categoryRaw' ($normType)"
+                        )
+                    )
+                    rowHasErrors = true
+                } else {
+                    val categoryExistsInDb = existingCategories.any {
+                        it.name.equals(categoryRaw, ignoreCase = true) &&
+                        it.subCategory.equals(subCategoryRaw, ignoreCase = true) &&
+                        it.type.equals(normType, ignoreCase = true)
+                    }
+                    if (!categoryExistsInDb) {
+                        missingCategoriesSet.add(
+                            MissingCategoryItem(
+                                name = categoryRaw,
+                                subCategory = subCategoryRaw,
+                                type = normType
+                            )
+                        )
+                    }
+                }
+            }
+
+            // 6. Destination Validation
+            val destinationRaw = getVal(tokens, "destination")?.trim()
+            var normDestination: String? = null
+            if (normType == "Expense") {
+                if (!destinationRaw.isNullOrBlank()) {
+                    rowErrors.add(CsvRowValidationError(rowNum, "Destination", "Expense transactions must not have a destination (got '$destinationRaw')"))
+                    rowHasErrors = true
+                }
+            } else if (normType == "Income") {
+                if (!destinationRaw.isNullOrBlank()) {
+                    val destMatch = when (destinationRaw.lowercase()) {
+                        "bubu" -> "Bubu"
+                        "piticania" -> "Piticania"
+                        else -> null
+                    }
+                    if (destMatch == null) {
+                        rowErrors.add(CsvRowValidationError(rowNum, "Destination", "Income destination must be Bubu, Piticania, or blank (got '$destinationRaw')"))
+                        rowHasErrors = true
+                    } else {
+                        normDestination = destMatch
+                    }
+                }
+            }
+
+            if (rowHasErrors) continue
+
+            // 7. Exchange Rate Source, Status & EUR Validation
+            val descRaw = getVal(tokens, "description", "desc") ?: ""
+            val rawTxId = getVal(tokens, "transaction_id", "id")?.trim()
+            val id = if (!rawTxId.isNullOrBlank()) rawTxId else UUID.randomUUID().toString()
+
+            val rawSource = getVal(tokens, "exchange_rate_source", "rate_source", "source")?.trim()?.ifBlank { "UNVERIFIED" } ?: "UNVERIFIED"
+            val rawStatus = getVal(tokens, "conversion_status", "status")?.trim()?.ifBlank { "UNVERIFIED" } ?: "UNVERIFIED"
+            val rawRate = getVal(tokens, "exchange_rate", "exchangerate", "rate")?.toDoubleOrNull() ?: 0.0
+            val rawAmountEur = getVal(tokens, "amount_eur", "amounteur", "eur")?.toDoubleOrNull() ?: 0.0
+            val rawRateDate = getVal(tokens, "effective_bnr_rate_date", "exchange_rate_date", "rate_date")?.trim() ?: dateRaw!!
+
+            val rateDateParsed: LocalDate? = try {
+                LocalDate.parse(rawRateDate)
+            } catch (e: Exception) {
+                null
+            }
+
+            val isOfficialSource = rawSource == "BNR_OFFICIAL"
+            val isOfficialStatus = rawStatus == "OFFICIAL"
+            val isRateValid = rawRate > 0.0
+            val isDatesValid = txDate != null && rateDateParsed != null
+            val isDateOrderValid = isDatesValid && !rateDateParsed!!.isAfter(txDate!!)
+            val expectedEur = if (isRateValid && amountRON != null) amountRON / rawRate else 0.0
+            val isEurMatching = abs(rawAmountEur - expectedEur) <= 0.015
+
+            var finalConversionStatus: String
+            var finalExchangeRateSource: String
+            var finalExchangeRate: Double
+            var finalAmountEur: Double
+            var finalExchangeRateDate: String
+
+            if (isOfficialSource && isOfficialStatus && isRateValid && isDatesValid && isDateOrderValid && isEurMatching) {
+                finalConversionStatus = "OFFICIAL"
+                finalExchangeRateSource = "BNR_OFFICIAL"
+                finalExchangeRate = rawRate
+                finalAmountEur = rawAmountEur
+                finalExchangeRateDate = rawRateDate
+                officialCount++
+            } else if (isRateValid) {
+                finalConversionStatus = "UNVERIFIED"
+                finalExchangeRateSource = if (rawSource != "NONE") rawSource else "UNVERIFIED"
+                finalExchangeRate = rawRate
+                finalAmountEur = if (rawAmountEur > 0.0) rawAmountEur else expectedEur
+                finalExchangeRateDate = if (rateDateParsed != null) rawRateDate else dateRaw!!
+                unverifiedCount++
+            } else {
+                finalConversionStatus = "PENDING"
+                finalExchangeRateSource = "NONE"
+                finalExchangeRate = 0.0
+                finalAmountEur = 0.0
+                finalExchangeRateDate = dateRaw!!
+                pendingCount++
+            }
+
+            val isExisting = existingIds.contains(id)
+            if (isExisting) {
+                existingIdsCount++
+            } else {
+                newIdsCount++
+            }
+
+            if (normType == "Income" && amountRON != null) {
+                totalRonIncome += amountRON
+            } else if (normType == "Expense" && amountRON != null) {
+                totalRonExpense += amountRON
             }
 
             val now = System.currentTimeMillis()
             val tx = TransactionEntity(
                 id = id,
-                date = dateRaw,
-                description = descRaw.trim(),
-                amountRON = amountRON,
-                amountEUR = finalAmountEUR,
-                exchangeRate = finalRate,
-                exchangeRateDate = finalRateDate,
-                type = type,
-                account = accountRaw.trim(),
-                category = categoryRaw.trim(),
-                subCategory = subCategory.trim(),
-                destination = destination,
-                exchangeRateSource = finalRateSource,
-                conversionStatus = finalStatus,
+                date = dateRaw!!,
+                description = descRaw,
+                amountRON = amountRON!!,
+                amountEUR = finalAmountEur,
+                exchangeRate = finalExchangeRate,
+                exchangeRateDate = finalExchangeRateDate,
+                type = normType!!,
+                account = normAccount!!,
+                category = categoryRaw!!,
+                subCategory = subCategoryRaw!!,
+                destination = normDestination,
+                exchangeRateSource = finalExchangeRateSource,
+                conversionStatus = finalConversionStatus,
                 createdAt = now,
                 updatedAt = now
             )
 
-            txsToSave.add(tx)
-            if (isExisting) {
-                updatedCount++
+            validTransactions.add(tx)
+        }
+
+        val validRowsCount = validTransactions.size
+        val invalidRowsCount = rowErrors.size
+        val proposedUpdatesCount = if (duplicateMode == CsvDuplicateMode.UPDATE_EXISTING) existingIdsCount else 0
+        val proposedSkipsCount = if (duplicateMode == CsvDuplicateMode.SKIP_EXISTING) existingIdsCount else 0
+
+        return CsvPreviewData(
+            totalRows = totalDataRows,
+            validRowsCount = validRowsCount,
+            invalidRowsCount = invalidRowsCount,
+            newIdsCount = newIdsCount,
+            existingIdsCount = existingIdsCount,
+            proposedUpdatesCount = proposedUpdatesCount,
+            proposedSkipsCount = proposedSkipsCount,
+            totalRonIncome = totalRonIncome,
+            totalRonExpense = totalRonExpense,
+            officialCount = officialCount,
+            unverifiedCount = unverifiedCount,
+            pendingCount = pendingCount,
+            missingCategories = missingCategoriesSet.toList(),
+            rowErrors = rowErrors,
+            validTransactionsToImport = validTransactions,
+            duplicateMode = duplicateMode,
+            rawCsvContent = csvContent
+        )
+    }
+
+    suspend fun executeAtomicImport(
+        database: FinTrackDatabase,
+        previewData: CsvPreviewData,
+        backupFile: File,
+        allExistingTransactions: List<TransactionEntity>
+    ): CsvImportFinalResult {
+        // 1. OUTSIDE TRANSACTION: Create and Validate Backup
+        val backupResult = CsvBackupManager.createAndValidateBackup(
+            backupFile = backupFile,
+            existingTransactions = allExistingTransactions
+        )
+
+        if (!backupResult.isValid) {
+            return CsvImportFinalResult(
+                success = false,
+                insertedCount = 0,
+                updatedCount = 0,
+                skippedCount = 0,
+                failedCount = previewData.validTransactionsToImport.size,
+                categoriesCreatedCount = 0,
+                subcategoriesCreatedCount = 0,
+                pendingCount = 0,
+                unverifiedCount = 0,
+                backupFilePath = null,
+                errorMessage = "Backup failure: ${backupResult.errorMessage}. Zero database writes were made."
+            )
+        }
+
+        val existingIds = allExistingTransactions.map { it.id }.toSet()
+        val txsToInsert = mutableListOf<TransactionEntity>()
+        val txsToUpdate = mutableListOf<TransactionEntity>()
+        var skippedCount = 0
+
+        for (tx in previewData.validTransactionsToImport) {
+            if (existingIds.contains(tx.id)) {
+                if (previewData.duplicateMode == CsvDuplicateMode.UPDATE_EXISTING) {
+                    txsToUpdate.add(tx)
+                } else {
+                    skippedCount++
+                }
             } else {
-                insertedCount++
+                txsToInsert.add(tx)
             }
         }
 
-        return CsvImportResult(
-            insertedCount = insertedCount,
-            updatedCount = updatedCount,
-            skippedCount = skippedCount,
-            errors = errors,
-            transactionsToInsert = txsToSave
-        )
+        val categoryEntities = previewData.missingCategories.map {
+            CategoryEntity(
+                id = UUID.randomUUID().toString(),
+                name = it.name,
+                type = it.type,
+                subCategory = it.subCategory
+            )
+        }
+
+        var pendingCount = 0
+        var unverifiedCount = 0
+        (txsToInsert + txsToUpdate).forEach { tx ->
+            if (tx.conversionStatus == "PENDING") pendingCount++
+            if (tx.conversionStatus == "UNVERIFIED") unverifiedCount++
+        }
+
+        // 2. ATOMIC DATABASE TRANSACTION
+        return try {
+            database.withTransaction {
+                if (categoryEntities.isNotEmpty()) {
+                    database.categoryDao().insertAllCategories(categoryEntities)
+                }
+                if (txsToInsert.isNotEmpty()) {
+                    database.transactionDao().insertAllTransactions(txsToInsert)
+                }
+                if (txsToUpdate.isNotEmpty()) {
+                    database.transactionDao().insertAllTransactions(txsToUpdate)
+                }
+            }
+
+            CsvImportFinalResult(
+                success = true,
+                insertedCount = txsToInsert.size,
+                updatedCount = txsToUpdate.size,
+                skippedCount = skippedCount,
+                failedCount = previewData.invalidRowsCount,
+                categoriesCreatedCount = previewData.missingCategories.map { it.name }.distinct().size,
+                subcategoriesCreatedCount = previewData.missingCategories.size,
+                pendingCount = pendingCount,
+                unverifiedCount = unverifiedCount,
+                backupFilePath = backupFile.absolutePath,
+                errorMessage = null
+            )
+        } catch (e: Exception) {
+            CsvImportFinalResult(
+                success = false,
+                insertedCount = 0,
+                updatedCount = 0,
+                skippedCount = 0,
+                failedCount = previewData.validTransactionsToImport.size + previewData.invalidRowsCount,
+                categoriesCreatedCount = 0,
+                subcategoriesCreatedCount = 0,
+                pendingCount = 0,
+                unverifiedCount = 0,
+                backupFilePath = backupFile.absolutePath,
+                errorMessage = "Database transaction failed: ${e.message}. Rolled back all writes."
+            )
+        }
     }
 }

@@ -4,7 +4,6 @@ import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 data class DashboardMetrics(
@@ -141,7 +140,7 @@ object FinancialAnalyticsEngine {
         var excludedNonOfficialCount = 0
 
         for (tx in transactions) {
-            val isOfficial = tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL"
+            val isOfficial = tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL" && tx.exchangeRate > 0.0
             if (useRon) {
                 val amount = tx.amountRON
                 if (tx.type == "Income") {
@@ -203,7 +202,7 @@ object FinancialAnalyticsEngine {
         val filtered = if (useRon) {
             transactions.filter { it.type == type }
         } else {
-            transactions.filter { it.type == type && it.conversionStatus == "OFFICIAL" && it.exchangeRateSource == "BNR_OFFICIAL" }
+            transactions.filter { it.type == type && it.conversionStatus == "OFFICIAL" && it.exchangeRateSource == "BNR_OFFICIAL" && it.exchangeRate > 0.0 }
         }
         val totalAmount = filtered.sumOf { if (useRon) it.amountRON else it.amountEUR }
 
@@ -243,7 +242,7 @@ object FinancialAnalyticsEngine {
                     val amt = tx.amountRON
                     if (tx.type == "Income") inc += amt else exp += amt
                 } else {
-                    if (tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL") {
+                    if (tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL" && tx.exchangeRate > 0.0) {
                         val amt = tx.amountEUR
                         if (tx.type == "Income") inc += amt else exp += amt
                     }
@@ -335,7 +334,7 @@ object FinancialAnalyticsEngine {
         return when (period) {
             "All Time" -> Pair(null, null)
 
-            "Last Month" -> { // Current Month (e.g., August 1 to August 31 / today)
+            "Last Month" -> { // Current Month
                 val calStart = Calendar.getInstance().apply {
                     set(Calendar.DAY_OF_MONTH, 1)
                 }
@@ -345,7 +344,7 @@ object FinancialAnalyticsEngine {
                 Pair(sdf.format(calStart.time), sdf.format(calEnd.time))
             }
 
-            "Previous Month" -> { // Previous Month (e.g., July 1 to July 31)
+            "Previous Month" -> { // Previous Month
                 val calStart = Calendar.getInstance().apply {
                     add(Calendar.MONTH, -1)
                     set(Calendar.DAY_OF_MONTH, 1)

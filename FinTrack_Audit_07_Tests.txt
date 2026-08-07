@@ -1,0 +1,828 @@
+===============================================================================
+FILE: app/src/test/java/com/example/CsvImporterTest.kt
+===============================================================================
+package com.example
+
+import com.example.data.dao.ExchangeRateDao
+import com.example.data.model.ExchangeRateEntity
+import com.example.data.service.BnrRateResult
+import com.example.data.service.ExchangeRateService
+import com.example.data.util.CsvImporter
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class CsvImporterTest {
+
+    private val fakeDao = object : ExchangeRateDao {
+        override suspend fun getOfficialRateForDate(date: String): ExchangeRateEntity? {
+            return ExchangeRateEntity(
+                date = date,
+                requestedDate = date,
+                effectiveDate = date,
+                rate = 4.9750,
+                source = "BNR_OFFICIAL",
+                fetchedAt = System.currentTimeMillis(),
+                status = "OFFICIAL"
+            )
+        }
+
+        override suspend fun getRateForDate(date: String): ExchangeRateEntity? {
+            return getOfficialRateForDate(date)
+        }
+
+        override suspend fun insertRate(rate: ExchangeRateEntity) {}
+        override suspend fun insertAllRates(rates: List<ExchangeRateEntity>) {}
+        override suspend fun deleteUnverifiedRatesForDate(date: String) {}
+    }
+
+    private val exchangeRateService = ExchangeRateService(fakeDao)
+
+    @Test
+    fun testParseCsvLineWithQuotes() {
+        val line = """123,2026-03-01,100.0,20.10,4.975,2026-03-01,2026-03-01,BNR_OFFICIAL,OFFICIAL,"Grocery, Store",Expense,Card,"🍉 Food & Dining","Supermarket",Bubu"""
+        val tokens = CsvImporter.parseCsvLine(line)
+        assertEquals(15, tokens.size)
+        assertEquals("Grocery, Store", tokens[9])
+        assertEquals("Bubu", tokens[14])
+    }
+
+    @Test
+    fun testParseAndValidateCsv_ValidRows() = runBlocking {
+        val csv = """Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory,Destination
+TX100,2026-03-01,500.0,100.5,4.975,2026-03-01,2026-03-01,BNR_OFFICIAL,OFFICIAL,Bonus Salary,Income,Card,💼 Salary,Work Bonus,Bubu
+TX101,2026-03-02,150.0,30.15,4.975,2026-03-02,2026-03-02,BNR_OFFICIAL,OFFICIAL,Weekly Groceries,Expense,Card,🍉 Food & Dining,Groceries,
+"""
+        val result = CsvImporter.parseAndValidateCsv(
+            csvContent = csv,
+            existingIds = emptySet(),
+            exchangeRateService = exchangeRateService
+        )
+
+        assertEquals(2, result.transactionsToInsert.size)
+        assertEquals(2, result.insertedCount)
+        assertEquals(0, result.updatedCount)
+        assertEquals(0, result.skippedCount)
+
+        val incomeTx = result.transactionsToInsert.find { it.id == "TX100" }
+        assertNotNull(incomeTx)
+        assertEquals("Bubu", incomeTx?.destination)
+        assertEquals("Income", incomeTx?.type)
+
+        val expenseTx = result.transactionsToInsert.find { it.id == "TX101" }
+        assertNotNull(expenseTx)
+        assertNull(expenseTx?.destination)
+        assertEquals("Expense", expenseTx?.type)
+    }
+
+    @Test
+    fun testParseAndValidateCsv_IdempotencyWithExistingId() = runBlocking {
+        val csv = """Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory,Destination
+TX100,2026-03-01,600.0,120.6,4.975,2026-03-01,2026-03-01,BNR_OFFICIAL,OFFICIAL,Updated Bonus,Income,Card,💼 Salary,Work Bonus,Piticania
+"""
+        val result = CsvImporter.parseAndValidateCsv(
+            csvContent = csv,
+            existingIds = setOf("TX100"),
+            exchangeRateService = exchangeRateService
+        )
+
+        assertEquals(1, result.transactionsToInsert.size)
+        assertEquals(0, result.insertedCount)
+        assertEquals(1, result.updatedCount)
+        assertEquals(0, result.skippedCount)
+        assertEquals("Piticania", result.transactionsToInsert[0].destination)
+    }
+
+    @Test
+    fun testParseAndValidateCsv_SkipInvalidRows() = runBlocking {
+        val csv = """Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory,Destination
+TX200,invalid-date,100.0,20.0,5.0,2026-03-01,2026-03-01,BNR_OFFICIAL,OFFICIAL,Test,Expense,Card,Food,Food,
+TX201,2026-03-01,-50.0,10.0,5.0,2026-03-01,2026-03-01,BNR_OFFICIAL,OFFICIAL,Negative Amt,Expense,Card,Food,Food,
+TX202,2026-03-01,100.0,20.0,5.0,2026-03-01,2026-03-01,BNR_OFFICIAL,OFFICIAL,Valid Tx,Expense,Card,Food,Food,
+"""
+        val result = CsvImporter.parseAndValidateCsv(
+            csvContent = csv,
+            existingIds = emptySet(),
+            exchangeRateService = exchangeRateService
+        )
+
+        assertEquals(1, result.transactionsToInsert.size)
+        assertEquals(2, result.skippedCount)
+        assertEquals("TX202", result.transactionsToInsert[0].id)
+    }
+}
+
+
+===============================================================================
+FILE: app/src/test/java/com/example/BnrExchangeRateTest.kt
+===============================================================================
+package com.example
+
+import com.example.data.service.BnrRateResult
+import com.example.data.service.ExchangeRateService
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import java.math.BigDecimal
+import java.math.RoundingMode
+
+class BnrExchangeRateTest {
+
+    private lateinit var exchangeRateService: ExchangeRateService
+
+    @Before
+    fun setUp() {
+        // Dummy DAO for isolated service test
+        val mockDao = object : com.example.data.dao.ExchangeRateDao {
+            override suspend fun getOfficialRateForDate(date: String): com.example.data.model.ExchangeRateEntity? = null
+            override suspend fun getRateForDate(date: String): com.example.data.model.ExchangeRateEntity? = null
+            override suspend fun insertRate(rate: com.example.data.model.ExchangeRateEntity) {}
+            override suspend fun deleteUnverifiedRatesForDate(date: String) {}
+            override suspend fun insertAllRates(rates: List<com.example.data.model.ExchangeRateEntity>) {}
+        }
+        exchangeRateService = ExchangeRateService(mockDao)
+    }
+
+    @Test
+    fun testXmlParsingAndEurRateExtraction() {
+        val sampleXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <DataSet xmlns="http://www.bnr.ro/xsd">
+                <Body>
+                    <Cube date="2026-08-05">
+                        <Rate currency="EUR">4.9765</Rate>
+                        <Rate currency="USD">4.5120</Rate>
+                    </Cube>
+                    <Cube date="2026-08-04">
+                        <Rate currency="EUR">4.9750</Rate>
+                    </Cube>
+                </Body>
+            </DataSet>
+        """.trimIndent()
+
+        val rates = exchangeRateService.parseBnrXmlContent(sampleXml)
+        assertEquals(2, rates.size)
+        assertEquals(4.9765, rates["2026-08-05"]!!, 0.0001)
+        assertEquals(4.9750, rates["2026-08-04"]!!, 0.0001)
+    }
+
+    @Test
+    fun testInvalidXmlHandling() {
+        val invalidXml = "<DataSet><Body><Cube date='2026-08-05'><Rate currency='EUR'>INVALID_NUMBER</Rate></Cube></Body></DataSet>"
+        val rates = exchangeRateService.parseBnrXmlContent(invalidXml)
+        assertTrue(rates.isEmpty())
+    }
+
+    @Test
+    fun testAmountEurCalculationAndRounding() {
+        val amountRON = 1000.0
+        val rate = 4.9765
+
+        // amountEUR = amountRON / rate
+        // 1000 / 4.9765 = 200.944438862... -> Rounded HALF_UP to 200.94
+        val calculated = ExchangeRateService.calculateAmountEUR(amountRON, rate)
+        assertEquals(200.94, calculated, 0.001)
+    }
+
+    @Test
+    fun testWeekendAndHolidayFallbackLogic() {
+        val sampleXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <DataSet xmlns="http://www.bnr.ro/xsd">
+                <Body>
+                    <Cube date="2026-07-31">
+                        <Rate currency="EUR">4.9760</Rate>
+                    </Cube>
+                </Body>
+            </DataSet>
+        """.trimIndent()
+
+        val ratesMap = exchangeRateService.parseBnrXmlContent(sampleXml)
+        val requestedDate = "2026-08-02" // Sunday
+
+        val validEntry = ratesMap.entries
+            .filter { it.key <= requestedDate }
+            .maxByOrNull { it.key }
+
+        assertEquals("2026-07-31", validEntry?.key)
+        assertEquals(4.9760, validEntry?.value!!, 0.0001)
+    }
+
+    @Test
+    fun testNoFabricatedFallbackRateWhenNetworkFails() {
+        // When network fails, getOfficialRate or fetchOfficialBnrRateFromNetwork must return rate = 0.0 and PENDING
+        val result = exchangeRateService.fetchOfficialBnrRateFromNetwork("1900-01-01")
+        assertEquals("PENDING", result.status)
+        assertEquals(0.0, result.rate, 0.00001)
+        assertNotEquals(4.9750, result.rate, 0.00001)
+        assertNotEquals(4.98, result.rate, 0.00001)
+    }
+}
+
+
+===============================================================================
+FILE: app/src/test/java/com/example/FinancialAnalyticsEngineTest.kt
+===============================================================================
+package com.example
+
+import com.example.data.model.TransactionEntity
+import com.example.domain.analytics.FinancialAnalyticsEngine
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class FinancialAnalyticsEngineTest {
+
+    private fun createTx(
+        id: String,
+        type: String,
+        amountRON: Double,
+        amountEUR: Double,
+        status: String = "OFFICIAL",
+        source: String = "BNR_OFFICIAL"
+    ): TransactionEntity {
+        return TransactionEntity(
+            id = id,
+            date = "2026-08-01",
+            description = "Test Tx $id",
+            amountRON = amountRON,
+            amountEUR = amountEUR,
+            exchangeRate = if (amountEUR > 0) amountRON / amountEUR else 0.0,
+            exchangeRateDate = "2026-08-01",
+            exchangeRateSource = source,
+            conversionStatus = status,
+            type = type,
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries"
+        )
+    }
+
+    @Test
+    fun testEurAnalyticsExcludesPendingAndUnverifiedTransactions() {
+        val txList = listOf(
+            createTx("1", "Income", 1000.0, 200.0, "OFFICIAL", "BNR_OFFICIAL"),
+            createTx("2", "Expense", 500.0, 100.0, "OFFICIAL", "BNR_OFFICIAL"),
+            createTx("3", "Expense", 250.0, 0.0, "PENDING", "BNR_OFFICIAL"),
+            createTx("4", "Expense", 250.0, 50.0, "UNVERIFIED", "SYNTHETIC")
+        )
+
+        // EUR Mode
+        val metricsEur = FinancialAnalyticsEngine.calculateMetrics(txList, "EUR", "Last Month")
+        assertEquals(200.0, metricsEur.totalIncome, 0.01)
+        assertEquals(100.0, metricsEur.totalExpense, 0.01)
+        assertEquals(100.0, metricsEur.balance, 0.01)
+        assertEquals(50.0, metricsEur.savingsRate, 0.01) // (200 - 100) / 200 * 100
+        assertEquals(2, metricsEur.excludedNonOfficialCount)
+        assertTrue(metricsEur.hasIncompleteEurData)
+    }
+
+    @Test
+    fun testRonAnalyticsIncludesAllTransactions() {
+        val txList = listOf(
+            createTx("1", "Income", 1000.0, 200.0, "OFFICIAL", "BNR_OFFICIAL"),
+            createTx("2", "Expense", 500.0, 100.0, "OFFICIAL", "BNR_OFFICIAL"),
+            createTx("3", "Expense", 250.0, 0.0, "PENDING", "BNR_OFFICIAL"),
+            createTx("4", "Expense", 250.0, 50.0, "UNVERIFIED", "SYNTHETIC")
+        )
+
+        // RON Mode
+        val metricsRon = FinancialAnalyticsEngine.calculateMetrics(txList, "RON", "Last Month")
+        assertEquals(1000.0, metricsRon.totalIncome, 0.01)
+        assertEquals(1000.0, metricsRon.totalExpense, 0.01) // 500 + 250 + 250
+        assertEquals(0.0, metricsRon.balance, 0.01)
+        assertEquals(0, metricsRon.excludedNonOfficialCount)
+        assertFalse(metricsRon.hasIncompleteEurData)
+    }
+
+    @Test
+    fun testCategorySharesExcludesUnverifiedInEurMode() {
+        val txList = listOf(
+            createTx("1", "Expense", 500.0, 100.0, "OFFICIAL", "BNR_OFFICIAL"),
+            createTx("2", "Expense", 250.0, 50.0, "UNVERIFIED", "SYNTHETIC")
+        )
+
+        val sharesEur = FinancialAnalyticsEngine.calculateCategoryShares(txList, "EUR", "Expense")
+        assertEquals(1, sharesEur.size)
+        assertEquals(100.0, sharesEur[0].totalAmount, 0.01)
+
+        val sharesRon = FinancialAnalyticsEngine.calculateCategoryShares(txList, "RON", "Expense")
+        assertEquals(1, sharesRon.size)
+        assertEquals(750.0, sharesRon[0].totalAmount, 0.01)
+    }
+}
+
+
+===============================================================================
+FILE: app/src/test/java/com/example/RoomMigrationTest.kt
+===============================================================================
+package com.example
+
+import android.database.sqlite.SQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.data.db.FinTrackDatabase
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.lang.reflect.Proxy
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
+class RoomMigrationTest {
+
+    @Test
+    fun testMigration1To2PreservesTransactions() {
+        val db = SQLiteDatabase.create(null)
+        db.execSQL(
+            "CREATE TABLE `transactions` (" +
+            "`id` TEXT NOT NULL, `date` TEXT NOT NULL, `description` TEXT NOT NULL, " +
+            "`amountRON` REAL NOT NULL, `amountEUR` REAL NOT NULL, `exchangeRate` REAL NOT NULL, " +
+            "`exchangeRateDate` TEXT NOT NULL, `type` TEXT NOT NULL, `account` TEXT NOT NULL, " +
+            "`category` TEXT NOT NULL, `subCategory` TEXT NOT NULL, `destination` TEXT, " +
+            "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+        db.execSQL(
+            "CREATE TABLE `exchange_rates` (" +
+            "`date` TEXT NOT NULL, `rate` REAL NOT NULL, PRIMARY KEY(`date`))"
+        )
+        db.execSQL(
+            "INSERT INTO transactions (id, date, description, amountRON, amountEUR, exchangeRate, exchangeRateDate, type, account, category, subCategory, createdAt, updatedAt) " +
+            "VALUES ('v1_tx', '2026-08-01', 'V1 Item', 100.0, 20.0, 5.0, '2026-08-01', 'Expense', 'Checking', 'Food', 'Groceries', 1000, 1000)"
+        )
+
+        val supportDb = Proxy.newProxyInstance(
+            SupportSQLiteDatabase::class.java.classLoader,
+            arrayOf(SupportSQLiteDatabase::class.java)
+        ) { _, method, args ->
+            if (method.name == "execSQL" && args != null && args.isNotEmpty()) {
+                db.execSQL(args[0] as String)
+                null
+            } else {
+                throw UnsupportedOperationException("Method ${method.name} not stubbed")
+            }
+        } as SupportSQLiteDatabase
+
+        FinTrackDatabase.MIGRATION_1_2.migrate(supportDb)
+
+        val cursor = db.rawQuery("SELECT id, description, conversionStatus, exchangeRateSource FROM transactions WHERE id = 'v1_tx'", null)
+        assertEquals(true, cursor.moveToFirst())
+        assertEquals("v1_tx", cursor.getString(0))
+        assertEquals("V1 Item", cursor.getString(1))
+        assertEquals("UNVERIFIED", cursor.getString(2))
+        assertEquals("UNVERIFIED", cursor.getString(3))
+        cursor.close()
+        db.close()
+    }
+}
+
+
+===============================================================================
+FILE: app/src/test/java/com/example/RepairSafetyTest.kt
+===============================================================================
+package com.example
+
+import com.example.data.service.ExchangeRateService
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
+
+class RepairSafetyTest {
+
+    @get:Rule
+    val tempFolder = TemporaryFolder()
+
+    @Test
+    fun testBackupValidationChecks() {
+        val validFile = tempFolder.newFile("valid_backup.csv")
+        validFile.writeText(
+            "Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Exchange_Rate_Date,Exchange_Rate_Source,Conversion_Status,Type,Account,Category,SubCategory,Description\n" +
+            "tx1,2026-08-01,100.0,20.09,4.9765,2026-08-01,BNR_OFFICIAL,OFFICIAL,Expense,Checking,Food,Groceries,Supermarket\n"
+        )
+
+        // Validate method logic directly matching MainViewModel.validateBackupFile
+        fun validate(file: File, expectedCount: Int): Boolean {
+            if (!file.exists() || !file.canRead() || file.length() <= 0) return false
+            val lines = file.readLines()
+            if (lines.isEmpty()) return false
+            val header = lines.first()
+            if (!header.startsWith("Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR")) return false
+            val dataRows = lines.drop(1).filter { it.isNotBlank() }
+            return dataRows.size >= expectedCount
+        }
+
+        assertTrue(validate(validFile, 1))
+
+        // Missing file check
+        val missingFile = File(tempFolder.root, "non_existent.csv")
+        assertFalse(validate(missingFile, 1))
+
+        // Empty file check
+        val emptyFile = tempFolder.newFile("empty.csv")
+        assertFalse(validate(emptyFile, 1))
+
+        // Invalid header check
+        val invalidHeaderFile = tempFolder.newFile("wrong_header.csv")
+        invalidHeaderFile.writeText("ID,Date,RON,EUR\ntx1,2026-08-01,100,20\n")
+        assertFalse(validate(invalidHeaderFile, 1))
+
+        // Insufficient rows check
+        assertFalse(validate(validFile, 5))
+    }
+
+    @Test
+    fun testFutureDateReturnsPendingWithoutFabricatingRate() {
+        val mockDao = object : com.example.data.dao.ExchangeRateDao {
+            override suspend fun getOfficialRateForDate(date: String): com.example.data.model.ExchangeRateEntity? = null
+            override suspend fun getRateForDate(date: String): com.example.data.model.ExchangeRateEntity? = null
+            override suspend fun insertRate(rate: com.example.data.model.ExchangeRateEntity) {}
+            override suspend fun deleteUnverifiedRatesForDate(date: String) {}
+            override suspend fun insertAllRates(rates: List<com.example.data.model.ExchangeRateEntity>) {}
+        }
+        val service = ExchangeRateService(mockDao)
+
+        // Request a date far in the future
+        val futureResult = service.fetchOfficialBnrRateFromNetwork("2099-12-31")
+        assertEquals("PENDING", futureResult.status)
+        assertEquals(0.0, futureResult.rate, 0.0001)
+        assertEquals("2099-12-31", futureResult.requestedDate)
+    }
+}
+
+
+===============================================================================
+FILE: app/src/test/java/com/example/RepairRoomTransactionTest.kt
+===============================================================================
+package com.example
+
+import android.content.Context
+import androidx.room.Room
+import androidx.room.withTransaction
+import androidx.test.core.app.ApplicationProvider
+import com.example.data.db.FinTrackDatabase
+import com.example.data.model.ExchangeRateEntity
+import com.example.data.model.TransactionEntity
+import com.example.data.repository.PreparedRepairItem
+import com.example.data.repository.TransactionRepository
+import com.example.data.service.ExchangeRateService
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
+class RepairRoomTransactionTest {
+
+    private lateinit var db: FinTrackDatabase
+    private lateinit var repository: TransactionRepository
+
+    @Before
+    fun createDb() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+
+        val exchangeRateService = ExchangeRateService(db.exchangeRateDao())
+        repository = TransactionRepository(
+            transactionDao = db.transactionDao(),
+            exchangeRateService = exchangeRateService,
+            exchangeRateDao = db.exchangeRateDao(),
+            database = db
+        )
+    }
+
+    @After
+    fun closeDb() {
+        db.close()
+    }
+
+    @Test
+    fun testRealRoomRollbackWhenSecondWriteFails() = runBlocking {
+        // 1. Initial legacy transaction & unverified exchange rate in DB
+        val initialTx = TransactionEntity(
+            id = "tx1",
+            date = "2026-08-01",
+            description = "Test Tx",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-01",
+            exchangeRateSource = "UNVERIFIED",
+            conversionStatus = "UNVERIFIED",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries"
+        )
+        val initialRate = ExchangeRateEntity(
+            date = "2026-08-01",
+            requestedDate = "2026-08-01",
+            effectiveDate = "2026-08-01",
+            rate = 5.0,
+            source = "UNVERIFIED",
+            status = "UNVERIFIED"
+        )
+        db.transactionDao().insertTransaction(initialTx)
+        db.exchangeRateDao().insertRate(initialRate)
+
+        // Verify initial state
+        assertEquals("UNVERIFIED", db.transactionDao().getTransactionById("tx1")?.conversionStatus)
+
+        // 2. Attempt batch repair where an exception is thrown inside withTransaction
+        try {
+            db.withTransaction {
+                // First DAO write succeeds: update transaction
+                val correctEUR = ExchangeRateService.calculateAmountEUR(initialTx.amountRON, 4.9765)
+                db.transactionDao().insertTransaction(
+                    initialTx.copy(amountEUR = correctEUR, conversionStatus = "OFFICIAL")
+                )
+
+                // Simulate error during second operation (exchange rate insert)
+                throw IllegalStateException("Simulated database failure during cache write")
+            }
+            fail("Expected exception to be thrown")
+        } catch (e: IllegalStateException) {
+            // Exception caught after rollback
+        }
+
+        // 3. Verify BOTH changes were completely rolled back
+        val rolledBackTx = db.transactionDao().getTransactionById("tx1")
+        assertEquals("UNVERIFIED", rolledBackTx?.conversionStatus)
+        assertEquals(20.0, rolledBackTx?.amountEUR ?: 0.0, 0.001)
+
+        val rateInDb = db.exchangeRateDao().getRateForDate("2026-08-01")
+        assertEquals("UNVERIFIED", rateInDb?.source)
+    }
+
+    @Test
+    fun testSuccessfulRepairUpdatesTransactionAndCacheAtomically() = runBlocking {
+        val initialTx = TransactionEntity(
+            id = "tx2",
+            date = "2026-08-02",
+            description = "Test Tx 2",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-02",
+            exchangeRateSource = "UNVERIFIED",
+            conversionStatus = "UNVERIFIED",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries"
+        )
+        db.transactionDao().insertTransaction(initialTx)
+
+        val preparedItems = listOf(
+            PreparedRepairItem(initialTx, 4.9765, "2026-08-01")
+        )
+
+        val count = repository.applyRepairBatch(preparedItems)
+        assertEquals(1, count)
+
+        // Verify transaction updated
+        val updatedTx = db.transactionDao().getTransactionById("tx2")
+        assertEquals("OFFICIAL", updatedTx?.conversionStatus)
+        assertEquals("BNR_OFFICIAL", updatedTx?.exchangeRateSource)
+        assertEquals(4.9765, updatedTx?.exchangeRate ?: 0.0, 0.0001)
+
+        // Verify cache updated
+        val cache = db.exchangeRateDao().getOfficialRateForDate("2026-08-02")
+        assertNotNull(cache)
+        assertEquals("BNR_OFFICIAL", cache?.source)
+        assertEquals("OFFICIAL", cache?.status)
+    }
+
+    @Test
+    fun testLegacyNullQueriesInUnverifiedTransactions() = runBlocking {
+        // Insert 4 transactions with different conversionStatus / source states
+        val tx1Null = TransactionEntity(
+            id = "tx_null",
+            date = "2026-08-01",
+            description = "Null status",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = null,
+            exchangeRateSource = null
+        )
+        val tx2Unverified = TransactionEntity(
+            id = "tx_unverified",
+            date = "2026-08-01",
+            description = "Unverified status",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "UNVERIFIED",
+            exchangeRateSource = "SYNTHETIC"
+        )
+        val tx3Official = TransactionEntity(
+            id = "tx_official",
+            date = "2026-08-01",
+            description = "Official status",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "OFFICIAL",
+            exchangeRateSource = "BNR_OFFICIAL"
+        )
+        val tx4Pending = TransactionEntity(
+            id = "tx_pending",
+            date = "2026-08-01",
+            description = "Pending status",
+            amountRON = 100.0,
+            amountEUR = 0.0,
+            exchangeRate = 0.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "PENDING",
+            exchangeRateSource = "BNR_OFFICIAL"
+        )
+
+        db.transactionDao().insertAllTransactions(listOf(tx1Null, tx2Unverified, tx3Official, tx4Pending))
+
+        val unverifiedList = repository.getUnverifiedTransactions()
+        assertEquals(2, unverifiedList.size)
+        assertTrue(unverifiedList.any { it.id == "tx_null" })
+        assertTrue(unverifiedList.any { it.id == "tx_unverified" })
+
+        // Ensure OFFICIAL and PENDING are excluded
+        assertTrue(unverifiedList.none { it.id == "tx_official" })
+        assertTrue(unverifiedList.none { it.id == "tx_pending" })
+    }
+
+    @Test
+    fun testPendingSyncHandledSeparatelyFromLegacyRepair() = runBlocking {
+        val txPending = TransactionEntity(
+            id = "tx_pending",
+            date = "2026-08-01",
+            description = "Pending tx",
+            amountRON = 100.0,
+            amountEUR = 0.0,
+            exchangeRate = 0.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "PENDING",
+            exchangeRateSource = "BNR_OFFICIAL"
+        )
+        db.transactionDao().insertTransaction(txPending)
+
+        // Pending should be returned by getPendingTransactions
+        val pending = db.transactionDao().getPendingTransactions()
+        assertEquals(1, pending.size)
+        assertEquals("tx_pending", pending[0].id)
+
+        // Pending should NOT be returned by getUnverifiedTransactions
+        val unverified = db.transactionDao().getUnverifiedTransactions()
+        assertTrue(unverified.none { it.id == "tx_pending" })
+    }
+}
+
+
+===============================================================================
+FILE: app/src/test/java/com/example/ExampleUnitTest.kt
+===============================================================================
+package com.example
+
+import org.junit.Assert.*
+import org.junit.Test
+
+/**
+ * Example local unit test, which will execute on the development machine (host).
+ *
+ * See [testing documentation](http://d.android.com/tools/testing).
+ */
+class ExampleUnitTest {
+  @Test
+  fun addition_isCorrect() {
+    assertEquals(4, 2 + 2)
+  }
+}
+
+
+===============================================================================
+FILE: app/src/test/java/com/example/ExampleRobolectricTest.kt
+===============================================================================
+package com.example
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
+class ExampleRobolectricTest {
+
+  @Test
+  fun `read string from context`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val appName = context.getString(R.string.app_name)
+    assertEquals("FinTrack", appName)
+  }
+}
+
+
+===============================================================================
+FILE: app/src/test/java/com/example/GreetingScreenshotTest.kt
+===============================================================================
+package com.example
+
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
+import com.example.ui.theme.FinTrackTheme
+import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
+import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = RobolectricDeviceQualifiers.Pixel8, sdk = [36])
+class GreetingScreenshotTest {
+
+  @get:Rule val composeTestRule = createComposeRule()
+
+  @Test
+  fun greeting_screenshot() {
+    composeTestRule.setContent { FinTrackTheme { } }
+
+    composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/greeting.png")
+  }
+}
+
+
+===============================================================================
+FILE: app/src/androidTest/java/com/example/ExampleInstrumentedTest.kt
+===============================================================================
+package com.example
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/**
+ * Instrumented test, which will execute on an Android device.
+ *
+ * See [testing documentation](http://d.android.com/tools/testing).
+ */
+@RunWith(AndroidJUnit4::class)
+class ExampleInstrumentedTest {
+  @Test
+  fun useAppContext() {
+    // Context of the app under test.
+    val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+    assertEquals("com.example", appContext.packageName)
+  }
+}
+
+

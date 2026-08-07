@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.data.service.ExchangeRateService
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,18 +12,15 @@ import java.io.File
 
 class RepairSafetyTest {
 
-    @get:Rule
-    val tempFolder = TemporaryFolder()
-
     @Test
     fun testBackupValidationChecks() {
-        val validFile = tempFolder.newFile("valid_backup.csv")
+        val validFile = File.createTempFile("valid_backup", ".csv")
+        validFile.deleteOnExit()
         validFile.writeText(
             "Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Exchange_Rate_Date,Exchange_Rate_Source,Conversion_Status,Type,Account,Category,SubCategory,Description\n" +
             "tx1,2026-08-01,100.0,20.09,4.9765,2026-08-01,BNR_OFFICIAL,OFFICIAL,Expense,Checking,Food,Groceries,Supermarket\n"
         )
 
-        // Validate method logic directly matching MainViewModel.validateBackupFile
         fun validate(file: File, expectedCount: Int): Boolean {
             if (!file.exists() || !file.canRead() || file.length() <= 0) return false
             val lines = file.readLines()
@@ -35,37 +33,36 @@ class RepairSafetyTest {
 
         assertTrue(validate(validFile, 1))
 
-        // Missing file check
-        val missingFile = File(tempFolder.root, "non_existent.csv")
+        val missingFile = File(validFile.parentFile, "non_existent_123.csv")
         assertFalse(validate(missingFile, 1))
 
-        // Empty file check
-        val emptyFile = tempFolder.newFile("empty.csv")
+        val emptyFile = File.createTempFile("empty", ".csv")
+        emptyFile.deleteOnExit()
         assertFalse(validate(emptyFile, 1))
 
-        // Invalid header check
-        val invalidHeaderFile = tempFolder.newFile("wrong_header.csv")
+        val invalidHeaderFile = File.createTempFile("wrong_header", ".csv")
+        invalidHeaderFile.deleteOnExit()
         invalidHeaderFile.writeText("ID,Date,RON,EUR\ntx1,2026-08-01,100,20\n")
         assertFalse(validate(invalidHeaderFile, 1))
 
-        // Insufficient rows check
         assertFalse(validate(validFile, 5))
     }
 
     @Test
-    fun testFutureDateReturnsPendingWithoutFabricatingRate() {
+    fun testFutureDateReturnsNotYetPublishedWithoutFabricatingRate() = runBlocking {
         val mockDao = object : com.example.data.dao.ExchangeRateDao {
             override suspend fun getOfficialRateForDate(date: String): com.example.data.model.ExchangeRateEntity? = null
             override suspend fun getRateForDate(date: String): com.example.data.model.ExchangeRateEntity? = null
             override suspend fun insertRate(rate: com.example.data.model.ExchangeRateEntity) {}
-            override suspend fun deleteUnverifiedRatesForDate(date: String) {}
+            override suspend fun deleteUnverifiedRatesForDate(date: String): Int = 0
             override suspend fun insertAllRates(rates: List<com.example.data.model.ExchangeRateEntity>) {}
+            override suspend fun getAllOfficialRates(): List<com.example.data.model.ExchangeRateEntity> = emptyList()
+            override suspend fun deleteAllRates() {}
         }
         val service = ExchangeRateService(mockDao)
 
-        // Request a date far in the future
         val futureResult = service.fetchOfficialBnrRateFromNetwork("2099-12-31")
-        assertEquals("PENDING", futureResult.status)
+        assertEquals("NOT_YET_PUBLISHED", futureResult.status)
         assertEquals(0.0, futureResult.rate, 0.0001)
         assertEquals("2099-12-31", futureResult.requestedDate)
     }

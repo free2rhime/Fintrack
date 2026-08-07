@@ -1,0 +1,5 @@
+===============================================================================
+FIREBASE & CLOUD INTEGRATION AUDIT
+===============================================================================
+
+Note: FinTrack operates as an offline-first architecture using Room local SQLite database persistence and BNR exchange-rate XML fetching. No custom Firebase Authentication, Firestore database rules, or remote Firebase service implementations are active in this source repository.

@@ -9,6 +9,8 @@ class CategoryRepository(private val categoryDao: CategoryDao) {
 
     val allCategories: Flow<List<CategoryEntity>> = categoryDao.getAllCategories()
 
+    suspend fun getAllCategoriesList(): List<CategoryEntity> = allCategories.first()
+
     suspend fun ensureDefaultCategoriesSeeded() {
         val existing = allCategories.first()
         if (existing.isEmpty()) {
@@ -51,5 +53,21 @@ class CategoryRepository(private val categoryDao: CategoryDao) {
 
     suspend fun deleteCategory(category: CategoryEntity) {
         categoryDao.deleteCategory(category)
+    }
+
+    suspend fun updateCategoryGroup(oldName: String, newName: String, type: String) {
+        categoryDao.updateCategoryGroup(oldName.trim(), newName.trim(), type)
+    }
+
+    suspend fun deleteCategoryGroup(name: String, type: String) {
+        categoryDao.deleteCategoryGroup(name, type)
+    }
+
+    suspend fun updateSubcategory(id: String, newSubCategory: String) {
+        categoryDao.updateSubcategory(id, newSubCategory.trim())
+    }
+
+    suspend fun deleteSubcategory(id: String) {
+        categoryDao.deleteSubcategory(id)
     }
 }

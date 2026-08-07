@@ -26,6 +26,18 @@ interface CategoryDao {
     @Delete
     suspend fun deleteCategory(category: CategoryEntity)
 
+    @Query("UPDATE categories SET name = :newName WHERE name = :oldName AND type = :type")
+    suspend fun updateCategoryGroup(oldName: String, newName: String, type: String)
+
+    @Query("DELETE FROM categories WHERE name = :name AND type = :type")
+    suspend fun deleteCategoryGroup(name: String, type: String)
+
+    @Query("UPDATE categories SET subCategory = :newSubCategory WHERE id = :id")
+    suspend fun updateSubcategory(id: String, newSubCategory: String)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun deleteSubcategory(id: String)
+
     @Query("DELETE FROM categories")
     suspend fun deleteAllCategories()
 }

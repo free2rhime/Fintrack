@@ -34,6 +34,10 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -305,6 +309,9 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         // DEMO DATA & MAINTENANCE
+        var showSeedDialog by remember { mutableStateOf(false) }
+        var showResetDialog by remember { mutableStateOf(false) }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -320,7 +327,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedButton(
-                    onClick = onSeedDemoData,
+                    onClick = { showSeedDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
@@ -335,7 +342,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Button(
-                    onClick = onResetData,
+                    onClick = { showResetDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
@@ -348,6 +355,53 @@ fun SettingsScreen(
                     Text("Clear All Local Data", fontWeight = FontWeight.Bold)
                 }
             }
+        }
+
+        if (showSeedDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showSeedDialog = false },
+                title = { Text("Load Demo Data") },
+                text = { Text("Are you sure you want to load sample demo financial transactions? This will populate your database with representative transaction history.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onSeedDemoData()
+                            showSeedDialog = false
+                        }
+                    ) {
+                        Text("Load Demo Data")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showSeedDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        if (showResetDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showResetDialog = false },
+                title = { Text("Clear All Local Data") },
+                text = { Text("Are you sure you want to delete all local transactions and data? This action cannot be undone.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onResetData()
+                            showResetDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
+                    ) {
+                        Text("Clear All Data", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showResetDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }

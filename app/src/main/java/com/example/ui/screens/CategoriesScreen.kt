@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -61,14 +62,19 @@ import com.example.ui.theme.IncomeGreen
 fun CategoriesScreen(
     categories: List<CategoryEntity>,
     onAddCategory: (name: String, type: String, subCategory: String) -> Unit,
-    onUpdateCategory: (CategoryEntity) -> Unit,
-    onDeleteCategory: (CategoryEntity) -> Unit,
+    onUpdateCategoryGroup: (oldName: String, newName: String, type: String) -> Unit,
+    onDeleteCategoryGroup: (name: String, type: String) -> Unit,
+    onUpdateSubcategory: (id: String, newSubCategory: String) -> Unit,
+    onDeleteSubcategory: (id: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedType by remember { mutableStateOf("Expense") }
     var showAddDialog by remember { mutableStateOf(false) }
     var addDialogPreFilledCategory by remember { mutableStateOf("") }
-    var categoryToEdit by remember { mutableStateOf<CategoryEntity?>(null) }
+
+    var categoryGroupToEdit by remember { mutableStateOf<String?>(null) }
+    var categoryGroupToDelete by remember { mutableStateOf<String?>(null) }
+    var subcategoryToEdit by remember { mutableStateOf<CategoryEntity?>(null) }
 
     val filteredCategories = remember(categories, selectedType) {
         categories.filter { it.type == selectedType }
@@ -80,6 +86,7 @@ fun CategoriesScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
         floatingActionButton = {
             FloatingActionButton(
@@ -150,14 +157,13 @@ fun CategoriesScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Categories Grouped List (1 line for Category with Subcategories in foreground below)
+            // Categories Grouped List
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 items(groupedCategories.keys.toList(), key = { it }) { catName ->
                     val subList = groupedCategories[catName] ?: emptyList()
-                    val firstEntity = subList.firstOrNull()
 
                     Card(
                         modifier = Modifier
@@ -172,7 +178,7 @@ fun CategoriesScreen(
                                 .fillMaxWidth()
                                 .padding(16.dp)
                         ) {
-                            // MAIN CATEGORY LINE (1 line header)
+                            // MAIN CATEGORY LINE (Header)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -222,35 +228,33 @@ fun CategoriesScreen(
 
                                     Spacer(modifier = Modifier.width(4.dp))
 
-                                    if (firstEntity != null) {
-                                        IconButton(
-                                            onClick = { categoryToEdit = firstEntity },
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = "Edit Category",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                    IconButton(
+                                        onClick = { categoryGroupToEdit = catName },
+                                        modifier = Modifier.size(32.dp).testTag("edit_category_group_${catName}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit Category Group",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
 
-                                        IconButton(
-                                            onClick = { onDeleteCategory(firstEntity) },
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete Category",
-                                                tint = ExpenseRed,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                    IconButton(
+                                        onClick = { categoryGroupToDelete = catName },
+                                        modifier = Modifier.size(32.dp).testTag("delete_category_group_${catName}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Category Group",
+                                            tint = ExpenseRed,
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                     }
                                 }
                             }
 
-                            // SUBCATEGORIES LIST IN FOREGROUND BELOW
+                            // SUBCATEGORIES LIST BELOW
                             val validSubs = subList.filter { it.subCategory.isNotBlank() }
                             if (validSubs.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(10.dp))
@@ -296,8 +300,8 @@ fun CategoriesScreen(
 
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     IconButton(
-                                                        onClick = { categoryToEdit = subEntity },
-                                                        modifier = Modifier.size(28.dp)
+                                                        onClick = { subcategoryToEdit = subEntity },
+                                                        modifier = Modifier.size(28.dp).testTag("edit_subcategory_${subEntity.id}")
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Default.Edit,
@@ -308,8 +312,8 @@ fun CategoriesScreen(
                                                     }
 
                                                     IconButton(
-                                                        onClick = { onDeleteCategory(subEntity) },
-                                                        modifier = Modifier.size(28.dp)
+                                                        onClick = { onDeleteSubcategory(subEntity.id) },
+                                                        modifier = Modifier.size(28.dp).testTag("delete_subcategory_${subEntity.id}")
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Default.Delete,
@@ -356,19 +360,178 @@ fun CategoriesScreen(
         )
     }
 
-    if (categoryToEdit != null) {
-        val cat = categoryToEdit!!
-        CategoryFormDialog(
-            title = "Edit Category / Subcategory",
-            initialName = cat.name,
-            initialSubCategory = cat.subCategory,
-            defaultType = cat.type,
-            onDismiss = { categoryToEdit = null },
-            onConfirm = { name, type, subCategory ->
-                onUpdateCategory(cat.copy(name = name, type = type, subCategory = subCategory))
-                categoryToEdit = null
+    // Category Group Edit Dialog
+    if (categoryGroupToEdit != null) {
+        val oldGroup = categoryGroupToEdit!!
+        CategoryHeaderEditDialog(
+            oldCategoryName = oldGroup,
+            onDismiss = { categoryGroupToEdit = null },
+            onConfirm = { newName ->
+                onUpdateCategoryGroup(oldGroup, newName, selectedType)
+                categoryGroupToEdit = null
             }
         )
+    }
+
+    // Category Group Delete Confirmation Dialog
+    if (categoryGroupToDelete != null) {
+        val groupToDelete = categoryGroupToDelete!!
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { categoryGroupToDelete = null },
+            title = { Text("Delete Category Group") },
+            text = { Text("Are you sure you want to delete category group '$groupToDelete'? All subcategories under this group will be deleted. Historical transactions will be preserved.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteCategoryGroup(groupToDelete, selectedType)
+                        categoryGroupToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
+                ) {
+                    Text("Delete Group", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.OutlinedButton(onClick = { categoryGroupToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Subcategory Edit Dialog
+    if (subcategoryToEdit != null) {
+        val subEntity = subcategoryToEdit!!
+        SubcategoryEditDialog(
+            initialSubCategory = subEntity.subCategory,
+            onDismiss = { subcategoryToEdit = null },
+            onConfirm = { newSubName ->
+                onUpdateSubcategory(subEntity.id, newSubName)
+                subcategoryToEdit = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun CategoryHeaderEditDialog(
+    oldCategoryName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (newName: String) -> Unit
+) {
+    var name by remember { mutableStateOf(oldCategoryName) }
+    var isError by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = "Rename Category Group",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        isError = false
+                    },
+                    label = { Text("Category Group Name") },
+                    isError = isError,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    androidx.compose.material3.OutlinedButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (name.isBlank()) {
+                                isError = true
+                                return@Button
+                            }
+                            onConfirm(name.trim())
+                        }
+                    ) {
+                        Text("Save")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubcategoryEditDialog(
+    initialSubCategory: String,
+    onDismiss: () -> Unit,
+    onConfirm: (newSubCategory: String) -> Unit
+) {
+    var subName by remember { mutableStateOf(initialSubCategory) }
+    var isError by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = "Rename Subcategory",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = subName,
+                    onValueChange = {
+                        subName = it
+                        isError = false
+                    },
+                    label = { Text("Subcategory Name") },
+                    isError = isError,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    androidx.compose.material3.OutlinedButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (subName.isBlank()) {
+                                isError = true
+                                return@Button
+                            }
+                            onConfirm(subName.trim())
+                        }
+                    ) {
+                        Text("Save")
+                    }
+                }
+            }
+        }
     }
 }
 

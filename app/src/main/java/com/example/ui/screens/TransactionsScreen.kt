@@ -55,6 +55,16 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 
+fun formatLocalizedDateHeader(isoDate: String): String {
+    return try {
+        val parsed = java.time.LocalDate.parse(isoDate)
+        val date = java.util.Date.from(parsed.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant())
+        java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, java.util.Locale.getDefault()).format(date)
+    } catch (e: Exception) {
+        isoDate
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
@@ -97,6 +107,7 @@ fun TransactionsScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
         floatingActionButton = {
             FloatingActionButton(
@@ -285,10 +296,12 @@ fun TransactionsScreen(
                     groupedByDate.forEach { (date, dateGroupTxs) ->
                         // Calculate Daily Total
                         val useRon = filterSettings.selectedCurrency == "RON"
-                        val dayIncome = dateGroupTxs.filter { it.type == "Income" }
-                            .sumOf { if (useRon) it.amountRON else it.amountEUR }
-                        val dayExpense = dateGroupTxs.filter { it.type == "Expense" }
-                            .sumOf { if (useRon) it.amountRON else it.amountEUR }
+                        val dayIncome = dateGroupTxs.filter {
+                            it.type == "Income" && (useRon || (it.conversionStatus == "OFFICIAL" && it.exchangeRateSource == "BNR_OFFICIAL" && it.exchangeRate > 0.0))
+                        }.sumOf { if (useRon) it.amountRON else it.amountEUR }
+                        val dayExpense = dateGroupTxs.filter {
+                            it.type == "Expense" && (useRon || (it.conversionStatus == "OFFICIAL" && it.exchangeRateSource == "BNR_OFFICIAL" && it.exchangeRate > 0.0))
+                        }.sumOf { if (useRon) it.amountRON else it.amountEUR }
 
                         item(key = "header_$date") {
                             Row(
@@ -299,7 +312,7 @@ fun TransactionsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = date,
+                                    text = formatLocalizedDateHeader(date),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary

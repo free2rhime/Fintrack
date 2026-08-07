@@ -70,16 +70,11 @@ import com.example.ui.theme.StatusRed
 fun DashboardScreen(
     metrics: DashboardMetrics,
     filterSettings: FilterSettings,
-    recentTransactions: List<TransactionEntity>,
     monthlyDataPoints: List<MonthlyDataPoint>,
     categoryShares: List<CategoryExpenseShare>,
     smartInsights: SmartFinancialInsights,
     onPeriodSelected: (String) -> Unit,
     onCurrencyChanged: (String) -> Unit,
-    onAddTransactionClicked: (String) -> Unit,
-    onDuplicateClicked: (TransactionEntity) -> Unit,
-    onEditClicked: (TransactionEntity) -> Unit,
-    onDeleteClicked: (TransactionEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isSplineChart by remember { mutableStateOf(true) }
@@ -268,6 +263,21 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Savings Rate Card
+            val isZeroIncome = metrics.totalIncome <= 0.0
+            val savingsColor = when {
+                isZeroIncome -> MaterialTheme.colorScheme.onSurfaceVariant
+                metrics.savingsRate >= 20.0 -> StatusGreen
+                metrics.savingsRate >= 0.0 -> StatusOrange
+                else -> StatusRed
+            }
+            val savingsIcon = when {
+                isZeroIncome -> "⚪"
+                metrics.savingsRate >= 20.0 -> "🟢"
+                metrics.savingsRate >= 0.0 -> "🟡"
+                else -> "🔴"
+            }
+            val savingsText = if (isZeroIncome) "N/A" else "$savingsIcon ${metrics.savingsRate}% saved"
+
             Card(
                 modifier = Modifier
                     .weight(1f)
@@ -280,7 +290,7 @@ fun DashboardScreen(
                         Icon(
                             imageVector = Icons.Default.Savings,
                             contentDescription = "Savings",
-                            tint = IncomeGreen,
+                            tint = savingsColor,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -290,24 +300,28 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "🟢 ${metrics.savingsRate}% saved",
+                        text = savingsText,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = savingsColor
                     )
                 }
             }
 
-            // Expense Pressure Card with Rule Color Status (<60% Green, 60-80% Orange, >80% Red)
+            // Expense Pressure Card (<60% Green, 60-80% Orange, >80% Red, Zero Income N/A)
             val pressureColor = when {
+                isZeroIncome -> MaterialTheme.colorScheme.onSurfaceVariant
                 metrics.expensePressure < 60.0 -> StatusGreen
-                metrics.expensePressure < 80.0 -> StatusOrange
+                metrics.expensePressure <= 80.0 -> StatusOrange
                 else -> StatusRed
             }
             val pressureIcon = when {
+                isZeroIncome -> "⚪"
                 metrics.expensePressure < 60.0 -> "🟢"
-                metrics.expensePressure < 80.0 -> "🟡"
+                metrics.expensePressure <= 80.0 -> "🟡"
                 else -> "🔴"
             }
+            val pressureText = if (isZeroIncome) "N/A" else "$pressureIcon ${metrics.expensePressure}% used"
 
             Card(
                 modifier = Modifier
@@ -331,7 +345,7 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "$pressureIcon ${metrics.expensePressure}% used",
+                        text = pressureText,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = pressureColor

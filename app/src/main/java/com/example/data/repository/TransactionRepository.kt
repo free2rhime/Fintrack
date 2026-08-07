@@ -8,9 +8,8 @@ import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.service.ExchangeRateService
 import kotlinx.coroutines.flow.Flow
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 data class PreparedRepairItem(
@@ -47,14 +46,10 @@ class TransactionRepository(
         destination: String? = null
     ): TransactionEntity {
         val bnrResult = exchangeRateService.getOfficialRate(date)
-        val (amountEUR, status) = if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
-            Pair(
-                ExchangeRateService.calculateAmountEUR(amountRON, bnrResult.rate),
-                "OFFICIAL"
-            )
-        } else {
-            Pair(0.0, "PENDING")
-        }
+        val isOfficial = bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0
+        val amountEUR = if (isOfficial) ExchangeRateService.calculateAmountEUR(amountRON, bnrResult.rate) else 0.0
+        val status = if (isOfficial) "OFFICIAL" else "PENDING"
+        val rateSource = if (isOfficial) "BNR_OFFICIAL" else "NONE"
 
         val now = System.currentTimeMillis()
         val transaction = TransactionEntity(
@@ -65,7 +60,7 @@ class TransactionRepository(
             amountEUR = amountEUR,
             exchangeRate = bnrResult.rate,
             exchangeRateDate = bnrResult.effectiveDate,
-            exchangeRateSource = "BNR_OFFICIAL",
+            exchangeRateSource = rateSource,
             conversionStatus = status,
             type = type,
             account = account,
@@ -81,21 +76,17 @@ class TransactionRepository(
     }
 
     /**
-     * DUPLICATE TRANSACTION FEATURE (Mandatory Rule):
-     * Copies all fields from source transaction, sets date to today's date,
+     * DUPLICATE TRANSACTION FEATURE:
+     * Copies all fields from source transaction, sets date to today's local date,
      * recomputes EUR rate for today, assigns new UUID.
      */
     suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity {
-        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val todayStr = LocalDate.now(ZoneId.systemDefault()).toString()
         val bnrResult = exchangeRateService.getOfficialRate(todayStr)
-        val (amountEUR, status) = if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
-            Pair(
-                ExchangeRateService.calculateAmountEUR(source.amountRON, bnrResult.rate),
-                "OFFICIAL"
-            )
-        } else {
-            Pair(0.0, "PENDING")
-        }
+        val isOfficial = bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0
+        val amountEUR = if (isOfficial) ExchangeRateService.calculateAmountEUR(source.amountRON, bnrResult.rate) else 0.0
+        val status = if (isOfficial) "OFFICIAL" else "PENDING"
+        val rateSource = if (isOfficial) "BNR_OFFICIAL" else "NONE"
 
         return source.copy(
             id = UUID.randomUUID().toString(),
@@ -103,7 +94,7 @@ class TransactionRepository(
             amountEUR = amountEUR,
             exchangeRate = bnrResult.rate,
             exchangeRateDate = bnrResult.effectiveDate,
-            exchangeRateSource = "BNR_OFFICIAL",
+            exchangeRateSource = rateSource,
             conversionStatus = status,
             destination = if (source.type == "Income") source.destination else null,
             createdAt = System.currentTimeMillis(),
