@@ -305,13 +305,13 @@ fun TransactionFormDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Income Destination Field (Required for Income)
+                // Income Destination Field (Optional for Income)
                 if (type == "Income") {
                     Text(
-                        text = "Destination *",
+                        text = "Destination (Optional)",
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (destinationError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
@@ -319,8 +319,7 @@ fun TransactionFormDialog(
                         SegmentedButton(
                             selected = destination == "Bubu",
                             onClick = {
-                                destination = "Bubu"
-                                destinationError = false
+                                destination = if (destination == "Bubu") "" else "Bubu"
                             },
                             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                         ) {
@@ -330,22 +329,12 @@ fun TransactionFormDialog(
                         SegmentedButton(
                             selected = destination == "Piticania",
                             onClick = {
-                                destination = "Piticania"
-                                destinationError = false
+                                destination = if (destination == "Piticania") "" else "Piticania"
                             },
                             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                         ) {
                             Text("Piticania")
                         }
-                    }
-
-                    if (destinationError) {
-                        Text(
-                            text = "Please select a destination account (Bubu or Piticania)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -455,11 +444,6 @@ fun TransactionFormDialog(
                             descError = true
                             return@Button
                         }
-                        if (type == "Income" && destination.isBlank()) {
-                            destinationError = true
-                            return@Button
-                        }
-
                         onSave(
                             if (isDuplicateMode) null else initialTransaction?.id,
                             date,
@@ -469,7 +453,7 @@ fun TransactionFormDialog(
                             account,
                             category,
                             subCategory,
-                            if (type == "Income") destination else null
+                            if (type == "Income" && destination.isNotBlank()) destination else null
                         )
                     },
                     modifier = Modifier
