@@ -15,10 +15,18 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import androidx.test.core.app.ApplicationProvider
+import androidx.room.Room
+import com.example.data.db.FinTrackDatabase
 import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
 class DefectFixesUnitTest {
 
     @Test
@@ -87,10 +95,12 @@ class DefectFixesUnitTest {
 
     @Test
     fun testPendingTransactionMustNotClaimBnrOfficialSource() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
         val mockDao = FakeExchangeRateDao()
         val service = ExchangeRateService(mockDao)
         val mockTxDao = FakeTransactionDao()
-        val repo = TransactionRepository(mockTxDao, service)
+        val repo = TransactionRepository(mockTxDao, service, mockDao, db)
 
         val tx = repo.saveTransaction(
             date = "2099-01-01", // Future date -> PENDING
@@ -167,10 +177,12 @@ class DefectFixesUnitTest {
 
     @Test
     fun testLocalDateDuplicationSettingToday() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
         val mockDao = FakeExchangeRateDao()
         val service = ExchangeRateService(mockDao)
         val mockTxDao = FakeTransactionDao()
-        val repo = TransactionRepository(mockTxDao, service)
+        val repo = TransactionRepository(mockTxDao, service, mockDao, db)
 
         val source = TransactionEntity(
             id = "source-1", date = "2020-01-01", description = "Old Entry",

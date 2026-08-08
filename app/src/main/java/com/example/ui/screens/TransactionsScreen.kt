@@ -82,20 +82,11 @@ fun TransactionsScreen(
     onDeleteClicked: (TransactionEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var searchQuery by remember { mutableStateOf(filterSettings.searchQuery) }
+    var searchQuery by remember(filterSettings.searchQuery) { mutableStateOf(filterSettings.searchQuery) }
 
-    // Group transactions by date
-    val groupedByDate = remember(transactions, searchQuery) {
-        val filtered = if (searchQuery.isBlank()) transactions else {
-            val q = searchQuery.lowercase()
-            transactions.filter {
-                it.description.lowercase().contains(q) ||
-                        it.category.lowercase().contains(q) ||
-                        it.subCategory.lowercase().contains(q) ||
-                        it.account.lowercase().contains(q)
-            }
-        }
-        filtered.groupBy { it.date }
+    // Group transactions by date (filtered via ViewModel StateFlow)
+    val groupedByDate = remember(transactions) {
+        transactions.groupBy { it.date }
     }
 
     val filteredCategoriesList = remember(categories, filterSettings.selectedType) {

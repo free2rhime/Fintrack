@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [TransactionEntity::class, CategoryEntity::class, ExchangeRateEntity::class],
     version = 2,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class FinTrackDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao

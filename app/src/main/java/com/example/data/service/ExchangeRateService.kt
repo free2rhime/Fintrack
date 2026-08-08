@@ -24,7 +24,10 @@ data class BnrRateResult(
     val status: String // "OFFICIAL", "INVALID_DATE", "NO_NETWORK", "HTTP_ERROR", "XML_ERROR", "NOT_YET_PUBLISHED", "NO_APPLICABLE_RATE"
 )
 
-class ExchangeRateService(private val exchangeRateDao: ExchangeRateDao) {
+class ExchangeRateService(
+    private val exchangeRateDao: ExchangeRateDao,
+    private val httpFetcher: (String) -> Pair<String?, String> = ExchangeRateService::fetchUrlWithStatus
+) {
 
     /**
      * Retrieves official BNR EUR/RON exchange rate for the specified transaction date.
@@ -113,15 +116,15 @@ class ExchangeRateService(private val exchangeRateDao: ExchangeRateDao) {
         val year = parsedDate.year
 
         // 1. Attempt year-specific archive XML
-        var (xmlContent, httpStatus) = fetchUrlWithStatus("https://curs.bnr.ro/files/xml/years/nbrfxrates$year.xml")
+        var (xmlContent, httpStatus) = httpFetcher("https://curs.bnr.ro/files/xml/years/nbrfxrates$year.xml")
 
         // 2. Fallback to 10-day XML or current XML if year file not yet created
         if (xmlContent == null) {
-            val fallback10 = fetchUrlWithStatus("https://curs.bnr.ro/nbrfxrates10days.xml")
+            val fallback10 = httpFetcher("https://curs.bnr.ro/nbrfxrates10days.xml")
             if (fallback10.first != null) {
                 xmlContent = fallback10.first
             } else {
-                val fallbackCurr = fetchUrlWithStatus("https://curs.bnr.ro/nbrfxrates.xml")
+                val fallbackCurr = httpFetcher("https://curs.bnr.ro/nbrfxrates.xml")
                 xmlContent = fallbackCurr.first
                 if (xmlContent == null && fallbackCurr.second != "200") {
                     httpStatus = fallbackCurr.second
@@ -167,7 +170,7 @@ class ExchangeRateService(private val exchangeRateDao: ExchangeRateDao) {
         }
 
         // Try previous year archive if requested date is early January before first BNR publication
-        val (prevYearXml, _) = fetchUrlWithStatus("https://curs.bnr.ro/files/xml/years/nbrfxrates${year - 1}.xml")
+        val (prevYearXml, _) = httpFetcher("https://curs.bnr.ro/files/xml/years/nbrfxrates${year - 1}.xml")
         if (prevYearXml != null) {
             val (prevMap, prevSuccess) = parseBnrXmlContentWithStatus(prevYearXml)
             if (prevSuccess) {
@@ -259,28 +262,28 @@ class ExchangeRateService(private val exchangeRateDao: ExchangeRateDao) {
         return parseBnrXmlStreamWithStatus(xml.byteInputStream())
     }
 
-    private fun fetchUrlWithStatus(urlString: String): Pair<String?, String> {
-        return try {
-            val url = URL(urlString)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 6000
-            conn.readTimeout = 6000
-            conn.requestMethod = "GET"
-            val code = conn.responseCode
-            if (code == 200) {
-                val text = conn.inputStream.bufferedReader().use { it.readText() }
-                Pair(text, "200")
-            } else {
-                Pair(null, code.toString())
-            }
-        } catch (e: java.io.IOException) {
-            Pair(null, "NO_NETWORK")
-        } catch (e: Exception) {
-            Pair(null, "HTTP_ERROR")
-        }
-    }
-
     companion object {
+        fun fetchUrlWithStatus(urlString: String): Pair<String?, String> {
+            return try {
+                val url = URL(urlString)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 6000
+                conn.readTimeout = 6000
+                conn.requestMethod = "GET"
+                val code = conn.responseCode
+                if (code == 200) {
+                    val text = conn.inputStream.bufferedReader().use { it.readText() }
+                    Pair(text, "200")
+                } else {
+                    Pair(null, code.toString())
+                }
+            } catch (e: java.io.IOException) {
+                Pair(null, "NO_NETWORK")
+            } catch (e: Exception) {
+                Pair(null, "HTTP_ERROR")
+            }
+        }
+
         fun calculateAmountEUR(amountRON: Double, rate: Double): Double {
             if (rate <= 0.0) return 0.0
             return BigDecimal.valueOf(amountRON)

@@ -21,8 +21,8 @@ data class PreparedRepairItem(
 class TransactionRepository(
     private val transactionDao: TransactionDao,
     private val exchangeRateService: ExchangeRateService,
-    private val exchangeRateDao: ExchangeRateDao? = null,
-    private val database: RoomDatabase? = null
+    private val exchangeRateDao: ExchangeRateDao,
+    private val database: RoomDatabase
 ) {
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
 
@@ -109,12 +109,7 @@ class TransactionRepository(
 
     suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) {
         if (transactions.isEmpty()) return
-        val db = database
-        if (db != null) {
-            db.withTransaction {
-                transactionDao.insertAllTransactions(transactions)
-            }
-        } else {
+        database.withTransaction {
             transactionDao.insertAllTransactions(transactions)
         }
     }
@@ -151,14 +146,7 @@ class TransactionRepository(
 
     suspend fun applyRepairBatch(repairs: List<PreparedRepairItem>): Int {
         if (repairs.isEmpty()) return 0
-        val db = database
-        if (db != null) {
-            db.withTransaction {
-                for (item in repairs) {
-                    applySingleRepairInternal(item)
-                }
-            }
-        } else {
+        database.withTransaction {
             for (item in repairs) {
                 applySingleRepairInternal(item)
             }
@@ -180,7 +168,7 @@ class TransactionRepository(
         transactionDao.insertTransaction(updatedTx)
 
         // Clean up legacy unverified cache row if present
-        exchangeRateDao?.deleteUnverifiedRatesForDate(item.transaction.date)
+        exchangeRateDao.deleteUnverifiedRatesForDate(item.transaction.date)
 
         val rateEntity = ExchangeRateEntity(
             date = item.transaction.date,
@@ -191,7 +179,7 @@ class TransactionRepository(
             fetchedAt = System.currentTimeMillis(),
             status = "OFFICIAL"
         )
-        exchangeRateDao?.insertRate(rateEntity)
+        exchangeRateDao.insertRate(rateEntity)
     }
 
     suspend fun applyRepairToTransactionAndCache(

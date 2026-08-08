@@ -10,11 +10,12 @@ import org.junit.Test
 
 class BnrExchangeRateTest {
 
+    private lateinit var mockDao: com.example.data.dao.ExchangeRateDao
     private lateinit var exchangeRateService: ExchangeRateService
 
     @Before
     fun setUp() {
-        val mockDao = object : com.example.data.dao.ExchangeRateDao {
+        mockDao = object : com.example.data.dao.ExchangeRateDao {
             override suspend fun getOfficialRateForDate(date: String): com.example.data.model.ExchangeRateEntity? = null
             override suspend fun getRateForDate(date: String): com.example.data.model.ExchangeRateEntity? = null
             override suspend fun insertRate(rate: com.example.data.model.ExchangeRateEntity) {}
@@ -78,15 +79,17 @@ class BnrExchangeRateTest {
             </DataSet>
         """.trimIndent()
 
-        val ratesMap = exchangeRateService.parseBnrXmlContent(sampleXml)
-        val requestedDate = "2026-08-02"
+        val fakeService = ExchangeRateService(mockDao, httpFetcher = { _ ->
+            Pair(sampleXml, "200")
+        })
 
-        val validEntry = ratesMap.entries
-            .filter { it.key <= requestedDate }
-            .maxByOrNull { it.key }
+        val result = kotlinx.coroutines.runBlocking {
+            fakeService.getOfficialRate("2026-08-02")
+        }
 
-        assertEquals("2026-07-31", validEntry?.key)
-        assertEquals(4.9760, validEntry?.value!!, 0.0001)
+        assertEquals("OFFICIAL", result.status)
+        assertEquals("2026-07-31", result.effectiveDate)
+        assertEquals(4.9760, result.rate, 0.0001)
     }
 
     @Test

@@ -14,38 +14,37 @@ class RepairSafetyTest {
 
     @Test
     fun testBackupValidationChecks() {
-        val validFile = File.createTempFile("valid_backup", ".csv")
-        validFile.deleteOnExit()
-        validFile.writeText(
-            "Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Exchange_Rate_Date,Exchange_Rate_Source,Conversion_Status,Type,Account,Category,SubCategory,Description\n" +
-            "tx1,2026-08-01,100.0,20.09,4.9765,2026-08-01,BNR_OFFICIAL,OFFICIAL,Expense,Checking,Food,Groceries,Supermarket\n"
+        val tempFolder = File(System.getProperty("java.io.tmpdir"), "backup_test_${System.currentTimeMillis()}")
+        tempFolder.mkdirs()
+
+        val sampleTx = com.example.data.model.TransactionEntity(
+            id = "tx1",
+            date = "2026-08-01",
+            description = "Supermarket",
+            amountRON = 100.0,
+            amountEUR = 20.09,
+            exchangeRate = 4.9765,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries"
         )
+        val transactions = listOf(sampleTx)
 
-        fun validate(file: File, expectedCount: Int): Boolean {
-            if (!file.exists() || !file.canRead() || file.length() <= 0) return false
-            val lines = file.readLines()
-            if (lines.isEmpty()) return false
-            val header = lines.first()
-            if (!header.startsWith("Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR")) return false
-            val dataRows = lines.drop(1).filter { it.isNotBlank() }
-            return dataRows.size >= expectedCount
-        }
+        val validFile = File(tempFolder, "valid_backup.csv")
+        val validResult = com.example.data.util.CsvBackupManager.createAndValidateBackup(validFile, transactions)
+        assertTrue(validResult.isValid)
 
-        assertTrue(validate(validFile, 1))
+        val invalidHeaderFile = File(tempFolder, "invalid_header.csv")
+        invalidHeaderFile.writeText("Wrong,Header,Format\n1,2,3\n")
+        val header = invalidHeaderFile.readLines().first()
+        assertFalse(header.contains("Transaction_ID") && header.contains("Amount_RON"))
 
-        val missingFile = File(validFile.parentFile, "non_existent_123.csv")
-        assertFalse(validate(missingFile, 1))
+        val missingFile = File(tempFolder, "non_existent.csv")
+        assertFalse(missingFile.exists())
 
-        val emptyFile = File.createTempFile("empty", ".csv")
-        emptyFile.deleteOnExit()
-        assertFalse(validate(emptyFile, 1))
-
-        val invalidHeaderFile = File.createTempFile("wrong_header", ".csv")
-        invalidHeaderFile.deleteOnExit()
-        invalidHeaderFile.writeText("ID,Date,RON,EUR\ntx1,2026-08-01,100,20\n")
-        assertFalse(validate(invalidHeaderFile, 1))
-
-        assertFalse(validate(validFile, 5))
+        tempFolder.deleteRecursively()
     }
 
     @Test

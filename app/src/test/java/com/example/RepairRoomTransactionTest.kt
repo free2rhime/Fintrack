@@ -162,8 +162,8 @@ class RepairRoomTransactionTest {
             account = "Checking",
             category = "Food",
             subCategory = "Groceries",
-            conversionStatus = null,
-            exchangeRateSource = null
+            conversionStatus = "UNVERIFIED",
+            exchangeRateSource = "UNVERIFIED"
         )
         val tx2Unverified = TransactionEntity(
             id = "tx_unverified",
