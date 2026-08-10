@@ -59,7 +59,18 @@ class TransactionRepository(
         subCategory: String,
         destination: String? = null
     ): TransactionEntity {
-        val bnrResult = exchangeRateService.getOfficialRate(date)
+        val bnrResult = try {
+            exchangeRateService.getOfficialRate(date)
+        } catch (e: Exception) {
+            com.example.data.service.BnrRateResult(
+                requestedDate = date,
+                effectiveDate = date,
+                rate = 0.0,
+                source = "NONE",
+                status = "XML_PARSE_ERROR",
+                diagnostic = "Exception fetching rate: ${e.javaClass.simpleName}: ${e.message?.take(100)}"
+            )
+        }
         val isOfficial = bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0
         val amountEUR = if (isOfficial) ExchangeRateService.calculateAmountEUR(amountRON, bnrResult.rate) else 0.0
         val status = if (isOfficial) "OFFICIAL" else "PENDING"
@@ -72,8 +83,8 @@ class TransactionRepository(
             description = description.trim(),
             amountRON = amountRON,
             amountEUR = amountEUR,
-            exchangeRate = bnrResult.rate,
-            exchangeRateDate = bnrResult.effectiveDate,
+            exchangeRate = if (isOfficial) bnrResult.rate else 0.0,
+            exchangeRateDate = if (isOfficial) bnrResult.effectiveDate else date,
             exchangeRateSource = rateSource,
             conversionStatus = status,
             type = type,
@@ -96,7 +107,18 @@ class TransactionRepository(
      */
     suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity {
         val todayStr = LocalDate.now(ZoneId.systemDefault()).toString()
-        val bnrResult = exchangeRateService.getOfficialRate(todayStr)
+        val bnrResult = try {
+            exchangeRateService.getOfficialRate(todayStr)
+        } catch (e: Exception) {
+            com.example.data.service.BnrRateResult(
+                requestedDate = todayStr,
+                effectiveDate = todayStr,
+                rate = 0.0,
+                source = "NONE",
+                status = "XML_PARSE_ERROR",
+                diagnostic = "Exception fetching rate: ${e.javaClass.simpleName}: ${e.message?.take(100)}"
+            )
+        }
         val isOfficial = bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0
         val amountEUR = if (isOfficial) ExchangeRateService.calculateAmountEUR(source.amountRON, bnrResult.rate) else 0.0
         val status = if (isOfficial) "OFFICIAL" else "PENDING"
@@ -106,8 +128,8 @@ class TransactionRepository(
             id = UUID.randomUUID().toString(),
             date = todayStr,
             amountEUR = amountEUR,
-            exchangeRate = bnrResult.rate,
-            exchangeRateDate = bnrResult.effectiveDate,
+            exchangeRate = if (isOfficial) bnrResult.rate else 0.0,
+            exchangeRateDate = if (isOfficial) bnrResult.effectiveDate else todayStr,
             exchangeRateSource = rateSource,
             conversionStatus = status,
             destination = if (source.type == "Income") source.destination else null,

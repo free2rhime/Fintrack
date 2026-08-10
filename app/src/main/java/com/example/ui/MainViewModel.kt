@@ -261,19 +261,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         destination: String?
     ) {
         viewModelScope.launch {
-            transactionRepository.saveTransaction(
-                id = id,
-                date = date,
-                description = description,
-                amountRON = amountRON,
-                type = type,
-                account = account,
-                category = category,
-                subCategory = subCategory,
-                destination = destination
-            )
-            dismissTransactionDialog()
-            showNotification("Transaction saved successfully")
+            try {
+                val savedTx = transactionRepository.saveTransaction(
+                    id = id,
+                    date = date,
+                    description = description,
+                    amountRON = amountRON,
+                    type = type,
+                    account = account,
+                    category = category,
+                    subCategory = subCategory,
+                    destination = destination
+                )
+                dismissTransactionDialog()
+                if (savedTx.conversionStatus == "OFFICIAL") {
+                    showNotification("Transaction saved successfully")
+                } else {
+                    showNotification("Transaction saved. EUR rate pending (${savedTx.conversionStatus}).")
+                }
+            } catch (e: Exception) {
+                showNotification("Failed to save transaction: ${e.message?.take(100)}")
+            }
         }
     }
 
@@ -617,13 +625,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun retryPendingConversions(showResultDialog: Boolean = true) {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isRetryingPending = true)
-            val result = transactionRepository.syncPendingConversions()
-            _uiState.value = _uiState.value.copy(
-                isRetryingPending = false,
-                pendingRetryResult = if (showResultDialog) result else null
-            )
-            if (result.convertedSuccessfully > 0) {
-                showNotification("Converted ${result.convertedSuccessfully} pending EUR transactions with BNR")
+            try {
+                val result = transactionRepository.syncPendingConversions()
+                _uiState.value = _uiState.value.copy(
+                    isRetryingPending = false,
+                    pendingRetryResult = if (showResultDialog) result else null
+                )
+                if (result.convertedSuccessfully > 0) {
+                    showNotification("Converted ${result.convertedSuccessfully} pending EUR transactions with BNR")
+                }
+            } catch (e: Exception) {
+                showNotification("Error syncing pending conversions: ${e.message?.take(100)}")
+            } finally {
+                _uiState.value = _uiState.value.copy(isRetryingPending = false)
             }
         }
     }
@@ -634,8 +648,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun runBnrDiagnostic() {
         viewModelScope.launch(Dispatchers.IO) {
-            val result = exchangeRateService.runDebugDiagnostic()
-            _uiState.value = _uiState.value.copy(debugDiagnosticResult = result)
+            try {
+                val result = exchangeRateService.runDebugDiagnostic()
+                _uiState.value = _uiState.value.copy(debugDiagnosticResult = result)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    debugDiagnosticResult = com.example.data.service.BnrDiagnosticResult(
+                        isReachable = false,
+                        httpStatus = "EXCEPTION",
+                        failureCategory = "EXCEPTION",
+                        sanitizedPreview = "Exception: ${e.javaClass.simpleName}: ${e.message?.take(100)}"
+                    )
+                )
+            }
         }
     }
 

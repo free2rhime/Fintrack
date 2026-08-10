@@ -593,4 +593,95 @@ class BnrExchangeRateTest {
         assertEquals(1, parseRes.publicationDatesParsed)
         assertEquals(4.9775, parseRes.ratesMap["2026-08-07"]!!, 0.0001)
     }
+
+    @Test
+    fun testMalformedXmlAndHtmlBodiesDoNotCrashDiagnosticOrService() {
+        val htmlService = ExchangeRateService(
+            mockRateDao,
+            detailedHttpFetcher = { url ->
+                com.example.data.service.HttpResponseData(
+                    requestedUrl = url,
+                    finalUrl = url,
+                    httpStatus = "200",
+                    contentType = "text/html; charset=invalid-charset",
+                    contentEncoding = null,
+                    byteCount = 20,
+                    content = "<html>Error</html>",
+                    isHtml = true
+                )
+            }
+        )
+
+        val diag = runBlocking { htmlService.runDebugDiagnostic() }
+        assertEquals("200", diag.httpStatus)
+        assertEquals("RESPONSE_IS_HTML", diag.failureCategory)
+        assertFalse(diag.eurRateFound)
+
+        val rateRes = runBlocking { htmlService.getOfficialRate("2026-08-05") }
+        assertEquals("RESPONSE_IS_HTML", rateRes.status)
+        assertEquals(0.0, rateRes.rate, 0.0001)
+    }
+
+    @Test
+    fun testTransactionRepositorySaveTransactionSavesRonWhenBnrFails() {
+        val mockTxDao = object : TransactionDao {
+            val list = mutableListOf<TransactionEntity>()
+            override fun getAllTransactions(): Flow<List<TransactionEntity>> = MutableStateFlow(list)
+            override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = MutableStateFlow(list)
+            override suspend fun getTransactionById(id: String): TransactionEntity? = list.find { it.id == id }
+            override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
+            override suspend fun getRetryablePendingTransactions(): List<TransactionEntity> = list.filter { it.conversionStatus == "PENDING" }
+            override suspend fun getPendingTransactions(): List<TransactionEntity> = list.filter { it.conversionStatus == "PENDING" }
+            override suspend fun getAllTransactionsList(): List<TransactionEntity> = list
+            override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
+            override suspend fun insertTransaction(transaction: TransactionEntity) { list.add(transaction) }
+            override suspend fun insertAllTransactions(transactions: List<TransactionEntity>) { list.addAll(transactions) }
+            override suspend fun deleteTransaction(transaction: TransactionEntity) { list.remove(transaction) }
+            override suspend fun deleteTransactionById(id: String) { list.removeAll { it.id == id } }
+            override suspend fun deleteAllTransactions() { list.clear() }
+        }
+
+        val crashingService = ExchangeRateService(
+            mockRateDao,
+            httpFetcher = { Pair("Malformed <XML <Unclosed", "200") }
+        )
+
+        val mockDb = object : androidx.room.RoomDatabase() {
+            override fun createOpenHelper(config: androidx.room.DatabaseConfiguration): androidx.sqlite.db.SupportSQLiteOpenHelper {
+                throw UnsupportedOperationException("Not needed in test")
+            }
+            override fun createInvalidationTracker(): androidx.room.InvalidationTracker {
+                throw UnsupportedOperationException("Not needed in test")
+            }
+            override fun clearAllTables() {}
+        }
+
+        val repo = TransactionRepository(
+            transactionDao = mockTxDao,
+            exchangeRateService = crashingService,
+            exchangeRateDao = mockRateDao,
+            database = mockDb
+        )
+
+        val saved = runBlocking {
+            repo.saveTransaction(
+                id = "tx123",
+                date = "2026-08-05",
+                description = "Grocery Store",
+                amountRON = 100.0,
+                type = "Expense",
+                account = "Cash",
+                category = "Food",
+                subCategory = "Groceries"
+            )
+        }
+
+        assertEquals("tx123", saved.id)
+        assertEquals(100.0, saved.amountRON, 0.001)
+        assertEquals(0.0, saved.amountEUR, 0.001)
+        assertEquals(0.0, saved.exchangeRate, 0.001)
+        assertEquals("NONE", saved.exchangeRateSource)
+        assertEquals("PENDING", saved.conversionStatus)
+        assertEquals(1, mockTxDao.list.size)
+    }
 }

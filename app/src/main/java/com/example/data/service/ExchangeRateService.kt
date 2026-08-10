@@ -457,38 +457,59 @@ class ExchangeRateService(
         val securityApplied = mutableMapOf<String, Boolean>()
         val ratesMap = mutableMapOf<String, Double>()
 
-        val factory = DocumentBuilderFactory.newInstance()
-        factory.isNamespaceAware = true
-        factory.isXIncludeAware = false
-        factory.isExpandEntityReferences = false
+        return try {
+            val factory = DocumentBuilderFactory.newInstance()
 
-        fun setFeatureSafe(feature: String, value: Boolean) {
             try {
-                factory.setFeature(feature, value)
-                securityApplied[feature] = value
+                factory.isNamespaceAware = true
+                securityApplied["isNamespaceAware"] = true
             } catch (e: Exception) {
-                securityApplied[feature] = false
+                securityApplied["isNamespaceAware"] = false
             }
-        }
 
-        setFeatureSafe(XMLConstants.FEATURE_SECURE_PROCESSING, true)
-        setFeatureSafe("http://xml.org/sax/features/external-general-entities", false)
-        setFeatureSafe("http://xml.org/sax/features/external-parameter-entities", false)
-        setFeatureSafe("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            try {
+                factory.isXIncludeAware = false
+                securityApplied["isXIncludeAware"] = true
+            } catch (e: Exception) {
+                securityApplied["isXIncludeAware"] = false
+            }
 
-        val doc: Document = try {
-            val builder = factory.newDocumentBuilder()
-            builder.setEntityResolver { _, _ -> InputSource(StringReader("")) }
-            builder.parse(xml.byteInputStream(Charsets.UTF_8))
-        } catch (e: Exception) {
-            return BnrXmlParseResult(
-                failureCategory = "XML_DOCUMENT_INVALID",
-                hasXmlDeclaration = hasXmlDeclaration,
-                exceptionClass = e.javaClass.simpleName,
-                exceptionMessage = e.message?.take(150),
-                securityFeaturesApplied = securityApplied
-            )
-        }
+            try {
+                factory.isExpandEntityReferences = false
+                securityApplied["isExpandEntityReferences"] = true
+            } catch (e: Exception) {
+                securityApplied["isExpandEntityReferences"] = false
+            }
+
+            fun setFeatureSafe(feature: String, value: Boolean) {
+                try {
+                    factory.setFeature(feature, value)
+                    securityApplied[feature] = value
+                } catch (e: Exception) {
+                    securityApplied[feature] = false
+                }
+            }
+
+            setFeatureSafe(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+            setFeatureSafe("http://xml.org/sax/features/external-general-entities", false)
+            setFeatureSafe("http://xml.org/sax/features/external-parameter-entities", false)
+            setFeatureSafe("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+
+            val doc: Document = try {
+                val builder = factory.newDocumentBuilder()
+                try {
+                    builder.setEntityResolver { _, _ -> InputSource(StringReader("")) }
+                } catch (_: Exception) {}
+                builder.parse(xml.byteInputStream(Charsets.UTF_8))
+            } catch (e: Exception) {
+                return BnrXmlParseResult(
+                    failureCategory = "XML_DOCUMENT_INVALID",
+                    hasXmlDeclaration = hasXmlDeclaration,
+                    exceptionClass = e.javaClass.simpleName,
+                    exceptionMessage = e.message?.take(150),
+                    securityFeaturesApplied = securityApplied
+                )
+            }
 
         val stageC = true
         val root = doc.documentElement
@@ -581,7 +602,7 @@ class ExchangeRateService(
             else -> "OFFICIAL_RATES_PARSED"
         }
 
-        return BnrXmlParseResult(
+        BnrXmlParseResult(
             ratesMap = ratesMap,
             failureCategory = failureCategory,
             hasXmlDeclaration = hasXmlDeclaration,
@@ -600,7 +621,16 @@ class ExchangeRateService(
             stageG_validRatesProduced = stageG,
             securityFeaturesApplied = securityApplied
         )
+    } catch (e: Exception) {
+        BnrXmlParseResult(
+            failureCategory = "XML_DOCUMENT_INVALID",
+            hasXmlDeclaration = hasXmlDeclaration,
+            exceptionClass = e.javaClass.simpleName,
+            exceptionMessage = e.message?.take(150),
+            securityFeaturesApplied = securityApplied
+        )
     }
+}
 
     private fun findElementsRecursively(node: Node, targetLocalName: String, result: MutableList<Element>) {
         if (node.nodeType == Node.ELEMENT_NODE) {
