@@ -87,7 +87,7 @@ class BnrExchangeRateTest {
     fun testInvalidXmlAndEmptyXmlHandling() {
         val invalidXmlService = ExchangeRateService(mockRateDao, httpFetcher = { Pair("NOT_XML", "200") })
         val invalidResult = runBlocking { invalidXmlService.getOfficialRate("2026-08-05") }
-        assertEquals("XML_PARSE_ERROR", invalidResult.status)
+        assertEquals("XML_DOCUMENT_INVALID", invalidResult.status)
 
         val emptyXmlService = ExchangeRateService(mockRateDao, httpFetcher = { Pair(null, "EMPTY_RESPONSE") })
         val emptyResult = runBlocking { emptyXmlService.getOfficialRate("2026-08-05") }
@@ -342,5 +342,255 @@ class BnrExchangeRateTest {
         assertTrue(manifestFile.exists())
         val content = manifestFile.readText()
         assertTrue(content.contains("android.permission.INTERNET"))
+    }
+
+    @Test
+    fun testRealBnrCurrentFeedStructure() {
+        val xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <DataSet xmlns="http://www.bnr.ro/xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.bnr.ro/xsd nbrfxrates.xsd">
+            	<Header>
+            		<Publisher>National Bank of Romania</Publisher>
+            		<PublishingDate>2026-08-07</PublishingDate>
+            		<MessageType>DR</MessageType>
+            	</Header>
+            	<Body>
+            		<Subject>Exchange Rates</Subject>
+            		<OrigDoc>NBRFXRATES</OrigDoc>
+            		<Cube date="2026-08-07">
+            			<Rate currency="AED">1.2185</Rate>
+            			<Rate currency="AUD">2.9512</Rate>
+            			<Rate currency="USD">4.4752</Rate>
+            			<Rate currency="EUR">4.9775</Rate>
+            		</Cube>
+            	</Body>
+            </DataSet>
+        """.trimIndent()
+
+        val parseRes = exchangeRateService.parseBnrXmlDetailed(xml)
+        assertEquals("OFFICIAL_RATES_PARSED", parseRes.failureCategory)
+        assertTrue(parseRes.publicationDatesParsed > 0)
+        assertEquals("2026-08-07", parseRes.latestPublicationDate)
+        assertEquals(1, parseRes.cubeElementCount)
+        assertEquals(4, parseRes.rateElementCount)
+        assertEquals(1, parseRes.eurRateElementCount)
+        assertEquals(4.9775, parseRes.ratesMap["2026-08-07"]!!, 0.0001)
+    }
+
+    @Test
+    fun testRealBnr10DayStructure() {
+        val xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <DataSet xmlns="http://www.bnr.ro/xsd">
+            	<Header>
+            		<Publisher>National Bank of Romania</Publisher>
+            		<PublishingDate>2026-08-07</PublishingDate>
+            	</Header>
+            	<Body>
+            		<Subject>10 days Exchange Rates</Subject>
+            		<OrigDoc>NBRFXRATES</OrigDoc>
+            		<Cube date="2026-08-07">
+            			<Rate currency="EUR">4.9775</Rate>
+            		</Cube>
+            		<Cube date="2026-08-06">
+            			<Rate currency="EUR">4.9765</Rate>
+            		</Cube>
+            		<Cube date="2026-08-05">
+            			<Rate currency="EUR">4.9750</Rate>
+            		</Cube>
+            	</Body>
+            </DataSet>
+        """.trimIndent()
+
+        val parseRes = exchangeRateService.parseBnrXmlDetailed(xml)
+        assertEquals("OFFICIAL_RATES_PARSED", parseRes.failureCategory)
+        assertEquals(3, parseRes.publicationDatesParsed)
+        assertEquals("2026-08-07", parseRes.latestPublicationDate)
+        assertEquals(3, parseRes.cubeElementCount)
+        assertEquals(3, parseRes.eurRateElementCount)
+        assertEquals(4.9775, parseRes.ratesMap["2026-08-07"]!!, 0.0001)
+        assertEquals(4.9765, parseRes.ratesMap["2026-08-06"]!!, 0.0001)
+        assertEquals(4.9750, parseRes.ratesMap["2026-08-05"]!!, 0.0001)
+    }
+
+    @Test
+    fun testRealBnrYearlyArchiveStructure() {
+        val xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <DataSet xmlns="http://www.bnr.ro/xsd">
+            	<Header>
+            		<Publisher>National Bank of Romania</Publisher>
+            		<PublishingDate>2026-08-07</PublishingDate>
+            	</Header>
+            	<Body>
+            		<Cube date="2026-01-05">
+            			<Rate currency="EUR">4.9730</Rate>
+            		</Cube>
+            		<Cube date="2026-08-07">
+            			<Rate currency="EUR">4.9775</Rate>
+            		</Cube>
+            	</Body>
+            </DataSet>
+        """.trimIndent()
+
+        val parseRes = exchangeRateService.parseBnrXmlDetailed(xml)
+        assertEquals("OFFICIAL_RATES_PARSED", parseRes.failureCategory)
+        assertEquals(2, parseRes.publicationDatesParsed)
+        assertEquals("2026-08-07", parseRes.latestPublicationDate)
+        assertEquals(4.9730, parseRes.ratesMap["2026-01-05"]!!, 0.0001)
+    }
+
+    @Test
+    fun testPrefixedNamespaceAndXmlDeclaration() {
+        val xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <bnr:DataSet xmlns:bnr="http://www.bnr.ro/xsd">
+            	<bnr:Header>
+            		<bnr:Publisher>National Bank of Romania</bnr:Publisher>
+            	</bnr:Header>
+            	<bnr:Body>
+            		<bnr:Cube date="2026-08-07">
+            			<bnr:Rate currency="EUR">4.9775</bnr:Rate>
+            		</bnr:Cube>
+            	</bnr:Body>
+            </bnr:DataSet>
+        """.trimIndent()
+
+        val parseRes = exchangeRateService.parseBnrXmlDetailed(xml)
+        assertEquals("OFFICIAL_RATES_PARSED", parseRes.failureCategory)
+        assertTrue(parseRes.hasXmlDeclaration)
+        assertEquals("DataSet", parseRes.rootLocalName)
+        assertEquals(1, parseRes.publicationDatesParsed)
+        assertEquals(4.9775, parseRes.ratesMap["2026-08-07"]!!, 0.0001)
+    }
+
+    @Test
+    fun testHtmlResponseWithHttp200() {
+        val html = """
+            <!DOCTYPE html>
+            <html>
+            <head><title>302 Found</title></head>
+            <body><h1>Redirecting...</h1></body>
+            </html>
+        """.trimIndent()
+
+        val parseRes = exchangeRateService.parseBnrXmlDetailed(html)
+        assertEquals("RESPONSE_IS_HTML", parseRes.failureCategory)
+        assertEquals(0, parseRes.publicationDatesParsed)
+        assertFalse(parseRes.stageC_xmlOpened)
+    }
+
+    @Test
+    fun testGenericContentTypeContainingValidXml() {
+        val xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <DataSet xmlns="http://www.bnr.ro/xsd">
+            	<Body>
+            		<Cube date="2026-08-07">
+            			<Rate currency="EUR">4.9775</Rate>
+            		</Cube>
+            	</Body>
+            </DataSet>
+        """.trimIndent()
+
+        val service = ExchangeRateService(
+            exchangeRateDao = mockRateDao,
+            detailedHttpFetcher = { url ->
+                com.example.data.service.HttpResponseData(
+                    requestedUrl = url,
+                    finalUrl = url,
+                    httpStatus = "200",
+                    contentType = "application/octet-stream",
+                    contentEncoding = null,
+                    byteCount = xml.toByteArray().size,
+                    content = xml,
+                    isHtml = false,
+                    isGenericXml = true
+                )
+            }
+        )
+
+        val diag = runBlocking { service.runDebugDiagnostic() }
+        assertTrue(diag.isReachable)
+        assertEquals("200", diag.httpStatus)
+        assertEquals("OFFICIAL_RATES_PARSED", diag.failureCategory)
+        assertEquals(1, diag.publicationDatesParsed)
+        assertTrue(diag.eurRateFound)
+        assertEquals("2026-08-07", diag.latestPublicationDate)
+    }
+
+    @Test
+    fun testEmptyResponseAndMissingElements() {
+        val emptyParse = exchangeRateService.parseBnrXmlDetailed("")
+        assertEquals("EMPTY_RESPONSE", emptyParse.failureCategory)
+
+        val noCubeXml = "<DataSet><Body></Body></DataSet>"
+        val noCubeParse = exchangeRateService.parseBnrXmlDetailed(noCubeXml)
+        assertEquals("CUBE_NOT_FOUND", noCubeParse.failureCategory)
+
+        val cubeNoDateXml = "<DataSet><Body><Cube><Rate currency=\"EUR\">4.97</Rate></Cube></Body></DataSet>"
+        val cubeNoDateParse = exchangeRateService.parseBnrXmlDetailed(cubeNoDateXml)
+        assertEquals("DATED_CUBE_NOT_FOUND", cubeNoDateParse.failureCategory)
+
+        val noRateXml = "<DataSet><Body><Cube date=\"2026-08-07\"></Cube></Body></DataSet>"
+        val noRateParse = exchangeRateService.parseBnrXmlDetailed(noRateXml)
+        assertEquals("RATE_NOT_FOUND", noRateParse.failureCategory)
+
+        val noEurXml = "<DataSet><Body><Cube date=\"2026-08-07\"><Rate currency=\"USD\">4.50</Rate></Cube></Body></DataSet>"
+        val noEurParse = exchangeRateService.parseBnrXmlDetailed(noEurXml)
+        assertEquals("EUR_RATE_NOT_FOUND", noEurParse.failureCategory)
+    }
+
+    @Test
+    fun testEurWhitespaceMultiplierAndInvalidNumber() {
+        val whitespaceXml = """
+            <DataSet>
+                <Body>
+                    <Cube date="2026-08-07">
+                        <Rate currency=" eur "> 4.9775 </Rate>
+                        <Rate currency="JPY" multiplier="100"> 291.23 </Rate>
+                    </Cube>
+                </Body>
+            </DataSet>
+        """.trimIndent()
+
+        val parseRes = exchangeRateService.parseBnrXmlDetailed(whitespaceXml)
+        assertEquals("OFFICIAL_RATES_PARSED", parseRes.failureCategory)
+        assertEquals(4.9775, parseRes.ratesMap["2026-08-07"]!!, 0.0001)
+
+        val invalidNumberXml = """
+            <DataSet>
+                <Body>
+                    <Cube date="2026-08-07">
+                        <Rate currency="EUR">N/A</Rate>
+                    </Cube>
+                </Body>
+            </DataSet>
+        """.trimIndent()
+
+        val invalidParse = exchangeRateService.parseBnrXmlDetailed(invalidNumberXml)
+        assertEquals("INVALID_EUR_VALUE", invalidParse.failureCategory)
+    }
+
+    @Test
+    fun testSecureParserConfiguration() {
+        val xxeXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <!DOCTYPE DataSet [
+                <!ENTITY xxe SYSTEM "http://127.0.0.1/evil">
+            ]>
+            <DataSet xmlns="http://www.bnr.ro/xsd">
+            	<Body>
+            		<Cube date="2026-08-07">
+            			<Rate currency="EUR">4.9775</Rate>
+            		</Cube>
+            	</Body>
+            </DataSet>
+        """.trimIndent()
+
+        val parseRes = exchangeRateService.parseBnrXmlDetailed(xxeXml)
+        assertEquals("OFFICIAL_RATES_PARSED", parseRes.failureCategory)
+        assertEquals(1, parseRes.publicationDatesParsed)
+        assertEquals(4.9775, parseRes.ratesMap["2026-08-07"]!!, 0.0001)
     }
 }

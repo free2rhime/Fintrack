@@ -495,12 +495,29 @@ fun SettingsScreen(
                 onDismissRequest = onDismissDebugDiagnostic,
                 title = { Text("BNR Endpoint Diagnostic (Debug)", fontWeight = FontWeight.Bold) },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text("• Reachable: ${debugDiagnosticResult.isReachable}")
                         Text("• HTTP Status: ${debugDiagnosticResult.httpStatus}")
+                        Text("• Failure Category: ${debugDiagnosticResult.failureCategory}")
                         Text("• Publication Dates Parsed: ${debugDiagnosticResult.publicationDatesParsed}")
                         Text("• EUR Rate Found: ${debugDiagnosticResult.eurRateFound}")
                         Text("• Latest Publication Date: ${debugDiagnosticResult.latestPublicationDate ?: "N/A"}")
+                        Text("• Requested URL: ${debugDiagnosticResult.requestedUrl}")
+                        Text("• Final URL: ${debugDiagnosticResult.finalUrl}")
+                        Text("• Content-Type: ${debugDiagnosticResult.contentType ?: "N/A"}")
+                        Text("• Content-Encoding: ${debugDiagnosticResult.contentEncoding ?: "None"}")
+                        Text("• Response Size: ${debugDiagnosticResult.responseByteCount} bytes")
+                        Text("• Is HTML: ${debugDiagnosticResult.isHtml}")
+                        Text("• XML Declaration: ${debugDiagnosticResult.hasXmlDeclaration}")
+                        Text("• Root Element: ${debugDiagnosticResult.rootLocalName ?: "N/A"} (NS: ${debugDiagnosticResult.rootNamespaceUri ?: "None"})")
+                        Text("• Element Counts: Cubes=${debugDiagnosticResult.cubeElementCount}, Rates=${debugDiagnosticResult.rateElementCount}, EUR=${debugDiagnosticResult.eurRateElementCount}")
+                        Text("• Stages: A:${if (debugDiagnosticResult.stageA_httpConnection) "PASS" else "FAIL"} B:${if (debugDiagnosticResult.stageB_bodyObtained) "PASS" else "FAIL"} C:${if (debugDiagnosticResult.stageC_xmlOpened) "PASS" else "FAIL"} D:${if (debugDiagnosticResult.stageD_cubeFound) "PASS" else "FAIL"} E:${if (debugDiagnosticResult.stageE_rateFound) "PASS" else "FAIL"} F:${if (debugDiagnosticResult.stageF_eurFound) "PASS" else "FAIL"} G:${if (debugDiagnosticResult.stageG_validRatesProduced) "PASS" else "FAIL"}")
+                        if (!debugDiagnosticResult.sanitizedPreview.isNullOrBlank()) {
+                            Text("• Preview: ${debugDiagnosticResult.sanitizedPreview}")
+                        }
                     }
                 },
                 confirmButton = {
