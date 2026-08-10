@@ -34,6 +34,8 @@ import com.example.data.util.CsvPreviewData
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
+import com.example.data.repository.PendingRetryResult
+
 data class DiscrepancyItem(
     val transactionId: String,
     val date: String,
@@ -63,7 +65,10 @@ data class MainUiState(
     val discrepancyReport: DiscrepancyReport? = null,
     val isAuditingHistoricalRates: Boolean = false,
     val csvPreviewData: CsvPreviewData? = null,
-    val csvImportFinalResult: CsvImportFinalResult? = null
+    val csvImportFinalResult: CsvImportFinalResult? = null,
+    val pendingRetryResult: PendingRetryResult? = null,
+    val isRetryingPending: Boolean = false,
+    val debugDiagnosticResult: com.example.data.service.BnrDiagnosticResult? = null
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -606,17 +611,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun syncPendingConversions() {
-        if (isSyncingPending.getAndSet(true)) return
+        retryPendingConversions(showResultDialog = false)
+    }
+
+    fun retryPendingConversions(showResultDialog: Boolean = true) {
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val count = transactionRepository.syncPendingConversions()
-                if (count > 0) {
-                    showNotification("Synced $count pending EUR conversions with BNR")
-                }
-            } finally {
-                isSyncingPending.set(false)
+            _uiState.value = _uiState.value.copy(isRetryingPending = true)
+            val result = transactionRepository.syncPendingConversions()
+            _uiState.value = _uiState.value.copy(
+                isRetryingPending = false,
+                pendingRetryResult = if (showResultDialog) result else null
+            )
+            if (result.convertedSuccessfully > 0) {
+                showNotification("Converted ${result.convertedSuccessfully} pending EUR transactions with BNR")
             }
         }
+    }
+
+    fun dismissRetryResultDialog() {
+        _uiState.value = _uiState.value.copy(pendingRetryResult = null)
+    }
+
+    fun runBnrDiagnostic() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = exchangeRateService.runDebugDiagnostic()
+            _uiState.value = _uiState.value.copy(debugDiagnosticResult = result)
+        }
+    }
+
+    fun dismissDebugDiagnostic() {
+        _uiState.value = _uiState.value.copy(debugDiagnosticResult = null)
     }
 
     fun dismissNotification() {

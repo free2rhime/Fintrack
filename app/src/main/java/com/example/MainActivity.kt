@@ -167,7 +167,14 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         onExportCsv = { CsvExporter.exportTransactionsToCsv(context, allTxs) },
                         onImportCsv = { uri -> viewModel.importCsv(context, uri) },
                         onSeedDemoData = { viewModel.seedDemoData() },
-                        onResetData = { viewModel.resetData() }
+                        onResetData = { viewModel.resetData() },
+                        onRetryPendingConversions = { viewModel.retryPendingConversions() },
+                        pendingRetryResult = uiState.pendingRetryResult,
+                        onDismissRetryResult = { viewModel.dismissRetryResultDialog() },
+                        onRunBnrDiagnostic = { viewModel.runBnrDiagnostic() },
+                        debugDiagnosticResult = uiState.debugDiagnosticResult,
+                        onDismissDebugDiagnostic = { viewModel.dismissDebugDiagnostic() },
+                        isRetryingPending = uiState.isRetryingPending
                     )
                 }
             }

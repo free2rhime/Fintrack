@@ -145,20 +145,22 @@ fun TransactionCardItem(
                         }
 
                         // Conversion Status Badge
-                        if (transaction.conversionStatus == "PENDING") {
+                        val status = transaction.conversionStatus
+                        if (status == "PENDING" || status?.startsWith("PENDING_") == true) {
+                            val label = if (status.contains("PUBLISHED")) "EUR Pending (Future)" else "EUR Pending"
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.tertiaryContainer
                             ) {
                                 Text(
-                                    text = "EUR Pending",
+                                    text = label,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontSize = 11.sp,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                             }
-                        } else if (transaction.conversionStatus == "FAILED") {
+                        } else if (status == "FAILED" || status?.startsWith("FAILED_") == true) {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.errorContainer
@@ -171,7 +173,7 @@ fun TransactionCardItem(
                                     color = MaterialTheme.colorScheme.onErrorContainer
                                 )
                             }
-                        } else if (transaction.conversionStatus == "UNVERIFIED" || transaction.exchangeRateSource != "BNR_OFFICIAL") {
+                        } else if (status == "UNVERIFIED" || transaction.exchangeRateSource != "BNR_OFFICIAL") {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
@@ -204,10 +206,12 @@ fun TransactionCardItem(
                     val eurSubtext = when {
                         transaction.conversionStatus == "OFFICIAL" && transaction.exchangeRateSource == "BNR_OFFICIAL" ->
                             "($amountSymbol€$formattedEur)"
-                        transaction.conversionStatus == "PENDING" ->
-                            "(EUR Pending)"
-                        transaction.conversionStatus == "FAILED" ->
-                            "(EUR Conversion Failed)"
+                        transaction.conversionStatus?.contains("XML") == true || transaction.conversionStatus?.contains("EMPTY") == true || transaction.conversionStatus?.contains("HTTP") == true || transaction.conversionStatus == "FAILED" ->
+                            "(EUR conversion failed: BNR response could not be read)"
+                        transaction.conversionStatus?.contains("PUBLISHED") == true ->
+                            "(EUR conversion pending: date in future)"
+                        transaction.conversionStatus == "PENDING" || transaction.conversionStatus?.startsWith("PENDING_") == true ->
+                            "(EUR conversion pending: network unavailable)"
                         else ->
                             "(Unverified Rate)"
                     }

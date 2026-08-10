@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,6 +45,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.model.FilterSettings
+import com.example.data.repository.PendingRetryResult
+import com.example.data.service.BnrDiagnosticResult
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.theme.ExpenseRed
 
@@ -61,6 +64,13 @@ fun SettingsScreen(
     onImportCsv: (Uri) -> Unit = {},
     onSeedDemoData: () -> Unit,
     onResetData: () -> Unit,
+    onRetryPendingConversions: () -> Unit = {},
+    pendingRetryResult: PendingRetryResult? = null,
+    onDismissRetryResult: () -> Unit = {},
+    onRunBnrDiagnostic: () -> Unit = {},
+    debugDiagnosticResult: BnrDiagnosticResult? = null,
+    onDismissDebugDiagnostic: () -> Unit = {},
+    isRetryingPending: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val csvPickerLauncher = rememberLauncherForActivityResult(
@@ -308,6 +318,62 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // EUR EXCHANGE RATE CONVERSION CARD
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "EUR Exchange Rate Synchronization",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Retry fetching official BNR rates for pending EUR transaction conversions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = onRetryPendingConversions,
+                    enabled = !isRetryingPending,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("retry_eur_conversions_button"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Sync, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isRetryingPending) "Syncing..." else "Retry EUR Conversions", fontWeight = FontWeight.Bold)
+                }
+
+                if (com.example.BuildConfig.DEBUG) {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedButton(
+                        onClick = onRunBnrDiagnostic,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("run_bnr_diagnostic_button"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Run BNR Endpoint Diagnostic (Debug)", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         // DEMO DATA & MAINTENANCE
         var showSeedDialog by remember { mutableStateOf(false) }
         var showResetDialog by remember { mutableStateOf(false) }
@@ -399,6 +465,47 @@ fun SettingsScreen(
                 dismissButton = {
                     OutlinedButton(onClick = { showResetDialog = false }) {
                         Text("Cancel")
+                    }
+                }
+            )
+        }
+        if (pendingRetryResult != null) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = onDismissRetryResult,
+                title = { Text("EUR Conversions Retry Result", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("• Pending before retry: ${pendingRetryResult.pendingBefore}")
+                        Text("• Converted successfully: ${pendingRetryResult.convertedSuccessfully}")
+                        Text("• Still pending: ${pendingRetryResult.stillPending}")
+                        Text("• Failed: ${pendingRetryResult.failedCount}")
+                        Text("• Main failure reason: ${pendingRetryResult.mainFailureReason ?: "None"}")
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = onDismissRetryResult) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
+
+        if (debugDiagnosticResult != null) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = onDismissDebugDiagnostic,
+                title = { Text("BNR Endpoint Diagnostic (Debug)", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("• Reachable: ${debugDiagnosticResult.isReachable}")
+                        Text("• HTTP Status: ${debugDiagnosticResult.httpStatus}")
+                        Text("• Publication Dates Parsed: ${debugDiagnosticResult.publicationDatesParsed}")
+                        Text("• EUR Rate Found: ${debugDiagnosticResult.eurRateFound}")
+                        Text("• Latest Publication Date: ${debugDiagnosticResult.latestPublicationDate ?: "N/A"}")
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = onDismissDebugDiagnostic) {
+                        Text("OK")
                     }
                 }
             )

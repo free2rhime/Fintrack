@@ -7,7 +7,10 @@ import com.example.data.dao.TransactionDao
 import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.service.ExchangeRateService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
@@ -18,13 +21,24 @@ data class PreparedRepairItem(
     val effectiveBnrDate: String
 )
 
+data class PendingRetryResult(
+    val pendingBefore: Int,
+    val convertedSuccessfully: Int,
+    val stillPending: Int,
+    val failedCount: Int,
+    val mainFailureReason: String?
+)
+
 class TransactionRepository(
     private val transactionDao: TransactionDao,
     private val exchangeRateService: ExchangeRateService,
     private val exchangeRateDao: ExchangeRateDao,
     private val database: RoomDatabase
 ) {
+    private val syncMutex = Mutex()
+
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
+
 
     fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> {
         return transactionDao.getTransactionsInRange(startDate, endDate)
@@ -122,26 +136,87 @@ class TransactionRepository(
         return transactionDao.getAllTransactionsList()
     }
 
-    suspend fun syncPendingConversions(): Int {
-        val pending = transactionDao.getPendingTransactions()
-        var updatedCount = 0
-        for (tx in pending) {
-            val bnrResult = exchangeRateService.getOfficialRate(tx.date)
-            if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
-                val correctEUR = ExchangeRateService.calculateAmountEUR(tx.amountRON, bnrResult.rate)
-                val updated = tx.copy(
-                    amountEUR = correctEUR,
-                    exchangeRate = bnrResult.rate,
-                    exchangeRateDate = bnrResult.effectiveDate,
-                    exchangeRateSource = "BNR_OFFICIAL",
-                    conversionStatus = "OFFICIAL",
-                    updatedAt = System.currentTimeMillis()
-                )
-                transactionDao.insertTransaction(updated)
-                updatedCount++
-            }
+    suspend fun syncPendingConversions(): PendingRetryResult = withContext(Dispatchers.IO) {
+        if (!syncMutex.tryLock()) {
+            return@withContext PendingRetryResult(0, 0, 0, 0, "Sync already in progress")
         }
-        return updatedCount
+        try {
+            val allPending = transactionDao.getPendingTransactions()
+            val eligiblePending = allPending.filter {
+                val status = it.conversionStatus
+                status == "PENDING" || status?.startsWith("PENDING_") == true ||
+                status == "FAILED" || status?.startsWith("FAILED_") == true
+            }
+
+            val pendingBefore = eligiblePending.size
+            if (pendingBefore == 0) {
+                return@withContext PendingRetryResult(0, 0, 0, 0, null)
+            }
+
+            var convertedSuccessfully = 0
+            var stillPending = 0
+            var failedCount = 0
+            val failureReasonCounts = mutableMapOf<String, Int>()
+
+            for (tx in eligiblePending) {
+                val bnrResult = exchangeRateService.getOfficialRate(tx.date)
+                if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
+                    val correctEUR = ExchangeRateService.calculateAmountEUR(tx.amountRON, bnrResult.rate)
+                    val updated = tx.copy(
+                        amountEUR = correctEUR,
+                        exchangeRate = bnrResult.rate,
+                        exchangeRateDate = bnrResult.effectiveDate,
+                        exchangeRateSource = "BNR_OFFICIAL",
+                        conversionStatus = "OFFICIAL",
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    transactionDao.insertTransaction(updated)
+                    convertedSuccessfully++
+                } else if (bnrResult.status == "NOT_YET_PUBLISHED") {
+                    stillPending++
+                    failureReasonCounts["Date in future"] = (failureReasonCounts["Date in future"] ?: 0) + 1
+                } else {
+                    failedCount++
+                    stillPending++
+                    val reasonKey = mapBnrStatusToUserReason(bnrResult.status)
+                    failureReasonCounts[reasonKey] = (failureReasonCounts[reasonKey] ?: 0) + 1
+
+                    val updatedStatus = if (bnrResult.status.startsWith("PENDING_") || bnrResult.status.startsWith("FAILED_")) {
+                        bnrResult.status
+                    } else {
+                        "PENDING_${bnrResult.status}"
+                    }
+                    val updated = tx.copy(
+                        conversionStatus = updatedStatus,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    transactionDao.insertTransaction(updated)
+                }
+            }
+
+            val mainReason = failureReasonCounts.maxByOrNull { it.value }?.key
+
+            PendingRetryResult(
+                pendingBefore = pendingBefore,
+                convertedSuccessfully = convertedSuccessfully,
+                stillPending = stillPending,
+                failedCount = failedCount,
+                mainFailureReason = mainReason
+            )
+        } finally {
+            syncMutex.unlock()
+        }
+    }
+
+    private fun mapBnrStatusToUserReason(status: String): String {
+        return when {
+            status in listOf("NO_INTERNET_PERMISSION", "NO_NETWORK", "DNS_FAILURE", "TLS_FAILURE", "TIMEOUT") -> "Network Unavailable"
+            status in listOf("XML_PARSE_ERROR", "EMPTY_RESPONSE", "HTTP_ERROR") -> "BNR Response Could Not Be Read"
+            status in listOf("EUR_RATE_NOT_FOUND", "NO_APPLICABLE_DATE") -> "Rate Not Found for Date"
+            status == "NOT_YET_PUBLISHED" -> "Date in Future"
+            status == "INVALID_DATE" -> "Invalid Date"
+            else -> "Conversion Pending"
+        }
     }
 
     suspend fun applyRepairBatch(repairs: List<PreparedRepairItem>): Int {
