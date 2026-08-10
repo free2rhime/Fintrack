@@ -251,4 +251,210 @@ class RepairRoomTransactionTest {
         val unverified = db.transactionDao().getUnverifiedTransactions()
         assertTrue(unverified.none { it.id == "tx_pending" })
     }
+
+    @Test
+    fun testCategorizedPendingAndFailedRetrievedAndConverted() = runBlocking {
+        val txDns = TransactionEntity(
+            id = "tx_dns",
+            date = "2026-08-01",
+            description = "DNS failure tx",
+            amountRON = 100.0,
+            amountEUR = 0.0,
+            exchangeRate = 0.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "PENDING_DNS_FAILURE",
+            exchangeRateSource = "NONE"
+        )
+        val txTimeout = TransactionEntity(
+            id = "tx_timeout",
+            date = "2026-08-01",
+            description = "Timeout tx",
+            amountRON = 200.0,
+            amountEUR = 0.0,
+            exchangeRate = 0.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "PENDING_TIMEOUT",
+            exchangeRateSource = "NONE"
+        )
+        val txHttpErr = TransactionEntity(
+            id = "tx_http_err",
+            date = "2026-08-01",
+            description = "HTTP err tx",
+            amountRON = 300.0,
+            amountEUR = 0.0,
+            exchangeRate = 0.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "FAILED_HTTP_ERROR",
+            exchangeRateSource = "NONE"
+        )
+        val txOfficial = TransactionEntity(
+            id = "tx_official",
+            date = "2026-08-01",
+            description = "Official tx",
+            amountRON = 500.0,
+            amountEUR = 100.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "OFFICIAL",
+            exchangeRateSource = "BNR_OFFICIAL"
+        )
+
+        db.transactionDao().insertAllTransactions(listOf(txDns, txTimeout, txHttpErr, txOfficial))
+
+        // 1. Verify getRetryablePendingTransactions retrieves categorized pending/failed, but NOT official
+        val retryable = db.transactionDao().getRetryablePendingTransactions()
+        assertEquals(3, retryable.size)
+        assertTrue(retryable.any { it.id == "tx_dns" })
+        assertTrue(retryable.any { it.id == "tx_timeout" })
+        assertTrue(retryable.any { it.id == "tx_http_err" })
+        assertTrue(retryable.none { it.id == "tx_official" })
+
+        // 2. Verify getUnverifiedTransactions excludes all categorized pending/failed and official
+        val unverified = db.transactionDao().getUnverifiedTransactions()
+        assertTrue(unverified.none { it.id == "tx_dns" })
+        assertTrue(unverified.none { it.id == "tx_timeout" })
+        assertTrue(unverified.none { it.id == "tx_http_err" })
+        assertTrue(unverified.none { it.id == "tx_official" })
+
+        // 3. Sync with deterministic BNR response (rate = 5.0)
+        val sampleXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <DataSet xmlns="http://www.bnr.ro/xsd">
+                <Body>
+                    <Cube date="2026-08-01">
+                        <Rate currency="EUR">5.0</Rate>
+                    </Cube>
+                </Body>
+            </DataSet>
+        """.trimIndent()
+
+        val service = ExchangeRateService(db.exchangeRateDao(), httpFetcher = { Pair(sampleXml, "200") })
+        val repo = TransactionRepository(
+            transactionDao = db.transactionDao(),
+            exchangeRateService = service,
+            exchangeRateDao = db.exchangeRateDao(),
+            database = db
+        )
+
+        val result = repo.syncPendingConversions()
+        assertEquals(3, result.pendingBefore)
+        assertEquals(3, result.convertedSuccessfully)
+        assertEquals(0, result.stillPending)
+
+        // 4. Verify updated fields: amountEUR, exchangeRate, exchangeRateDate, exchangeRateSource, conversionStatus
+        val updatedDns = db.transactionDao().getTransactionById("tx_dns")!!
+        assertEquals("OFFICIAL", updatedDns.conversionStatus)
+        assertEquals("BNR_OFFICIAL", updatedDns.exchangeRateSource)
+        assertEquals(5.0, updatedDns.exchangeRate, 0.0001)
+        assertEquals("2026-08-01", updatedDns.exchangeRateDate)
+        assertEquals(20.0, updatedDns.amountEUR, 0.001)
+
+        val updatedTimeout = db.transactionDao().getTransactionById("tx_timeout")!!
+        assertEquals("OFFICIAL", updatedTimeout.conversionStatus)
+        assertEquals("BNR_OFFICIAL", updatedTimeout.exchangeRateSource)
+        assertEquals(5.0, updatedTimeout.exchangeRate, 0.0001)
+        assertEquals("2026-08-01", updatedTimeout.exchangeRateDate)
+        assertEquals(40.0, updatedTimeout.amountEUR, 0.001)
+
+        val updatedHttpErr = db.transactionDao().getTransactionById("tx_http_err")!!
+        assertEquals("OFFICIAL", updatedHttpErr.conversionStatus)
+        assertEquals("BNR_OFFICIAL", updatedHttpErr.exchangeRateSource)
+        assertEquals(5.0, updatedHttpErr.exchangeRate, 0.0001)
+        assertEquals("2026-08-01", updatedHttpErr.exchangeRateDate)
+        assertEquals(60.0, updatedHttpErr.amountEUR, 0.001)
+
+        // 5. Verify OFFICIAL record remains untouched
+        val untouchedOfficial = db.transactionDao().getTransactionById("tx_official")!!
+        assertEquals("OFFICIAL", untouchedOfficial.conversionStatus)
+        assertEquals("BNR_OFFICIAL", untouchedOfficial.exchangeRateSource)
+        assertEquals(100.0, untouchedOfficial.amountEUR, 0.001)
+    }
+
+    @Test
+    fun testFailedRetryRemainsRetryableOnNextAttempt() = runBlocking {
+        val txPending = TransactionEntity(
+            id = "tx_retry_test",
+            date = "2026-08-01",
+            description = "Retry test tx",
+            amountRON = 100.0,
+            amountEUR = 0.0,
+            exchangeRate = 0.0,
+            exchangeRateDate = "2026-08-01",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries",
+            conversionStatus = "PENDING_DNS_FAILURE",
+            exchangeRateSource = "NONE"
+        )
+        db.transactionDao().insertTransaction(txPending)
+
+        // 1. First retry attempt fails with TIMEOUT
+        val failingService = ExchangeRateService(db.exchangeRateDao(), httpFetcher = { Pair(null, "TIMEOUT") })
+        val repo1 = TransactionRepository(
+            transactionDao = db.transactionDao(),
+            exchangeRateService = failingService,
+            exchangeRateDao = db.exchangeRateDao(),
+            database = db
+        )
+        val result1 = repo1.syncPendingConversions()
+        assertEquals(1, result1.pendingBefore)
+        assertEquals(0, result1.convertedSuccessfully)
+        assertEquals(1, result1.stillPending)
+
+        // Verify status updated to PENDING_TIMEOUT
+        val updatedAfterFail = db.transactionDao().getTransactionById("tx_retry_test")!!
+        assertEquals("PENDING_TIMEOUT", updatedAfterFail.conversionStatus)
+
+        // Verify it STILL appears in retryable pending query for next attempt
+        val retryableStill = db.transactionDao().getRetryablePendingTransactions()
+        assertEquals(1, retryableStill.size)
+        assertEquals("tx_retry_test", retryableStill[0].id)
+
+        // 2. Second retry attempt succeeds with deterministic BNR response
+        val sampleXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <DataSet xmlns="http://www.bnr.ro/xsd">
+                <Body>
+                    <Cube date="2026-08-01">
+                        <Rate currency="EUR">5.0</Rate>
+                    </Cube>
+                </Body>
+            </DataSet>
+        """.trimIndent()
+        val successService = ExchangeRateService(db.exchangeRateDao(), httpFetcher = { Pair(sampleXml, "200") })
+        val repo2 = TransactionRepository(
+            transactionDao = db.transactionDao(),
+            exchangeRateService = successService,
+            exchangeRateDao = db.exchangeRateDao(),
+            database = db
+        )
+
+        val result2 = repo2.syncPendingConversions()
+        assertEquals(1, result2.pendingBefore)
+        assertEquals(1, result2.convertedSuccessfully)
+        assertEquals(0, result2.stillPending)
+
+        val finalSuccess = db.transactionDao().getTransactionById("tx_retry_test")!!
+        assertEquals("OFFICIAL", finalSuccess.conversionStatus)
+        assertEquals("BNR_OFFICIAL", finalSuccess.exchangeRateSource)
+        assertEquals(5.0, finalSuccess.exchangeRate, 0.0001)
+        assertEquals(20.0, finalSuccess.amountEUR, 0.001)
+    }
 }

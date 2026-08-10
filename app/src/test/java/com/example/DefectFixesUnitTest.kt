@@ -262,11 +262,22 @@ class FakeTransactionDao : com.example.data.dao.TransactionDao {
     }
 
     override suspend fun getUnverifiedTransactions(): List<TransactionEntity> {
-        return list.filter { it.conversionStatus != "OFFICIAL" }
+        return list.filter {
+            val s = it.conversionStatus
+            val isPendingOrFailed = s == "PENDING" || s?.startsWith("PENDING_") == true || s == "FAILED" || s?.startsWith("FAILED_") == true
+            !isPendingOrFailed && (s == null || s == "UNVERIFIED" || it.exchangeRateSource == null || it.exchangeRateSource != "BNR_OFFICIAL")
+        }
+    }
+
+    override suspend fun getRetryablePendingTransactions(): List<TransactionEntity> {
+        return list.filter {
+            val s = it.conversionStatus
+            s == "PENDING" || s?.startsWith("PENDING_") == true || s == "FAILED" || s?.startsWith("FAILED_") == true
+        }
     }
 
     override suspend fun getPendingTransactions(): List<TransactionEntity> {
-        return list.filter { it.conversionStatus == "PENDING" }
+        return getRetryablePendingTransactions()
     }
 
     override suspend fun getAllTransactionsList(): List<TransactionEntity> {

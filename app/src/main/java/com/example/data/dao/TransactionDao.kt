@@ -19,10 +19,13 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: String): TransactionEntity?
 
-    @Query("SELECT * FROM transactions WHERE (conversionStatus IS NULL OR (conversionStatus != 'PENDING' AND conversionStatus != 'FAILED')) AND (conversionStatus IS NULL OR conversionStatus = 'UNVERIFIED' OR exchangeRateSource IS NULL OR exchangeRateSource != 'BNR_OFFICIAL')")
+    @Query("SELECT * FROM transactions WHERE (conversionStatus IS NULL OR (conversionStatus != 'PENDING' AND conversionStatus NOT LIKE 'PENDING\\_%' ESCAPE '\\' AND conversionStatus != 'FAILED' AND conversionStatus NOT LIKE 'FAILED\\_%' ESCAPE '\\')) AND (conversionStatus IS NULL OR conversionStatus = 'UNVERIFIED' OR exchangeRateSource IS NULL OR exchangeRateSource != 'BNR_OFFICIAL')")
     suspend fun getUnverifiedTransactions(): List<TransactionEntity>
 
-    @Query("SELECT * FROM transactions WHERE conversionStatus = 'PENDING'")
+    @Query("SELECT * FROM transactions WHERE conversionStatus = 'PENDING' OR conversionStatus LIKE 'PENDING\\_%' ESCAPE '\\' OR conversionStatus = 'FAILED' OR conversionStatus LIKE 'FAILED\\_%' ESCAPE '\\'")
+    suspend fun getRetryablePendingTransactions(): List<TransactionEntity>
+
+    @Query("SELECT * FROM transactions WHERE conversionStatus = 'PENDING' OR conversionStatus LIKE 'PENDING\\_%' ESCAPE '\\' OR conversionStatus = 'FAILED' OR conversionStatus LIKE 'FAILED\\_%' ESCAPE '\\'")
     suspend fun getPendingTransactions(): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions ORDER BY date DESC, createdAt DESC")

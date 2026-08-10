@@ -199,6 +199,7 @@ class BnrExchangeRateTest {
             override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = MutableStateFlow(emptyList())
             override suspend fun getTransactionById(id: String): TransactionEntity? = txStore[id]
             override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
+            override suspend fun getRetryablePendingTransactions(): List<TransactionEntity> = getPendingTransactions()
             override suspend fun getPendingTransactions(): List<TransactionEntity> = txStore.values.filter {
                 it.conversionStatus == "PENDING" || it.conversionStatus?.startsWith("PENDING_") == true ||
                 it.conversionStatus == "FAILED" || it.conversionStatus?.startsWith("FAILED_") == true
@@ -277,6 +278,7 @@ class BnrExchangeRateTest {
             override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = MutableStateFlow(emptyList())
             override suspend fun getTransactionById(id: String): TransactionEntity? = txStore[id]
             override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
+            override suspend fun getRetryablePendingTransactions(): List<TransactionEntity> = getPendingTransactions()
             override suspend fun getPendingTransactions(): List<TransactionEntity> = txStore.values.filter {
                 it.conversionStatus == "PENDING" || it.conversionStatus?.startsWith("PENDING_") == true ||
                 it.conversionStatus == "FAILED" || it.conversionStatus?.startsWith("FAILED_") == true

@@ -141,12 +141,7 @@ class TransactionRepository(
             return@withContext PendingRetryResult(0, 0, 0, 0, "Sync already in progress")
         }
         try {
-            val allPending = transactionDao.getPendingTransactions()
-            val eligiblePending = allPending.filter {
-                val status = it.conversionStatus
-                status == "PENDING" || status?.startsWith("PENDING_") == true ||
-                status == "FAILED" || status?.startsWith("FAILED_") == true
-            }
+            val eligiblePending = transactionDao.getRetryablePendingTransactions()
 
             val pendingBefore = eligiblePending.size
             if (pendingBefore == 0) {
