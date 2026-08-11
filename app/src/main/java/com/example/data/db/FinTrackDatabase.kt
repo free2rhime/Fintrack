@@ -27,18 +27,64 @@ abstract class FinTrackDatabase : RoomDatabase() {
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Safely migrate exchange_rates table
-                db.execSQL("ALTER TABLE exchange_rates ADD COLUMN requestedDate TEXT NOT NULL DEFAULT ''")
-                db.execSQL("UPDATE exchange_rates SET requestedDate = date WHERE requestedDate = ''")
-                db.execSQL("ALTER TABLE exchange_rates ADD COLUMN effectiveDate TEXT NOT NULL DEFAULT ''")
-                db.execSQL("UPDATE exchange_rates SET effectiveDate = date WHERE effectiveDate = ''")
-                db.execSQL("ALTER TABLE exchange_rates ADD COLUMN source TEXT NOT NULL DEFAULT 'UNVERIFIED'")
-                db.execSQL("ALTER TABLE exchange_rates ADD COLUMN fetchedAt INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("ALTER TABLE exchange_rates ADD COLUMN status TEXT NOT NULL DEFAULT 'UNVERIFIED'")
-
                 // Safely migrate transactions table
-                db.execSQL("ALTER TABLE transactions ADD COLUMN exchangeRateSource TEXT NOT NULL DEFAULT 'UNVERIFIED'")
-                db.execSQL("ALTER TABLE transactions ADD COLUMN conversionStatus TEXT NOT NULL DEFAULT 'UNVERIFIED'")
+                val txCursor = db.query("PRAGMA table_info(transactions)")
+                val txColumns = mutableSetOf<String>()
+                while (txCursor.moveToNext()) {
+                    val nameIdx = txCursor.getColumnIndex("name")
+                    if (nameIdx != -1) txColumns.add(txCursor.getString(nameIdx))
+                }
+                txCursor.close()
+
+                if (!txColumns.contains("exchangeRateSource")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN exchangeRateSource TEXT NOT NULL DEFAULT 'UNVERIFIED'")
+                }
+                if (!txColumns.contains("conversionStatus")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN conversionStatus TEXT NOT NULL DEFAULT 'UNVERIFIED'")
+                }
+
+                // Safely migrate categories table
+                val catCursor = db.query("PRAGMA table_info(categories)")
+                val catColumns = mutableSetOf<String>()
+                while (catCursor.moveToNext()) {
+                    val nameIdx = catCursor.getColumnIndex("name")
+                    if (nameIdx != -1) catColumns.add(catCursor.getString(nameIdx))
+                }
+                catCursor.close()
+
+                if (!catColumns.contains("subCategory")) {
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `categories_new` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, `subCategory` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                    db.execSQL("INSERT INTO `categories_new` (`id`, `name`, `type`, `subCategory`) SELECT `id`, `name`, `type`, '' FROM `categories`")
+                    db.execSQL("DROP TABLE `categories` ")
+                    db.execSQL("ALTER TABLE `categories_new` RENAME TO `categories` ")
+                }
+
+                // Safely migrate exchange_rates table
+                val rateCursor = db.query("PRAGMA table_info(exchange_rates)")
+                val rateColumns = mutableSetOf<String>()
+                while (rateCursor.moveToNext()) {
+                    val nameIdx = rateCursor.getColumnIndex("name")
+                    if (nameIdx != -1) rateColumns.add(rateCursor.getString(nameIdx))
+                }
+                rateCursor.close()
+
+                if (!rateColumns.contains("requestedDate")) {
+                    db.execSQL("ALTER TABLE exchange_rates ADD COLUMN requestedDate TEXT NOT NULL DEFAULT ''")
+                    db.execSQL("UPDATE exchange_rates SET requestedDate = date WHERE requestedDate = ''")
+                }
+                if (!rateColumns.contains("effectiveDate")) {
+                    db.execSQL("ALTER TABLE exchange_rates ADD COLUMN effectiveDate TEXT NOT NULL DEFAULT ''")
+                    db.execSQL("UPDATE exchange_rates SET effectiveDate = date WHERE effectiveDate = ''")
+                }
+                if (!rateColumns.contains("source")) {
+                    db.execSQL("ALTER TABLE exchange_rates ADD COLUMN source TEXT NOT NULL DEFAULT 'UNVERIFIED'")
+                }
+                if (!rateColumns.contains("fetchedAt")) {
+                    db.execSQL("ALTER TABLE exchange_rates ADD COLUMN fetchedAt INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!rateColumns.contains("status")) {
+                    db.execSQL("ALTER TABLE exchange_rates ADD COLUMN status TEXT NOT NULL DEFAULT 'UNVERIFIED'")
+                }
             }
         }
 
