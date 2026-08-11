@@ -1,11 +1,20 @@
 package com.example.data.repository
 
+import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import com.example.data.dao.CategoryDao
+import com.example.data.dao.SyncOutboxDao
+import com.example.data.db.FinTrackDatabase
 import com.example.data.model.CategoryEntity
+import com.example.data.model.SyncOutboxEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
-class RoomCategoryRepository(private val categoryDao: CategoryDao) : CategoryRepository {
+class RoomCategoryRepository(
+    private val categoryDao: CategoryDao,
+    private val syncOutboxDao: SyncOutboxDao? = null,
+    private val database: RoomDatabase? = null
+) : CategoryRepository {
 
     override val allCategories: Flow<List<CategoryEntity>> = categoryDao.getAllCategories()
 
@@ -38,36 +47,96 @@ class RoomCategoryRepository(private val categoryDao: CategoryDao) : CategoryRep
                 CategoryEntity(name = "🎬 Entertainment", type = "Expense", subCategory = "✈️ Travel & Vacations"),
                 CategoryEntity(name = "🏦 Financial & Taxes", type = "Expense", subCategory = "💳 Bank Fees & Insurance")
             )
-            categoryDao.insertAllCategories(defaults)
+            executeWithTransaction {
+                categoryDao.insertAllCategories(defaults)
+                for (cat in defaults) {
+                    enqueueOutboxInternal(cat.id, "UPSERT")
+                }
+            }
         }
     }
 
     override suspend fun addCategory(name: String, type: String, subCategory: String) {
         val category = CategoryEntity(name = name.trim(), type = type, subCategory = subCategory.trim())
-        categoryDao.insertCategory(category)
+        executeWithTransaction {
+            categoryDao.insertCategory(category)
+            enqueueOutboxInternal(category.id, "UPSERT")
+        }
     }
 
     override suspend fun updateCategory(category: CategoryEntity) {
-        categoryDao.updateCategory(category)
+        executeWithTransaction {
+            categoryDao.updateCategory(category)
+            enqueueOutboxInternal(category.id, "UPSERT")
+        }
     }
 
     override suspend fun deleteCategory(category: CategoryEntity) {
-        categoryDao.deleteCategory(category)
+        executeWithTransaction {
+            categoryDao.deleteCategory(category)
+            enqueueOutboxInternal(category.id, "DELETE")
+        }
     }
 
     override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String) {
-        categoryDao.updateCategoryGroup(oldName.trim(), newName.trim(), type)
+        executeWithTransaction {
+            val matching = categoryDao.getCategoriesGroup(oldName.trim(), type)
+            categoryDao.updateCategoryGroup(oldName.trim(), newName.trim(), type)
+            for (cat in matching) {
+                enqueueOutboxInternal(cat.id, "UPSERT")
+            }
+        }
     }
 
     override suspend fun deleteCategoryGroup(name: String, type: String) {
-        categoryDao.deleteCategoryGroup(name, type)
+        executeWithTransaction {
+            val matching = categoryDao.getCategoriesGroup(name.trim(), type)
+            for (cat in matching) {
+                enqueueOutboxInternal(cat.id, "DELETE")
+            }
+            categoryDao.deleteCategoryGroup(name.trim(), type)
+        }
     }
 
     override suspend fun updateSubcategory(id: String, newSubCategory: String) {
-        categoryDao.updateSubcategory(id, newSubCategory.trim())
+        executeWithTransaction {
+            categoryDao.updateSubcategory(id, newSubCategory.trim())
+            enqueueOutboxInternal(id, "UPSERT")
+        }
     }
 
     override suspend fun deleteSubcategory(id: String) {
-        categoryDao.deleteSubcategory(id)
+        executeWithTransaction {
+            enqueueOutboxInternal(id, "DELETE")
+            categoryDao.deleteSubcategory(id)
+        }
+    }
+
+    private suspend fun <T> executeWithTransaction(block: suspend () -> T): T {
+        return if (database != null) {
+            database.withTransaction { block() }
+        } else {
+            block()
+        }
+    }
+
+    private suspend fun enqueueOutboxInternal(entityId: String, operation: String) {
+        val dao = syncOutboxDao ?: (database as? FinTrackDatabase)?.syncOutboxDao() ?: return
+        val now = System.currentTimeMillis()
+        val existing = dao.getPendingEntryForEntity(entityId)
+        if (existing != null && existing.operation == operation) {
+            dao.updateOutboxEntry(existing.copy(updatedAt = now))
+        } else {
+            dao.insertOutboxEntry(
+                SyncOutboxEntity(
+                    entityType = "CATEGORY",
+                    entityId = entityId,
+                    operation = operation,
+                    status = "PENDING",
+                    createdAt = now,
+                    updatedAt = now
+                )
+            )
+        }
     }
 }

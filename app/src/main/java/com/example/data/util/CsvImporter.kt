@@ -3,6 +3,7 @@ package com.example.data.util
 import androidx.room.withTransaction
 import com.example.data.db.FinTrackDatabase
 import com.example.data.model.CategoryEntity
+import com.example.data.model.SyncOutboxEntity
 import com.example.data.model.TransactionEntity
 import java.io.File
 import java.time.LocalDate
@@ -474,14 +475,48 @@ object CsvImporter {
         // 2. ATOMIC DATABASE TRANSACTION
         return try {
             database.withTransaction {
+                val now = System.currentTimeMillis()
                 if (categoryEntities.isNotEmpty()) {
                     database.categoryDao().insertAllCategories(categoryEntities)
+                    val catOutbox = categoryEntities.map { cat ->
+                        SyncOutboxEntity(
+                            entityType = "CATEGORY",
+                            entityId = cat.id,
+                            operation = "UPSERT",
+                            status = "PENDING",
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                    }
+                    database.syncOutboxDao().insertAllOutboxEntries(catOutbox)
                 }
                 if (txsToInsert.isNotEmpty()) {
                     database.transactionDao().insertAllTransactions(txsToInsert)
+                    val txInsertOutbox = txsToInsert.map { tx ->
+                        SyncOutboxEntity(
+                            entityType = "TRANSACTION",
+                            entityId = tx.id,
+                            operation = "UPSERT",
+                            status = "PENDING",
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                    }
+                    database.syncOutboxDao().insertAllOutboxEntries(txInsertOutbox)
                 }
                 if (txsToUpdate.isNotEmpty()) {
                     database.transactionDao().insertAllTransactions(txsToUpdate)
+                    val txUpdateOutbox = txsToUpdate.map { tx ->
+                        SyncOutboxEntity(
+                            entityType = "TRANSACTION",
+                            entityId = tx.id,
+                            operation = "UPSERT",
+                            status = "PENDING",
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                    }
+                    database.syncOutboxDao().insertAllOutboxEntries(txUpdateOutbox)
                 }
             }
 

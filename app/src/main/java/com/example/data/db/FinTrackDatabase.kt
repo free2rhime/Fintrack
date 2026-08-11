@@ -6,23 +6,26 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.dao.CategoryDao
 import com.example.data.dao.ExchangeRateDao
+import com.example.data.dao.SyncOutboxDao
 import com.example.data.dao.TransactionDao
 import com.example.data.model.CategoryEntity
 import com.example.data.model.ExchangeRateEntity
+import com.example.data.model.SyncOutboxEntity
 import com.example.data.model.TransactionEntity
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TransactionEntity::class, CategoryEntity::class, ExchangeRateEntity::class],
-    version = 3,
+    entities = [TransactionEntity::class, CategoryEntity::class, ExchangeRateEntity::class, SyncOutboxEntity::class],
+    version = 4,
     exportSchema = true
 )
 abstract class FinTrackDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun categoryDao(): CategoryDao
     abstract fun exchangeRateDao(): ExchangeRateDao
+    abstract fun syncOutboxDao(): SyncOutboxDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -142,6 +145,29 @@ abstract class FinTrackDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `sync_outbox` (
+                        `id` TEXT NOT NULL,
+                        `entityType` TEXT NOT NULL,
+                        `entityId` TEXT NOT NULL,
+                        `operation` TEXT NOT NULL,
+                        `status` TEXT NOT NULL DEFAULT 'PENDING',
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        `retryCount` INTEGER NOT NULL DEFAULT 0,
+                        `lastAttemptAt` INTEGER DEFAULT NULL,
+                        `errorCode` TEXT DEFAULT NULL,
+                        `errorMessage` TEXT DEFAULT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: FinTrackDatabase? = null
 
@@ -152,7 +178,7 @@ abstract class FinTrackDatabase : RoomDatabase() {
                     FinTrackDatabase::class.java,
                     "fintrack_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
                 INSTANCE = instance
                 instance

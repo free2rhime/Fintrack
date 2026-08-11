@@ -37,7 +37,11 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val categoryRepository: CategoryRepository by lazy {
-        RoomCategoryRepository(database.categoryDao())
+        RoomCategoryRepository(
+            categoryDao = database.categoryDao(),
+            syncOutboxDao = database.syncOutboxDao(),
+            database = database
+        )
     }
 
     override val settingsRepository: SettingsRepository by lazy {

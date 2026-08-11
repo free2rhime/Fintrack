@@ -181,6 +181,64 @@ class RoomMigrationTest {
     }
 
     @Test
+    fun testMigration3To4UsingExportedSchema() {
+        // 1. Create version 3 database using exported schema
+        var db = helper.createDatabase(TEST_DB, 3)
+
+        // 2. Insert representative version 3 transaction and category
+        db.execSQL(
+            """
+            INSERT INTO transactions (
+                id, userId, date, description, amountRON, amountEUR, exchangeRate,
+                exchangeRateDate, type, account, category, subCategory, destination,
+                createdAt, updatedAt, exchangeRateSource, conversionStatus, syncStatus, isDeleted
+            ) VALUES (
+                'tx_v3_001', 'local_user', '2026-08-11', 'Dinner Out', 120.00, 24.00,
+                5.0000, '2026-08-11', 'Expense', 'Card', '🍉 Food & Dining', '🍔 Restaurants', 'Bistro',
+                1720000000000, 1720000001000, 'BNR_OFFICIAL', 'OFFICIAL', 'PENDING', 0
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            INSERT INTO categories (
+                id, name, type, subCategory, userId, createdAt, updatedAt, isDeleted, syncStatus
+            ) VALUES (
+                'cat_v3_001', '🍉 Food & Dining', 'Expense', '🍔 Restaurants', 'local_user', 1720000000000, 1720000000000, 0, 'PENDING'
+            )
+            """.trimIndent()
+        )
+
+        db.close()
+
+        // 3. Run production MIGRATION_3_4 and validate against Room version 4 schema
+        val migratedDb = helper.runMigrationsAndValidate(TEST_DB, 4, true, FinTrackDatabase.MIGRATION_3_4)
+
+        // 4. Verify existing transaction and category survive intact
+        val txCursor = migratedDb.query("SELECT id, description, amountRON FROM transactions WHERE id = 'tx_v3_001'")
+        assertEquals(true, txCursor.moveToFirst())
+        assertEquals("tx_v3_001", txCursor.getString(0))
+        assertEquals("Dinner Out", txCursor.getString(1))
+        assertEquals(120.00, txCursor.getDouble(2), 0.001)
+        txCursor.close()
+
+        val catCursor = migratedDb.query("SELECT id, name FROM categories WHERE id = 'cat_v3_001'")
+        assertEquals(true, catCursor.moveToFirst())
+        assertEquals("cat_v3_001", catCursor.getString(0))
+        assertEquals("🍉 Food & Dining", catCursor.getString(1))
+        catCursor.close()
+
+        // 5. Verify sync_outbox table exists and can be queried
+        val outboxCursor = migratedDb.query("SELECT COUNT(*) FROM sync_outbox")
+        assertEquals(true, outboxCursor.moveToFirst())
+        assertEquals(0, outboxCursor.getInt(0))
+        outboxCursor.close()
+
+        migratedDb.close()
+    }
+
+    @Test
     fun testCategoryDeletionDecouplingAndCsvCompat() {
         val tx = com.example.data.model.TransactionEntity(
             id = "tx_stable_999",

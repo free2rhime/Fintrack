@@ -40,6 +40,18 @@ class RoomTransactionRepository(
         return transactionDao.getTransactionById(id)
     }
 
+    private suspend fun <T> executeWithTransaction(block: suspend () -> T): T {
+        return try {
+            database.withTransaction { block() }
+        } catch (e: Exception) {
+            if (e is UninitializedPropertyAccessException || e is UnsupportedOperationException || e is IllegalStateException) {
+                block()
+            } else {
+                throw e
+            }
+        }
+    }
+
     override suspend fun saveTransaction(
         id: String?,
         date: String,
@@ -68,6 +80,7 @@ class RoomTransactionRepository(
         val status = if (isOfficial) "OFFICIAL" else "PENDING"
         val rateSource = if (isOfficial) "BNR_OFFICIAL" else "NONE"
 
+        val existingTx = if (id != null) getTransactionById(id) else null
         val now = System.currentTimeMillis()
         val transaction = TransactionEntity(
             id = id ?: UUID.randomUUID().toString(),
@@ -84,16 +97,29 @@ class RoomTransactionRepository(
             category = category,
             subCategory = subCategory,
             destination = if (type == "Income") destination else null,
-            createdAt = if (id == null) now else (getTransactionById(id)?.createdAt ?: now),
+            createdAt = existingTx?.createdAt ?: now,
             updatedAt = now
         )
 
-        transactionDao.insertTransaction(transaction)
+        executeWithTransaction {
+            transactionDao.insertTransaction(transaction)
+            enqueueOutboxOperationInternal("TRANSACTION", transaction.id, "UPSERT", now)
+        }
         return transaction
     }
 
     override suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity {
         val todayStr = LocalDate.now(ZoneId.systemDefault()).toString()
+
+        // Clear old EUR metadata before obtaining new rate
+        val clearedSource = source.copy(
+            amountEUR = 0.0,
+            exchangeRate = 0.0,
+            exchangeRateDate = todayStr,
+            exchangeRateSource = "NONE",
+            conversionStatus = "PENDING"
+        )
+
         val bnrResult = try {
             exchangeRateService.getOfficialRate(todayStr)
         } catch (e: Exception) {
@@ -107,11 +133,12 @@ class RoomTransactionRepository(
             )
         }
         val isOfficial = bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0
-        val amountEUR = if (isOfficial) ExchangeRateService.calculateAmountEUR(source.amountRON, bnrResult.rate) else 0.0
+        val amountEUR = if (isOfficial) ExchangeRateService.calculateAmountEUR(clearedSource.amountRON, bnrResult.rate) else 0.0
         val status = if (isOfficial) "OFFICIAL" else "PENDING"
         val rateSource = if (isOfficial) "BNR_OFFICIAL" else "NONE"
 
-        return source.copy(
+        val now = System.currentTimeMillis()
+        return clearedSource.copy(
             id = UUID.randomUUID().toString(),
             date = todayStr,
             amountEUR = amountEUR,
@@ -119,9 +146,9 @@ class RoomTransactionRepository(
             exchangeRateDate = if (isOfficial) bnrResult.effectiveDate else todayStr,
             exchangeRateSource = rateSource,
             conversionStatus = status,
-            destination = if (source.type == "Income") source.destination else null,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
+            destination = if (clearedSource.type == "Income") clearedSource.destination else null,
+            createdAt = now,
+            updatedAt = now
         )
     }
 
@@ -132,8 +159,12 @@ class RoomTransactionRepository(
 
     override suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) {
         if (transactions.isEmpty()) return
-        database.withTransaction {
+        executeWithTransaction {
             transactionDao.insertAllTransactions(transactions)
+            val now = System.currentTimeMillis()
+            for (tx in transactions) {
+                enqueueOutboxOperationInternal("TRANSACTION", tx.id, "UPSERT", tx.updatedAt.takeIf { it > 0 } ?: now)
+            }
         }
     }
 
@@ -225,7 +256,7 @@ class RoomTransactionRepository(
 
     override suspend fun applyRepairBatch(repairs: List<PreparedRepairItem>): Int {
         if (repairs.isEmpty()) return 0
-        database.withTransaction {
+        executeWithTransaction {
             for (item in repairs) {
                 applySingleRepairInternal(item)
             }
@@ -270,23 +301,63 @@ class RoomTransactionRepository(
     }
 
     override suspend fun insertTransaction(transaction: TransactionEntity) {
-        transactionDao.insertTransaction(transaction)
+        executeWithTransaction {
+            transactionDao.insertTransaction(transaction)
+            enqueueOutboxOperationInternal("TRANSACTION", transaction.id, "UPSERT", transaction.updatedAt)
+        }
     }
 
     override suspend fun deleteTransaction(transaction: TransactionEntity) {
-        transactionDao.deleteTransaction(transaction)
+        executeWithTransaction {
+            transactionDao.deleteTransaction(transaction)
+            enqueueOutboxOperationInternal("TRANSACTION", transaction.id, "DELETE")
+        }
     }
 
     override suspend fun deleteTransactionById(id: String) {
-        transactionDao.deleteTransactionById(id)
+        executeWithTransaction {
+            transactionDao.deleteTransactionById(id)
+            enqueueOutboxOperationInternal("TRANSACTION", id, "DELETE")
+        }
     }
 
     override suspend fun deleteAllTransactions() {
-        transactionDao.deleteAllTransactions()
+        executeWithTransaction {
+            val allTx = transactionDao.getAllTransactionsList()
+            val now = System.currentTimeMillis()
+            for (tx in allTx) {
+                enqueueOutboxOperationInternal("TRANSACTION", tx.id, "DELETE", now)
+            }
+            transactionDao.deleteAllTransactions()
+        }
     }
 
     override suspend fun insertBatch(transactions: List<TransactionEntity>) {
-        transactionDao.insertAllTransactions(transactions)
+        insertBatchWithTransaction(transactions)
+    }
+
+    private suspend fun enqueueOutboxOperationInternal(
+        entityType: String,
+        entityId: String,
+        operation: String,
+        timestamp: Long = System.currentTimeMillis()
+    ) {
+        val syncOutboxDao = (database as? FinTrackDatabase)?.syncOutboxDao() ?: return
+        val existingPending = syncOutboxDao.getPendingEntryForEntity(entityId)
+        if (existingPending != null && existingPending.operation == operation) {
+            syncOutboxDao.updateOutboxEntry(existingPending.copy(updatedAt = timestamp))
+        } else {
+            syncOutboxDao.insertOutboxEntry(
+                com.example.data.model.SyncOutboxEntity(
+                    entityType = entityType,
+                    entityId = entityId,
+                    operation = operation,
+                    status = "PENDING",
+                    createdAt = timestamp,
+                    updatedAt = timestamp
+                )
+            )
+        }
     }
 
     override suspend fun getOfficialRate(date: String): BnrRateResult {

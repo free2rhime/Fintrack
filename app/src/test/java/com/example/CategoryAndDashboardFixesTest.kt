@@ -223,4 +223,12 @@ class FakeCategoryDao : CategoryDao {
     override suspend fun deleteAllCategories() {
         memory.clear()
     }
+
+    override suspend fun getCategoriesGroup(name: String, type: String): List<CategoryEntity> {
+        return memory.filter { it.name == name && it.type == type }
+    }
+
+    override suspend fun getCategoryById(id: String): CategoryEntity? {
+        return memory.find { it.id == id }
+    }
 }
