@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TransactionEntity::class, CategoryEntity::class, ExchangeRateEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class FinTrackDatabase : RoomDatabase() {
@@ -88,6 +88,60 @@ abstract class FinTrackDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Safely migrate transactions table for cloud sync compatibility
+                val txCursor = db.query("PRAGMA table_info(transactions)")
+                val txColumns = mutableSetOf<String>()
+                while (txCursor.moveToNext()) {
+                    val nameIdx = txCursor.getColumnIndex("name")
+                    if (nameIdx != -1) txColumns.add(txCursor.getString(nameIdx))
+                }
+                txCursor.close()
+
+                if (!txColumns.contains("categoryId")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN categoryId TEXT DEFAULT NULL")
+                }
+                if (!txColumns.contains("subCategoryId")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN subCategoryId TEXT DEFAULT NULL")
+                }
+                if (!txColumns.contains("syncStatus")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'PENDING'")
+                }
+                if (!txColumns.contains("lastSyncedAt")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN lastSyncedAt INTEGER DEFAULT NULL")
+                }
+                if (!txColumns.contains("isDeleted")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+                }
+
+                // Safely migrate categories table for cloud sync compatibility
+                val catCursor = db.query("PRAGMA table_info(categories)")
+                val catColumns = mutableSetOf<String>()
+                while (catCursor.moveToNext()) {
+                    val nameIdx = catCursor.getColumnIndex("name")
+                    if (nameIdx != -1) catColumns.add(catCursor.getString(nameIdx))
+                }
+                catCursor.close()
+
+                if (!catColumns.contains("userId")) {
+                    db.execSQL("ALTER TABLE categories ADD COLUMN userId TEXT NOT NULL DEFAULT 'local_user'")
+                }
+                if (!catColumns.contains("createdAt")) {
+                    db.execSQL("ALTER TABLE categories ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!catColumns.contains("updatedAt")) {
+                    db.execSQL("ALTER TABLE categories ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!catColumns.contains("isDeleted")) {
+                    db.execSQL("ALTER TABLE categories ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!catColumns.contains("syncStatus")) {
+                    db.execSQL("ALTER TABLE categories ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'PENDING'")
+                }
+            }
+        }
+
         @Volatile
         private var INSTANCE: FinTrackDatabase? = null
 
@@ -98,7 +152,7 @@ abstract class FinTrackDatabase : RoomDatabase() {
                     FinTrackDatabase::class.java,
                     "fintrack_database"
                 )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
                 INSTANCE = instance
                 instance

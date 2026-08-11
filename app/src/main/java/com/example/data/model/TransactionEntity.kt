@@ -32,5 +32,10 @@ data class TransactionEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val exchangeRateSource: String = "BNR_OFFICIAL", // "BNR_OFFICIAL", "UNVERIFIED"
-    val conversionStatus: String = "OFFICIAL" // "OFFICIAL", "PENDING", "FAILED", "UNVERIFIED"
+    val conversionStatus: String = "OFFICIAL", // "OFFICIAL", "PENDING", "FAILED", "UNVERIFIED"
+    val categoryId: String? = null,
+    val subCategoryId: String? = null,
+    val syncStatus: String = "PENDING",
+    val lastSyncedAt: Long? = null,
+    val isDeleted: Boolean = false
 )

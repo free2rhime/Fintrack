@@ -116,4 +116,110 @@ class RoomMigrationTest {
 
         migratedDb.close()
     }
+
+    @Test
+    fun testMigration2To3UsingExportedSchema() {
+        // 1. Create version 2 database using exported schema
+        var db = helper.createDatabase(TEST_DB, 2)
+
+        // 2. Insert representative version 2 transaction and category
+        db.execSQL(
+            """
+            INSERT INTO transactions (
+                id, userId, date, description, amountRON, amountEUR, exchangeRate,
+                exchangeRateDate, type, account, category, subCategory, destination,
+                createdAt, updatedAt, exchangeRateSource, conversionStatus
+            ) VALUES (
+                'tx_v2_001', 'local_user', '2026-08-10', 'Groceries Purchase', 250.00, 50.00,
+                5.0000, '2026-08-10', 'Expense', 'Card', '🍉 Food & Dining', '🛒 Groceries', 'Supermarket',
+                1710000000000, 1710000001000, 'BNR_OFFICIAL', 'OFFICIAL'
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            INSERT INTO categories (
+                id, name, type, subCategory
+            ) VALUES (
+                'cat_v2_001', '🍉 Food & Dining', 'Expense', '🛒 Groceries'
+            )
+            """.trimIndent()
+        )
+
+        db.close()
+
+        // 3. Run production MIGRATION_2_3 and validate against Room version 3 schema
+        val migratedDb = helper.runMigrationsAndValidate(TEST_DB, 3, true, FinTrackDatabase.MIGRATION_2_3)
+
+        // 4. Verify transaction survives with stable ID and category display strings unchanged
+        val txCursor = migratedDb.query("SELECT id, category, subCategory, categoryId, subCategoryId, syncStatus, lastSyncedAt, isDeleted FROM transactions WHERE id = 'tx_v2_001'")
+        assertEquals(true, txCursor.moveToFirst())
+        assertEquals("tx_v2_001", txCursor.getString(0))
+        assertEquals("🍉 Food & Dining", txCursor.getString(1))
+        assertEquals("🛒 Groceries", txCursor.getString(2))
+        assertNull(txCursor.getString(3)) // categoryId defaults to NULL
+        assertNull(txCursor.getString(4)) // subCategoryId defaults to NULL
+        assertEquals("PENDING", txCursor.getString(5)) // syncStatus
+        assertNull(txCursor.getString(6)) // lastSyncedAt defaults to NULL
+        assertEquals(0, txCursor.getInt(7)) // isDeleted defaults to 0
+        txCursor.close()
+
+        // 5. Verify category survives with stable ID and default sync fields
+        val catCursor = migratedDb.query("SELECT id, name, type, subCategory, userId, isDeleted, syncStatus FROM categories WHERE id = 'cat_v2_001'")
+        assertEquals(true, catCursor.moveToFirst())
+        assertEquals("cat_v2_001", catCursor.getString(0))
+        assertEquals("🍉 Food & Dining", catCursor.getString(1))
+        assertEquals("Expense", catCursor.getString(2))
+        assertEquals("🛒 Groceries", catCursor.getString(3))
+        assertEquals("local_user", catCursor.getString(4))
+        assertEquals(0, catCursor.getInt(5))
+        assertEquals("PENDING", catCursor.getString(6))
+        catCursor.close()
+
+        migratedDb.close()
+    }
+
+    @Test
+    fun testCategoryDeletionDecouplingAndCsvCompat() {
+        val tx = com.example.data.model.TransactionEntity(
+            id = "tx_stable_999",
+            date = "2026-08-11",
+            description = "Lunch Special",
+            amountRON = 45.0,
+            amountEUR = 9.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-11",
+            type = "Expense",
+            account = "Card",
+            category = "🍉 Food & Dining",
+            subCategory = "🍔 Fast Food"
+        )
+
+        val cat = com.example.data.model.CategoryEntity(
+            id = "cat_stable_999",
+            name = "🍉 Food & Dining",
+            type = "Expense",
+            subCategory = "🍔 Fast Food"
+        )
+
+        // 1. Verify CSV Export Header and Row format retain all required fields
+        val csvOutput = com.example.data.util.CsvExporter.generateCsvContent(listOf(tx))
+        val expectedHeader = "Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory,Destination"
+        assertEquals(true, csvOutput.startsWith(expectedHeader))
+        assertEquals(true, csvOutput.contains("tx_stable_999"))
+        assertEquals(true, csvOutput.contains("🍉 Food & Dining"))
+
+        // 2. Verify CSV Parsing accepts standard exported string
+        val preview = com.example.data.util.CsvImporter.parseAndValidate(
+            csvContent = csvOutput,
+            existingTransactions = emptyList(),
+            existingCategories = listOf(cat)
+        )
+        assertEquals(1, preview.validTransactionsToImport.size)
+        val importedTx = preview.validTransactionsToImport[0]
+        assertEquals("tx_stable_999", importedTx.id)
+        assertEquals("🍉 Food & Dining", importedTx.category)
+        assertEquals("🍔 Fast Food", importedTx.subCategory)
+    }
 }

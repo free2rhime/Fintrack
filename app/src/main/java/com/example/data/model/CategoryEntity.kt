@@ -10,5 +10,10 @@ data class CategoryEntity(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val type: String, // "Income" or "Expense"
-    val subCategory: String = ""
+    val subCategory: String = "",
+    val userId: String = "local_user",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isDeleted: Boolean = false,
+    val syncStatus: String = "PENDING"
 )
