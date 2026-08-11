@@ -3,7 +3,7 @@ package com.example
 import com.example.data.dao.ExchangeRateDao
 import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionEntity
-import com.example.data.repository.TransactionRepository
+import com.example.data.repository.RoomTransactionRepository
 import com.example.data.service.ExchangeRateService
 import com.example.data.util.NumberFormatter
 import com.example.domain.analytics.FinancialAnalyticsEngine
@@ -100,7 +100,7 @@ class DefectFixesUnitTest {
         val mockDao = FakeExchangeRateDao()
         val service = ExchangeRateService(mockDao)
         val mockTxDao = FakeTransactionDao()
-        val repo = TransactionRepository(mockTxDao, service, mockDao, db)
+        val repo = RoomTransactionRepository(mockTxDao, service, mockDao, db)
 
         val tx = repo.saveTransaction(
             date = "2099-01-01", // Future date -> PENDING
@@ -182,7 +182,7 @@ class DefectFixesUnitTest {
         val mockDao = FakeExchangeRateDao()
         val service = ExchangeRateService(mockDao)
         val mockTxDao = FakeTransactionDao()
-        val repo = TransactionRepository(mockTxDao, service, mockDao, db)
+        val repo = RoomTransactionRepository(mockTxDao, service, mockDao, db)
 
         val source = TransactionEntity(
             id = "source-1", date = "2020-01-01", description = "Old Entry",

@@ -4,7 +4,7 @@ import com.example.data.dao.ExchangeRateDao
 import com.example.data.dao.TransactionDao
 import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionEntity
-import com.example.data.repository.TransactionRepository
+import com.example.data.repository.RoomTransactionRepository
 import com.example.data.service.BnrRateResult
 import com.example.data.service.ExchangeRateService
 import kotlinx.coroutines.flow.Flow
@@ -244,7 +244,7 @@ class BnrExchangeRateTest {
         """.trimIndent()
 
         val service = ExchangeRateService(mockRateDao, httpFetcher = { Pair(sampleXml, "200") })
-        val repo = TransactionRepository(
+        val repo = RoomTransactionRepository(
             transactionDao = mockTxDao,
             exchangeRateService = service,
             exchangeRateDao = mockRateDao,
@@ -312,7 +312,7 @@ class BnrExchangeRateTest {
         txStore["tx1"] = pendingTx
 
         val service = ExchangeRateService(mockRateDao, httpFetcher = { Pair(null, "NO_NETWORK") })
-        val repo = TransactionRepository(
+        val repo = RoomTransactionRepository(
             transactionDao = mockTxDao,
             exchangeRateService = service,
             exchangeRateDao = mockRateDao,
@@ -656,7 +656,7 @@ class BnrExchangeRateTest {
             override fun clearAllTables() {}
         }
 
-        val repo = TransactionRepository(
+        val repo = RoomTransactionRepository(
             transactionDao = mockTxDao,
             exchangeRateService = crashingService,
             exchangeRateDao = mockRateDao,

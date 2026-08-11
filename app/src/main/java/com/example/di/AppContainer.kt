@@ -1,0 +1,46 @@
+package com.example.di
+
+import android.content.Context
+import com.example.data.db.FinTrackDatabase
+import com.example.data.repository.CategoryRepository
+import com.example.data.repository.DataStoreSettingsRepository
+import com.example.data.repository.RoomCategoryRepository
+import com.example.data.repository.RoomTransactionRepository
+import com.example.data.repository.SettingsRepository
+import com.example.data.repository.TransactionRepository
+import com.example.data.service.ExchangeRateService
+
+interface AppContainer {
+    val transactionRepository: TransactionRepository
+    val categoryRepository: CategoryRepository
+    val settingsRepository: SettingsRepository
+    val database: FinTrackDatabase
+}
+
+class DefaultAppContainer(private val context: Context) : AppContainer {
+
+    override val database: FinTrackDatabase by lazy {
+        FinTrackDatabase.getDatabase(context)
+    }
+
+    private val exchangeRateService: ExchangeRateService by lazy {
+        ExchangeRateService(database.exchangeRateDao())
+    }
+
+    override val transactionRepository: TransactionRepository by lazy {
+        RoomTransactionRepository(
+            transactionDao = database.transactionDao(),
+            exchangeRateService = exchangeRateService,
+            exchangeRateDao = database.exchangeRateDao(),
+            database = database
+        )
+    }
+
+    override val categoryRepository: CategoryRepository by lazy {
+        RoomCategoryRepository(database.categoryDao())
+    }
+
+    override val settingsRepository: SettingsRepository by lazy {
+        DataStoreSettingsRepository(context)
+    }
+}

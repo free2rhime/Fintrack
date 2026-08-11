@@ -42,7 +42,10 @@ import com.example.ui.theme.FinTrackTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: MainViewModel by viewModels()
+    private val viewModel: MainViewModel by viewModels {
+        val app = application as FinTrackApplication
+        com.example.ui.MainViewModelFactory(app.container, app)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -8,6 +8,7 @@ import com.example.data.db.FinTrackDatabase
 import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.PreparedRepairItem
+import com.example.data.repository.RoomTransactionRepository
 import com.example.data.repository.TransactionRepository
 import com.example.data.service.ExchangeRateService
 import kotlinx.coroutines.runBlocking
@@ -37,7 +38,7 @@ class RepairRoomTransactionTest {
             .build()
 
         val exchangeRateService = ExchangeRateService(db.exchangeRateDao())
-        repository = TransactionRepository(
+        repository = RoomTransactionRepository(
             transactionDao = db.transactionDao(),
             exchangeRateService = exchangeRateService,
             exchangeRateDao = db.exchangeRateDao(),
@@ -345,7 +346,7 @@ class RepairRoomTransactionTest {
         """.trimIndent()
 
         val service = ExchangeRateService(db.exchangeRateDao(), httpFetcher = { Pair(sampleXml, "200") })
-        val repo = TransactionRepository(
+        val repo = RoomTransactionRepository(
             transactionDao = db.transactionDao(),
             exchangeRateService = service,
             exchangeRateDao = db.exchangeRateDao(),
@@ -407,7 +408,7 @@ class RepairRoomTransactionTest {
 
         // 1. First retry attempt fails with TIMEOUT
         val failingService = ExchangeRateService(db.exchangeRateDao(), httpFetcher = { Pair(null, "TIMEOUT") })
-        val repo1 = TransactionRepository(
+        val repo1 = RoomTransactionRepository(
             transactionDao = db.transactionDao(),
             exchangeRateService = failingService,
             exchangeRateDao = db.exchangeRateDao(),
@@ -439,7 +440,7 @@ class RepairRoomTransactionTest {
             </DataSet>
         """.trimIndent()
         val successService = ExchangeRateService(db.exchangeRateDao(), httpFetcher = { Pair(sampleXml, "200") })
-        val repo2 = TransactionRepository(
+        val repo2 = RoomTransactionRepository(
             transactionDao = db.transactionDao(),
             exchangeRateService = successService,
             exchangeRateDao = db.exchangeRateDao(),

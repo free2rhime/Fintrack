@@ -3,7 +3,7 @@ package com.example
 import com.example.data.dao.CategoryDao
 import com.example.data.model.CategoryEntity
 import com.example.data.model.TransactionEntity
-import com.example.data.repository.CategoryRepository
+import com.example.data.repository.RoomCategoryRepository
 import com.example.domain.analytics.FinancialAnalyticsEngine
 import com.example.ui.screens.formatLocalizedDateHeader
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +22,7 @@ class CategoryAndDashboardFixesTest {
     @Test
     fun testCategoryGroupRenameAndDelete() = runBlocking {
         val fakeDao = FakeCategoryDao()
-        val repository = CategoryRepository(fakeDao)
+        val repository = RoomCategoryRepository(fakeDao)
 
         // Seed 3 rows for same category name "Food & Dining"
         fakeDao.insertCategory(CategoryEntity(id = "1", name = "Food & Dining", type = "Expense", subCategory = "Groceries"))
@@ -48,7 +48,7 @@ class CategoryAndDashboardFixesTest {
     @Test
     fun testSubcategoryOnlyChanges() = runBlocking {
         val fakeDao = FakeCategoryDao()
-        val repository = CategoryRepository(fakeDao)
+        val repository = RoomCategoryRepository(fakeDao)
 
         fakeDao.insertCategory(CategoryEntity(id = "sub-1", name = "Food & Dining", type = "Expense", subCategory = "Groceries"))
         fakeDao.insertCategory(CategoryEntity(id = "sub-2", name = "Food & Dining", type = "Expense", subCategory = "Restaurants"))

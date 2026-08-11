@@ -71,18 +71,12 @@ data class MainUiState(
     val debugDiagnosticResult: com.example.data.service.BnrDiagnosticResult? = null
 )
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val database = FinTrackDatabase.getDatabase(application)
-    private val exchangeRateService = ExchangeRateService(database.exchangeRateDao())
-    val transactionRepository = TransactionRepository(
-        transactionDao = database.transactionDao(),
-        exchangeRateService = exchangeRateService,
-        exchangeRateDao = database.exchangeRateDao(),
-        database = database
-    )
-    val categoryRepository = CategoryRepository(database.categoryDao())
-    val settingsRepository = SettingsRepository(application)
+class MainViewModel(
+    val transactionRepository: TransactionRepository,
+    val categoryRepository: CategoryRepository,
+    val settingsRepository: SettingsRepository,
+    application: Application
+) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -391,8 +385,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val allExistingTxs = transactionRepository.getAllTransactionsList()
                 val backupFile = File(context.cacheDir, "fintrack_pre_import_backup_${System.currentTimeMillis()}.csv")
 
-                val result = CsvImporter.executeAtomicImport(
-                    database = database,
+                val result = transactionRepository.executeAtomicCsvImport(
                     previewData = preview,
                     backupFile = backupFile,
                     allExistingTransactions = allExistingTxs
@@ -512,7 +505,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val items = mutableListOf<DiscrepancyItem>()
 
             for (tx in unverified) {
-                val bnrResult = exchangeRateService.getOfficialRate(tx.date)
+                val bnrResult = transactionRepository.getOfficialRate(tx.date)
                 if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
                     val correctEUR = ExchangeRateService.calculateAmountEUR(tx.amountRON, bnrResult.rate)
                     val diff = kotlin.math.abs(correctEUR - tx.amountEUR)
@@ -649,7 +642,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun runBnrDiagnostic() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val result = exchangeRateService.runDebugDiagnostic()
+                val result = transactionRepository.runBnrDiagnostic()
                 _uiState.value = _uiState.value.copy(debugDiagnosticResult = result)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
