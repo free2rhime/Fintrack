@@ -82,7 +82,7 @@ service cloud.firestore {
              isValidAccount(data.account) &&
              isValidDestination(data.type, data.destination) &&
              isValidConversionMetadata(
-               data.keys().contains('exchangeRateMetadata') ? data.exchangeRateMetadata : null,
+               'exchangeRateMetadata' in data ? data.exchangeRateMetadata : null,
                data.transactionDate
              );
     }
