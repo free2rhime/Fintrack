@@ -10,10 +10,10 @@ These instructions apply to all AI-assisted work in this repository. Optimize ev
 - Continue from existing work. Never discard, regenerate, or repeat completed changes unless a verified defect requires it.
 - Read only files directly relevant to the requested stage. Avoid broad repository scans after the initial audit.
 - Do not modify unrelated files or perform opportunistic refactors.
-- Never begin the next numbered prompt automatically.
+- Never begin the next task automatically.
 - Never use `git reset --hard`, `git restore .`, `git clean -fd`, or destructive Room migration fallback.
-- Preserve stable entity IDs, historical transaction data, CSV compatibility, BNR behavior, and existing repository boundaries unless the current prompt explicitly requires a change.
-- Do not activate Firebase Authentication, Firestore, remote synchronization, or new dependencies unless explicitly required by the current prompt.
+- Preserve stable entity IDs, historical transaction data, CSV compatibility, BNR behavior, and existing repository boundaries unless the current task explicitly requires a change.
+- Do not activate Firebase Authentication, Firestore, remote synchronization, or new dependencies unless explicitly required by the current task.
 - Treat entity `syncStatus` fields as metadata, not as the durable queue. The Room `sync_outbox` table is the durable local queue.
 
 ## Quota and Token Economy
@@ -24,7 +24,7 @@ These instructions apply to all AI-assisted work in this repository. Optimize ev
 - Do not produce long progress narratives. Return concise checkpoints.
 - Do not run the full test suite after every edit.
 - During implementation, run only the smallest targeted test class or test method covering the changed behavior.
-- Run the complete unit suite and APK build once, after all stages of the current numbered prompt are finished.
+- Run the complete unit suite and APK build once, after all stages of the current task specification are finished.
 - Preserve Gradle caches. Do not run `clean` unless stale generated output is proven to be the cause of a failure.
 - If a task approaches a timeout, stop safely and report a checkpoint instead of starting another broad build/fix loop.
 
@@ -37,7 +37,7 @@ Before changing files:
 1. Run `git status`.
 2. Run `git diff --stat`.
 3. Inspect targeted `git diff` output.
-4. Compare the repository with every requirement in the current numbered prompt.
+4. Compare the repository with every requirement in the current task specification.
 5. Return only:
    - completed requirements;
    - missing requirements;
@@ -113,7 +113,7 @@ gradle :app:testDebugUnitTest --tests "com.example.SpecificTest" --no-daemon
 If interrupted by timeout or quota:
 
 - Do not revert changes.
-- Do not restart the numbered prompt.
+- Do not restart the task.
 - Leave the repository in its current state.
 - Provide a checkpoint containing:
   - current `git status` summary;
@@ -122,7 +122,7 @@ If interrupted by timeout or quota:
   - last command and result;
   - exact next smallest action.
 
-On the next session, resume from Stage 0 using the existing repository state and the full original numbered prompt.
+On the next session, resume from Stage 0 using the existing repository state and the complete task specification supplied by the user.
 
 ## Required Final Report Format
 
