@@ -38,7 +38,8 @@ interface TransactionRepository {
         account: String,
         category: String,
         subCategory: String,
-        destination: String? = null
+        destination: String? = null,
+        userId: String = "local_user"
     ): TransactionEntity
 
     suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity

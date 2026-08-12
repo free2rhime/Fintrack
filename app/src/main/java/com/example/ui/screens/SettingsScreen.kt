@@ -58,6 +58,9 @@ import android.net.Uri
 fun SettingsScreen(
     filterSettings: FilterSettings,
     themeMode: String,
+    currentUid: String? = null,
+    currentUserEmail: String? = null,
+    onSignOut: () -> Unit = {},
     onCurrencyChanged: (String) -> Unit,
     onThemeModeChanged: (String) -> Unit,
     onExportCsv: () -> Unit,
@@ -101,6 +104,57 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        // ACCOUNT & AUTHENTICATION CARD
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("account_info_card"),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Account Identity & Security",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Firebase UID: ${currentUid ?: "Not Signed In"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag("account_uid_text")
+                )
+
+                if (!currentUserEmail.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Email: $currentUserEmail",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = onSignOut,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("sign_out_button"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Sign Out", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // CURRENCY SELECTION CARD
         Card(

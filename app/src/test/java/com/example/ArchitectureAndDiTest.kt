@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.model.CategoryEntity
 import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
+import com.example.data.repository.AuthRepository
+import com.example.data.repository.AuthState
 import com.example.data.repository.CategoryRepository
 import com.example.data.repository.DataStoreSettingsRepository
 import com.example.data.repository.PendingRetryResult
@@ -21,6 +23,7 @@ import com.example.di.DefaultAppContainer
 import com.example.ui.MainViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -41,12 +44,16 @@ class ArchitectureAndDiTest {
         val fakeTxRepo = FakeTransactionRepository()
         val fakeCatRepo = FakeCategoryRepository()
         val fakeSettingsRepo = FakeSettingsRepository()
+        val fakeAuthRepo = FakeAuthRepository()
         val app = ApplicationProvider.getApplicationContext<Application>()
+
+        fakeAuthRepo.signInWithTestUid("test_user_1")
 
         val viewModel = MainViewModel(
             transactionRepository = fakeTxRepo,
             categoryRepository = fakeCatRepo,
             settingsRepository = fakeSettingsRepo,
+            authRepository = fakeAuthRepo,
             application = app
         )
 
@@ -59,10 +66,11 @@ class ArchitectureAndDiTest {
             type = "Expense",
             account = "Card",
             category = "Food",
-            subCategory = "Groceries"
+            subCategory = "Groceries",
+            userId = "test_user_1"
         )
 
-        fakeCatRepo.addCategory("Food", "Expense", "Groceries")
+        fakeCatRepo.addCategory("Food", "Expense", "Groceries", userId = "test_user_1")
 
         // Verify MainViewModel flows collect from fake repositories
         val txs = viewModel.allTransactions.first()
@@ -81,6 +89,195 @@ class ArchitectureAndDiTest {
     }
 
     @Test
+    fun testSignedOutStateExposesNoFinancialRecords() = runBlocking {
+        val fakeTxRepo = FakeTransactionRepository()
+        val fakeCatRepo = FakeCategoryRepository()
+        val fakeSettingsRepo = FakeSettingsRepository()
+        val fakeAuthRepo = FakeAuthRepository(AuthState.SignedOut)
+        val app = ApplicationProvider.getApplicationContext<Application>()
+
+        val viewModel = MainViewModel(
+            transactionRepository = fakeTxRepo,
+            categoryRepository = fakeCatRepo,
+            settingsRepository = fakeSettingsRepo,
+            authRepository = fakeAuthRepo,
+            application = app
+        )
+
+        fakeTxRepo.saveTransaction(
+            id = "tx1", date = "2026-08-11", description = "Secret Alpha Transaction",
+            amountRON = 100.0, type = "Expense", account = "Card",
+            category = "Food", subCategory = "Groceries", userId = "user_alpha"
+        )
+        fakeCatRepo.addCategory("Alpha Category", "Expense", "SubAlpha", userId = "user_alpha")
+
+        assertTrue(viewModel.allTransactions.first().isEmpty())
+        assertTrue(viewModel.categories.first().isEmpty())
+    }
+
+    @Test
+    fun testSuccessfulSignInExposesActiveUidAndData() = runBlocking {
+        val fakeTxRepo = FakeTransactionRepository()
+        val fakeCatRepo = FakeCategoryRepository()
+        val fakeSettingsRepo = FakeSettingsRepository()
+        val fakeAuthRepo = FakeAuthRepository()
+        val app = ApplicationProvider.getApplicationContext<Application>()
+
+        fakeAuthRepo.signInWithTestUid("user_alpha")
+
+        val viewModel = MainViewModel(
+            transactionRepository = fakeTxRepo,
+            categoryRepository = fakeCatRepo,
+            settingsRepository = fakeSettingsRepo,
+            authRepository = fakeAuthRepo,
+            application = app
+        )
+
+        fakeTxRepo.saveTransaction(
+            id = "tx_alpha", date = "2026-08-11", description = "Alpha Dinner",
+            amountRON = 150.0, type = "Expense", account = "Card",
+            category = "Food", subCategory = "Restaurants", userId = "user_alpha"
+        )
+        fakeTxRepo.saveTransaction(
+            id = "tx_beta", date = "2026-08-11", description = "Beta Movie",
+            amountRON = 50.0, type = "Expense", account = "Card",
+            category = "Entertainment", subCategory = "Cinema", userId = "user_beta"
+        )
+
+        fakeCatRepo.addCategory("Alpha Category", "Expense", "SubAlpha", userId = "user_alpha")
+        fakeCatRepo.addCategory("Default Shared", "Expense", "SubDefault", userId = "local_user")
+
+        assertEquals("user_alpha", viewModel.activeUserUid.first())
+
+        val txs = viewModel.allTransactions.first()
+        assertEquals(1, txs.size)
+        assertEquals("Alpha Dinner", txs[0].description)
+
+        val cats = viewModel.categories.first()
+        assertEquals(2, cats.size)
+        assertTrue(cats.any { it.name == "Alpha Category" })
+        assertTrue(cats.any { it.name == "Default Shared" })
+    }
+
+    @Test
+    fun testSignOutClearsFinancialStateFlows() = runBlocking {
+        val fakeTxRepo = FakeTransactionRepository()
+        val fakeCatRepo = FakeCategoryRepository()
+        val fakeSettingsRepo = FakeSettingsRepository()
+        val fakeAuthRepo = FakeAuthRepository()
+        val app = ApplicationProvider.getApplicationContext<Application>()
+
+        fakeAuthRepo.signInWithTestUid("user_alpha")
+
+        val viewModel = MainViewModel(
+            transactionRepository = fakeTxRepo,
+            categoryRepository = fakeCatRepo,
+            settingsRepository = fakeSettingsRepo,
+            authRepository = fakeAuthRepo,
+            application = app
+        )
+
+        fakeTxRepo.saveTransaction(
+            id = "tx1", date = "2026-08-11", description = "Alpha Salary",
+            amountRON = 5000.0, type = "Income", account = "Bank",
+            category = "Salary", subCategory = "Main", userId = "user_alpha"
+        )
+        fakeCatRepo.addCategory("Alpha Income", "Income", "SubIncome", userId = "user_alpha")
+
+        val initialTxs = viewModel.allTransactions.first { it.isNotEmpty() }
+        assertEquals(1, initialTxs.size)
+
+        fakeAuthRepo.signOut()
+
+        val activeUid = viewModel.activeUserUid.first { it == null }
+        assertEquals(null, activeUid)
+
+        val clearedTxs = viewModel.allTransactions.first { it.isEmpty() }
+        assertTrue(clearedTxs.isEmpty())
+
+        val clearedCats = viewModel.categories.first { it.isEmpty() }
+        assertTrue(clearedCats.isEmpty())
+    }
+
+    @Test
+    fun testSwitchingUidHidesPreviousUserRecords() = runBlocking {
+        val fakeTxRepo = FakeTransactionRepository()
+        val fakeCatRepo = FakeCategoryRepository()
+        val fakeSettingsRepo = FakeSettingsRepository()
+        val fakeAuthRepo = FakeAuthRepository()
+        val app = ApplicationProvider.getApplicationContext<Application>()
+
+        fakeAuthRepo.signInWithTestUid("uid_alpha")
+
+        val viewModel = MainViewModel(
+            transactionRepository = fakeTxRepo,
+            categoryRepository = fakeCatRepo,
+            settingsRepository = fakeSettingsRepo,
+            authRepository = fakeAuthRepo,
+            application = app
+        )
+
+        fakeTxRepo.saveTransaction(
+            id = "tx_alpha", date = "2026-08-11", description = "Alpha Laptop",
+            amountRON = 3000.0, type = "Expense", account = "Card",
+            category = "Tech", subCategory = "Hardware", userId = "uid_alpha"
+        )
+        fakeTxRepo.saveTransaction(
+            id = "tx_beta", date = "2026-08-11", description = "Beta Phone",
+            amountRON = 2000.0, type = "Expense", account = "Card",
+            category = "Tech", subCategory = "Gadgets", userId = "uid_beta"
+        )
+
+        fakeCatRepo.addCategory("Alpha Tech", "Expense", "SubAlpha", userId = "uid_alpha")
+        fakeCatRepo.addCategory("Beta Tech", "Expense", "SubBeta", userId = "uid_beta")
+
+        val alphaTxs = viewModel.allTransactions.first { it.isNotEmpty() }
+        assertEquals(1, alphaTxs.size)
+        assertEquals("Alpha Laptop", alphaTxs[0].description)
+        assertTrue(viewModel.categories.first().any { it.name == "Alpha Tech" })
+
+        // Switch to uid_beta
+        fakeAuthRepo.signInWithTestUid("uid_beta")
+
+        val betaUid = viewModel.activeUserUid.first { it == "uid_beta" }
+        assertEquals("uid_beta", betaUid)
+
+        val betaTxs = viewModel.allTransactions.first { txs -> txs.any { it.description == "Beta Phone" } }
+        assertEquals(1, betaTxs.size)
+        assertEquals("Beta Phone", betaTxs[0].description)
+
+        val betaCats = viewModel.categories.first { cats -> cats.any { it.name == "Beta Tech" } }
+        assertEquals(1, betaCats.size)
+        assertEquals("Beta Tech", betaCats[0].name)
+    }
+
+    @Test
+    fun testAuthErrorExposesNoFinancialRecords() = runBlocking {
+        val fakeTxRepo = FakeTransactionRepository()
+        val fakeCatRepo = FakeCategoryRepository()
+        val fakeSettingsRepo = FakeSettingsRepository()
+        val fakeAuthRepo = FakeAuthRepository(AuthState.AuthError("Sign-in failed"))
+        val app = ApplicationProvider.getApplicationContext<Application>()
+
+        val viewModel = MainViewModel(
+            transactionRepository = fakeTxRepo,
+            categoryRepository = fakeCatRepo,
+            settingsRepository = fakeSettingsRepo,
+            authRepository = fakeAuthRepo,
+            application = app
+        )
+
+        fakeTxRepo.saveTransaction(
+            id = "tx1", date = "2026-08-11", description = "Protected Tx",
+            amountRON = 100.0, type = "Expense", account = "Card",
+            category = "Food", subCategory = "Groceries", userId = "user_alpha"
+        )
+
+        assertTrue(viewModel.allTransactions.first().isEmpty())
+        assertTrue(viewModel.categories.first().isEmpty())
+    }
+
+    @Test
     fun testRoomRepositoryIsActiveDefaultImplementation() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val container = DefaultAppContainer(app)
@@ -93,6 +290,49 @@ class ArchitectureAndDiTest {
 }
 
 // Fake Repositories for testing MainViewModel decoupling
+class FakeAuthRepository(
+    initialState: AuthState = AuthState.SignedOut
+) : AuthRepository {
+    private val _authState = MutableStateFlow<AuthState>(initialState)
+    override val authState: StateFlow<AuthState> = _authState
+
+    override suspend fun signInWithGoogleCredential(idToken: String): Result<String> {
+        _authState.value = AuthState.SigningIn
+        val uid = "google_$idToken"
+        _authState.value = AuthState.SignedIn(userUid = uid, email = "$uid@example.com")
+        return Result.success(uid)
+    }
+
+    override suspend fun signInWithTestUid(testUid: String, email: String?, displayName: String?): Result<String> {
+        _authState.value = AuthState.SigningIn
+        _authState.value = AuthState.SignedIn(
+            userUid = testUid,
+            email = email ?: "$testUid@example.com",
+            displayName = displayName ?: testUid
+        )
+        return Result.success(testUid)
+    }
+
+    fun setAuthError(message: String) {
+        _authState.value = AuthState.AuthError(message)
+    }
+
+    override suspend fun signOut() {
+        _authState.value = AuthState.SignedOut
+    }
+
+    override fun getCurrentUserUid(): String? {
+        val state = _authState.value
+        return if (state is AuthState.SignedIn) state.userUid else null
+    }
+
+    override fun clearError() {
+        if (_authState.value is AuthState.AuthError) {
+            _authState.value = AuthState.SignedOut
+        }
+    }
+}
+
 class FakeTransactionRepository : TransactionRepository {
     private val txList = mutableListOf<TransactionEntity>()
     private val _flow = MutableStateFlow<List<TransactionEntity>>(emptyList())
@@ -105,10 +345,12 @@ class FakeTransactionRepository : TransactionRepository {
 
     override suspend fun saveTransaction(
         id: String?, date: String, description: String, amountRON: Double,
-        type: String, account: String, category: String, subCategory: String, destination: String?
+        type: String, account: String, category: String, subCategory: String, destination: String?,
+        userId: String
     ): TransactionEntity {
         val tx = TransactionEntity(
             id = id ?: "tx_${txList.size + 1}",
+            userId = userId,
             date = date,
             description = description,
             amountRON = amountRON,
@@ -157,8 +399,8 @@ class FakeCategoryRepository : CategoryRepository {
 
     override suspend fun getAllCategoriesList(): List<CategoryEntity> = catList.toList()
     override suspend fun ensureDefaultCategoriesSeeded() {}
-    override suspend fun addCategory(name: String, type: String, subCategory: String) {
-        catList.add(CategoryEntity(id = "cat_${catList.size + 1}", name = name, type = type, subCategory = subCategory))
+    override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String) {
+        catList.add(CategoryEntity(id = "cat_${catList.size + 1}", name = name, type = type, subCategory = subCategory, userId = userId))
         _flow.value = catList.toList()
     }
     override suspend fun updateCategory(category: CategoryEntity) {}

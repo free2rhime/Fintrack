@@ -11,7 +11,7 @@ interface CategoryRepository {
 
     suspend fun ensureDefaultCategoriesSeeded()
 
-    suspend fun addCategory(name: String, type: String, subCategory: String)
+    suspend fun addCategory(name: String, type: String, subCategory: String, userId: String = "local_user")
 
     suspend fun updateCategory(category: CategoryEntity)
 

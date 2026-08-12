@@ -29,11 +29,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.repository.AuthState
 import com.example.data.util.CsvExporter
 import com.example.ui.MainViewModel
 import com.example.ui.components.TransactionFormDialog
 import com.example.ui.navigation.FinTrackBottomNavigation
 import com.example.ui.screens.AnalyticsScreen
+import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CategoriesScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.SettingsScreen
@@ -74,6 +76,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun FinTrackApp(viewModel: MainViewModel) {
+    val authState by viewModel.authState.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val filterSettings by viewModel.filterSettings.collectAsStateWithLifecycle()
     val metrics by viewModel.dashboardMetrics.collectAsStateWithLifecycle()
@@ -95,124 +98,138 @@ fun FinTrackApp(viewModel: MainViewModel) {
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            FinTrackBottomNavigation(
-                selectedTabIndex = uiState.selectedTab,
-                onTabSelected = { viewModel.selectTab(it) }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        modifier = Modifier
-            .fillMaxSize()
-            .testTag("main_app_scaffold")
-    ) { innerPadding ->
-        Box(
+    if (authState !is AuthState.SignedIn) {
+        AuthScreen(
+            authState = authState,
+            onSignInWithGoogle = { idToken -> viewModel.signInWithGoogle(idToken) },
+            onSignInWithTestUid = { testUid -> viewModel.signInWithTestUid(testUid) },
+            onAuthError = { errorMsg -> },
+            onClearError = { viewModel.clearAuthError() }
+        )
+    } else {
+        val signedInState = authState as AuthState.SignedIn
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            bottomBar = {
+                FinTrackBottomNavigation(
+                    selectedTabIndex = uiState.selectedTab,
+                    onTabSelected = { viewModel.selectTab(it) }
+                )
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            when (uiState.selectedTab) {
-                0 -> DashboardScreen(
-                    metrics = metrics,
-                    filterSettings = filterSettings,
-                    monthlyDataPoints = monthlyDataPoints,
-                    categoryShares = categoryExpenseShares,
-                    smartInsights = smartInsights,
-                    onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
-                    onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
-                )
-
-                1 -> TransactionsScreen(
-                    transactions = filteredTxs,
-                    categories = categories,
-                    filterSettings = filterSettings,
-                    onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
-                    onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
-                    onTypeFilterSelected = { type -> viewModel.updateSelectedTypeFilter(type) },
-                    onCategoryFilterSelected = { type, cat -> viewModel.updateCategoryFilter(type, cat) },
-                    onSearchQueryChanged = { viewModel.updateSearchQuery(it) },
-                    onAddTransactionClicked = { viewModel.openNewTransactionDialog("Expense") },
-                    onDuplicateClicked = { tx -> viewModel.openDuplicateTransactionDialog(tx) },
-                    onEditClicked = { tx -> viewModel.openEditTransactionDialog(tx) },
-                    onDeleteClicked = { tx -> viewModel.deleteTransaction(tx) }
-                )
-
-                2 -> AnalyticsScreen(
-                    metrics = metrics,
-                    filterSettings = filterSettings,
-                    categoryExpenseShares = categoryExpenseShares,
-                    categoryIncomeShares = categoryIncomeShares,
-                    monthlyDataPoints = monthlyDataPoints,
-                    insights = smartInsights,
-                    onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
-                    onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
-                )
-
-                3 -> CategoriesScreen(
-                    categories = categories,
-                    onAddCategory = { name, type, sub -> viewModel.addCategory(name, type, sub) },
-                    onUpdateCategoryGroup = { oldName, newName, type -> viewModel.updateCategoryGroup(oldName, newName, type) },
-                    onDeleteCategoryGroup = { name, type -> viewModel.deleteCategoryGroup(name, type) },
-                    onUpdateSubcategory = { id, sub -> viewModel.updateSubcategory(id, sub) },
-                    onDeleteSubcategory = { id -> viewModel.deleteSubcategory(id) }
-                )
-
-                4 -> {
-                    val context = LocalContext.current
-                    val allTxs by viewModel.allTransactions.collectAsStateWithLifecycle()
-                    SettingsScreen(
+                .testTag("main_app_scaffold")
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                when (uiState.selectedTab) {
+                    0 -> DashboardScreen(
+                        metrics = metrics,
                         filterSettings = filterSettings,
-                        themeMode = themeMode,
+                        monthlyDataPoints = monthlyDataPoints,
+                        categoryShares = categoryExpenseShares,
+                        smartInsights = smartInsights,
+                        onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
+                        onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
+                    )
+
+                    1 -> TransactionsScreen(
+                        transactions = filteredTxs,
+                        categories = categories,
+                        filterSettings = filterSettings,
+                        onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
-                        onThemeModeChanged = { viewModel.updateThemeMode(it) },
-                        onExportCsv = { CsvExporter.exportTransactionsToCsv(context, allTxs) },
-                        onImportCsv = { uri -> viewModel.importCsv(context, uri) },
-                        onSeedDemoData = { viewModel.seedDemoData() },
-                        onResetData = { viewModel.resetData() },
-                        onRetryPendingConversions = { viewModel.retryPendingConversions() },
-                        pendingRetryResult = uiState.pendingRetryResult,
-                        onDismissRetryResult = { viewModel.dismissRetryResultDialog() },
-                        onRunBnrDiagnostic = { viewModel.runBnrDiagnostic() },
-                        debugDiagnosticResult = uiState.debugDiagnosticResult,
-                        onDismissDebugDiagnostic = { viewModel.dismissDebugDiagnostic() },
-                        isRetryingPending = uiState.isRetryingPending
+                        onTypeFilterSelected = { type -> viewModel.updateSelectedTypeFilter(type) },
+                        onCategoryFilterSelected = { type, cat -> viewModel.updateCategoryFilter(type, cat) },
+                        onSearchQueryChanged = { viewModel.updateSearchQuery(it) },
+                        onAddTransactionClicked = { viewModel.openNewTransactionDialog("Expense") },
+                        onDuplicateClicked = { tx -> viewModel.openDuplicateTransactionDialog(tx) },
+                        onEditClicked = { tx -> viewModel.openEditTransactionDialog(tx) },
+                        onDeleteClicked = { tx -> viewModel.deleteTransaction(tx) }
+                    )
+
+                    2 -> AnalyticsScreen(
+                        metrics = metrics,
+                        filterSettings = filterSettings,
+                        categoryExpenseShares = categoryExpenseShares,
+                        categoryIncomeShares = categoryIncomeShares,
+                        monthlyDataPoints = monthlyDataPoints,
+                        insights = smartInsights,
+                        onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
+                        onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
+                    )
+
+                    3 -> CategoriesScreen(
+                        categories = categories,
+                        onAddCategory = { name, type, sub -> viewModel.addCategory(name, type, sub) },
+                        onUpdateCategoryGroup = { oldName, newName, type -> viewModel.updateCategoryGroup(oldName, newName, type) },
+                        onDeleteCategoryGroup = { name, type -> viewModel.deleteCategoryGroup(name, type) },
+                        onUpdateSubcategory = { id, sub -> viewModel.updateSubcategory(id, sub) },
+                        onDeleteSubcategory = { id -> viewModel.deleteSubcategory(id) }
+                    )
+
+                    4 -> {
+                        val context = LocalContext.current
+                        val allTxs by viewModel.allTransactions.collectAsStateWithLifecycle()
+                        SettingsScreen(
+                            filterSettings = filterSettings,
+                            themeMode = themeMode,
+                            currentUid = signedInState.userUid,
+                            currentUserEmail = signedInState.email,
+                            onSignOut = { viewModel.signOut() },
+                            onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
+                            onThemeModeChanged = { viewModel.updateThemeMode(it) },
+                            onExportCsv = { CsvExporter.exportTransactionsToCsv(context, allTxs) },
+                            onImportCsv = { uri -> viewModel.importCsv(context, uri) },
+                            onSeedDemoData = { viewModel.seedDemoData() },
+                            onResetData = { viewModel.resetData() },
+                            onRetryPendingConversions = { viewModel.retryPendingConversions() },
+                            pendingRetryResult = uiState.pendingRetryResult,
+                            onDismissRetryResult = { viewModel.dismissRetryResultDialog() },
+                            onRunBnrDiagnostic = { viewModel.runBnrDiagnostic() },
+                            debugDiagnosticResult = uiState.debugDiagnosticResult,
+                            onDismissDebugDiagnostic = { viewModel.dismissDebugDiagnostic() },
+                            isRetryingPending = uiState.isRetryingPending
+                        )
+                    }
+                }
+
+                // Transaction Form Dialog for Create / Edit / Duplicate
+                if (uiState.showTransactionDialog) {
+                    TransactionFormDialog(
+                        initialTransaction = uiState.activeTransactionForEdit,
+                        isDuplicateMode = uiState.isDuplicateMode,
+                        categories = categories,
+                        onDismiss = { viewModel.dismissTransactionDialog() },
+                        onSearchDescriptions = { query -> viewModel.getDescriptionSuggestions(query) },
+                        onSave = { id, date, desc, amt, type, acc, cat, sub, dest ->
+                            viewModel.saveTransaction(id, date, desc, amt, type, acc, cat, sub, dest)
+                        }
                     )
                 }
-            }
 
-            // Transaction Form Dialog for Create / Edit / Duplicate
-            if (uiState.showTransactionDialog) {
-                TransactionFormDialog(
-                    initialTransaction = uiState.activeTransactionForEdit,
-                    isDuplicateMode = uiState.isDuplicateMode,
-                    categories = categories,
-                    onDismiss = { viewModel.dismissTransactionDialog() },
-                    onSearchDescriptions = { query -> viewModel.getDescriptionSuggestions(query) },
-                    onSave = { id, date, desc, amt, type, acc, cat, sub, dest ->
-                        viewModel.saveTransaction(id, date, desc, amt, type, acc, cat, sub, dest)
-                    }
-                )
-            }
+                // CSV Import Preview Dialog
+                uiState.csvPreviewData?.let { preview ->
+                    val context = LocalContext.current
+                    com.example.ui.components.CsvImportPreviewDialog(
+                        previewData = preview,
+                        onDuplicateModeChanged = { mode -> viewModel.updateCsvDuplicateMode(mode) },
+                        onConfirmImport = { viewModel.executeCsvImport(context) },
+                        onDismiss = { viewModel.dismissCsvPreview() }
+                    )
+                }
 
-            // CSV Import Preview Dialog
-            uiState.csvPreviewData?.let { preview ->
-                val context = LocalContext.current
-                com.example.ui.components.CsvImportPreviewDialog(
-                    previewData = preview,
-                    onDuplicateModeChanged = { mode -> viewModel.updateCsvDuplicateMode(mode) },
-                    onConfirmImport = { viewModel.executeCsvImport(context) },
-                    onDismiss = { viewModel.dismissCsvPreview() }
-                )
-            }
-
-            // CSV Import Result Dialog
-            uiState.csvImportFinalResult?.let { result ->
-                com.example.ui.components.CsvImportResultDialog(
-                    result = result,
-                    onDismiss = { viewModel.dismissCsvResult() }
-                )
+                // CSV Import Result Dialog
+                uiState.csvImportFinalResult?.let { result ->
+                    com.example.ui.components.CsvImportResultDialog(
+                        result = result,
+                        onDismiss = { viewModel.dismissCsvResult() }
+                    )
+                }
             }
         }
     }

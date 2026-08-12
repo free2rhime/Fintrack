@@ -61,7 +61,8 @@ class RoomTransactionRepository(
         account: String,
         category: String,
         subCategory: String,
-        destination: String?
+        destination: String?,
+        userId: String
     ): TransactionEntity {
         val bnrResult = try {
             exchangeRateService.getOfficialRate(date)
@@ -84,6 +85,7 @@ class RoomTransactionRepository(
         val now = System.currentTimeMillis()
         val transaction = TransactionEntity(
             id = id ?: UUID.randomUUID().toString(),
+            userId = userId,
             date = date,
             description = description.trim(),
             amountRON = amountRON,

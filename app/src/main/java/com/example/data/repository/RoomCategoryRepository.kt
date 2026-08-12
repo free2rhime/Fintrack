@@ -56,8 +56,8 @@ class RoomCategoryRepository(
         }
     }
 
-    override suspend fun addCategory(name: String, type: String, subCategory: String) {
-        val category = CategoryEntity(name = name.trim(), type = type, subCategory = subCategory.trim())
+    override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String) {
+        val category = CategoryEntity(name = name.trim(), type = type, subCategory = subCategory.trim(), userId = userId)
         executeWithTransaction {
             categoryDao.insertCategory(category)
             enqueueOutboxInternal(category.id, "UPSERT")

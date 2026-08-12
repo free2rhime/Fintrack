@@ -10,7 +10,8 @@ import java.util.UUID
 object SampleDataSeeder {
 
     suspend fun seedInitialTransactionsIfEmpty(
-        repository: TransactionRepository
+        repository: TransactionRepository,
+        userId: String = "local_user"
     ) {
         val todayCal = Calendar.getInstance()
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -57,7 +58,8 @@ object SampleDataSeeder {
                     account = if (cat == "Meal Tickets") "Meal Tickets" else if (index % 3 == 0) "Cash" else "Card",
                     category = cat,
                     subCategory = subCat,
-                    destination = if (type == "Income") "ING Bank Card" else null
+                    destination = if (type == "Income") "ING Bank Card" else null,
+                    userId = userId
                 )
             }
         }

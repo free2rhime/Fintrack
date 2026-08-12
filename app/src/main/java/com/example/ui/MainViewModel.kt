@@ -7,6 +7,8 @@ import com.example.data.db.FinTrackDatabase
 import com.example.data.model.CategoryEntity
 import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
+import com.example.data.repository.AuthRepository
+import com.example.data.repository.AuthState
 import com.example.data.repository.CategoryRepository
 import com.example.data.repository.SettingsRepository
 import com.example.data.repository.PreparedRepairItem
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -75,11 +78,26 @@ class MainViewModel(
     val transactionRepository: TransactionRepository,
     val categoryRepository: CategoryRepository,
     val settingsRepository: SettingsRepository,
+    val authRepository: AuthRepository,
     application: Application
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    val authState: StateFlow<AuthState> = authRepository.authState.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = authRepository.authState.value
+    )
+
+    val activeUserUid: StateFlow<String?> = authRepository.authState.map { state ->
+        if (state is AuthState.SignedIn) state.userUid else null
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = authRepository.getCurrentUserUid()
+    )
 
     val themeMode: StateFlow<String> = settingsRepository.themeModeFlow.stateIn(
         scope = viewModelScope,
@@ -93,13 +111,31 @@ class MainViewModel(
         initialValue = FilterSettings()
     )
 
-    val categories: StateFlow<List<CategoryEntity>> = categoryRepository.allCategories.stateIn(
+    val categories: StateFlow<List<CategoryEntity>> = combine(
+        categoryRepository.allCategories,
+        activeUserUid
+    ) { cats, uid ->
+        if (uid == null) {
+            emptyList()
+        } else {
+            cats.filter { it.userId == uid || it.userId == "local_user" }
+        }
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
 
-    val allTransactions: StateFlow<List<TransactionEntity>> = transactionRepository.allTransactions.stateIn(
+    val allTransactions: StateFlow<List<TransactionEntity>> = combine(
+        transactionRepository.allTransactions,
+        activeUserUid
+    ) { txs, uid ->
+        if (uid == null) {
+            emptyList()
+        } else {
+            txs.filter { it.userId == uid }
+        }
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
@@ -256,6 +292,7 @@ class MainViewModel(
     ) {
         viewModelScope.launch {
             try {
+                val currentUid = activeUserUid.value ?: "local_user"
                 val savedTx = transactionRepository.saveTransaction(
                     id = id,
                     date = date,
@@ -265,7 +302,8 @@ class MainViewModel(
                     account = account,
                     category = category,
                     subCategory = subCategory,
-                    destination = destination
+                    destination = destination,
+                    userId = currentUid
                 )
                 dismissTransactionDialog()
                 if (savedTx.conversionStatus == "OFFICIAL") {
@@ -431,7 +469,8 @@ class MainViewModel(
 
     fun addCategory(name: String, type: String, subCategory: String) {
         viewModelScope.launch {
-            categoryRepository.addCategory(name, type, subCategory)
+            val currentUid = activeUserUid.value ?: "local_user"
+            categoryRepository.addCategory(name, type, subCategory, userId = currentUid)
             showNotification("Category added")
         }
     }
@@ -480,9 +519,33 @@ class MainViewModel(
 
     fun seedDemoData() {
         viewModelScope.launch {
-            SampleDataSeeder.seedInitialTransactionsIfEmpty(transactionRepository)
+            val currentUid = activeUserUid.value ?: "local_user"
+            SampleDataSeeder.seedInitialTransactionsIfEmpty(transactionRepository, userId = currentUid)
             showNotification("Demo data generated!")
         }
+    }
+
+    fun signInWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            authRepository.signInWithGoogleCredential(idToken)
+        }
+    }
+
+    fun signInWithTestUid(testUid: String) {
+        viewModelScope.launch {
+            authRepository.signInWithTestUid(testUid)
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            _uiState.value = MainUiState()
+            authRepository.signOut()
+        }
+    }
+
+    fun clearAuthError() {
+        authRepository.clearError()
     }
 
     fun resetData() {
