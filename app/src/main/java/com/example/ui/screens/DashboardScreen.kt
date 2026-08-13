@@ -75,6 +75,7 @@ fun DashboardScreen(
     smartInsights: SmartFinancialInsights,
     onPeriodSelected: (String) -> Unit,
     onCurrencyChanged: (String) -> Unit,
+    syncStatus: String = "Signed out",
     modifier: Modifier = Modifier
 ) {
     var isSplineChart by remember { mutableStateOf(true) }
@@ -85,8 +86,34 @@ fun DashboardScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 80.dp)
     ) {
+        // Sync Status Indicator Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .testTag("sync_status_indicator"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = when (syncStatus) {
+                    "Synced" -> MaterialTheme.colorScheme.primaryContainer
+                    "Syncing..." -> MaterialTheme.colorScheme.tertiaryContainer
+                    "Offline" -> MaterialTheme.colorScheme.errorContainer
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+            ) {
+                Text(
+                    text = "Sync: $syncStatus",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+
         // Period Filter Chips
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         PeriodSelectorChipRow(
             selectedPeriod = filterSettings.selectedPeriod,
             onPeriodSelected = onPeriodSelected

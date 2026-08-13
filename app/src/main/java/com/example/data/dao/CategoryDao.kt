@@ -38,6 +38,9 @@ interface CategoryDao {
     @Query("DELETE FROM categories WHERE id = :id")
     suspend fun deleteSubcategory(id: String)
 
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun deleteCategoryById(id: String)
+
     @Query("SELECT * FROM categories WHERE name = :name AND type = :type")
     suspend fun getCategoriesGroup(name: String, type: String): List<CategoryEntity>
 

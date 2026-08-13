@@ -220,6 +220,10 @@ class FakeCategoryDao : CategoryDao {
         memory.removeAll { it.id == id }
     }
 
+    override suspend fun deleteCategoryById(id: String) {
+        memory.removeAll { it.id == id }
+    }
+
     override suspend fun deleteAllCategories() {
         memory.clear()
     }

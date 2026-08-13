@@ -13,15 +13,22 @@ import com.example.data.service.ExchangeRateService
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.FirebaseAuthRepository
 
+import com.example.data.repository.FirestoreSyncRepository
+
 interface AppContainer {
     val transactionRepository: TransactionRepository
     val categoryRepository: CategoryRepository
     val settingsRepository: SettingsRepository
     val authRepository: AuthRepository
     val database: FinTrackDatabase
+    val syncRepository: FirestoreSyncRepository
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
+
+    override val syncRepository: FirestoreSyncRepository by lazy {
+        FirestoreSyncRepository(database = database)
+    }
 
     override val authRepository: AuthRepository by lazy {
         FirebaseAuthRepository()

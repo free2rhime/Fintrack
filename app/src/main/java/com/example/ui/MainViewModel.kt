@@ -39,6 +39,8 @@ import java.io.File
 
 import com.example.data.repository.PendingRetryResult
 
+import com.example.data.repository.FirestoreSyncRepository
+
 data class DiscrepancyItem(
     val transactionId: String,
     val date: String,
@@ -79,11 +81,19 @@ class MainViewModel(
     val categoryRepository: CategoryRepository,
     val settingsRepository: SettingsRepository,
     val authRepository: AuthRepository,
+    val syncRepository: FirestoreSyncRepository? = null,
     application: Application
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    val syncStatus: StateFlow<String> = (syncRepository?.syncStatusState ?: MutableStateFlow("Signed out"))
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = syncRepository?.syncStatusState?.value ?: "Signed out"
+        )
 
     val authState: StateFlow<AuthState> = authRepository.authState.stateIn(
         scope = viewModelScope,
@@ -232,6 +242,15 @@ class MainViewModel(
     init {
         viewModelScope.launch {
             categoryRepository.ensureDefaultCategoriesSeeded()
+        }
+        viewModelScope.launch {
+            authRepository.authState.collect { state ->
+                if (state is AuthState.SignedIn) {
+                    syncRepository?.startSync(state.userUid)
+                } else {
+                    syncRepository?.stopSync()
+                }
+            }
         }
     }
 

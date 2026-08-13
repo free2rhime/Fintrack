@@ -18,6 +18,7 @@ class MainViewModelFactory(
                 categoryRepository = appContainer.categoryRepository,
                 settingsRepository = appContainer.settingsRepository,
                 authRepository = appContainer.authRepository,
+                syncRepository = appContainer.syncRepository,
                 application = application
             ) as T
         }

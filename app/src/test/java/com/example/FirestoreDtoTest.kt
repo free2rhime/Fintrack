@@ -1,0 +1,195 @@
+package com.example
+
+import com.example.data.model.CategoryDto
+import com.example.data.model.ExchangeRateMetadataDto
+import com.example.data.model.TransactionDto
+import com.example.data.model.toEntity
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class FirestoreDtoTest {
+
+    @Test
+    fun testValidTransactionMappingPreservesAmountsAndDates() {
+        val dto = TransactionDto(
+            transactionId = "tx123",
+            householdId = "hh_alpha",
+            createdByUid = "user_bubu",
+            transactionDate = "2026-08-10",
+            description = "Groceries",
+            amountRon = 100.0,
+            amountEur = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-09",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "Supermarket",
+            destination = null,
+            createdAt = 1700000000000L,
+            updatedAt = 1700000500000L,
+            exchangeRateMetadata = ExchangeRateMetadataDto(
+                source = "BNR_OFFICIAL",
+                status = "OFFICIAL",
+                rate = 5.0,
+                effectiveDate = "2026-08-09"
+            ),
+            isDeleted = false
+        )
+
+        val entity = dto.toEntity("doc_tx123")
+        assertNotNull(entity)
+        assertEquals("tx123", entity!!.id)
+        assertEquals("user_bubu", entity.userId)
+        assertEquals("2026-08-10", entity.date)
+        assertEquals("Groceries", entity.description)
+        assertEquals(100.0, entity.amountRON, 0.0001)
+        assertEquals(20.0, entity.amountEUR, 0.0001)
+        assertEquals(5.0, entity.exchangeRate, 0.0001)
+        assertEquals("2026-08-09", entity.exchangeRateDate)
+        assertEquals("Expense", entity.type)
+        assertEquals("Card", entity.account)
+        assertEquals("Food", entity.category)
+        assertEquals("Supermarket", entity.subCategory)
+        assertEquals(null, entity.destination)
+        assertEquals(1700000000000L, entity.createdAt)
+        assertEquals(1700000500000L, entity.updatedAt)
+        assertEquals("BNR_OFFICIAL", entity.exchangeRateSource)
+        assertEquals("OFFICIAL", entity.conversionStatus)
+        assertEquals("SYNCED", entity.syncStatus)
+        assertEquals(false, entity.isDeleted)
+    }
+
+    @Test
+    fun testValidCategoryMappingPreservesFieldsAndTombstone() {
+        val dto = CategoryDto(
+            categoryId = "cat_456",
+            householdId = "hh_alpha",
+            name = "Salary",
+            type = "Income",
+            subCategory = "Primary",
+            createdByUid = "user_admin",
+            createdAt = 1690000000000L,
+            updatedAt = 1690000500000L,
+            isDeleted = true
+        )
+
+        val entity = dto.toEntity("doc_cat_456")
+        assertNotNull(entity)
+        assertEquals("cat_456", entity!!.id)
+        assertEquals("Salary", entity.name)
+        assertEquals("Income", entity.type)
+        assertEquals("Primary", entity.subCategory)
+        assertEquals("user_admin", entity.userId)
+        assertEquals(1690000000000L, entity.createdAt)
+        assertEquals(1690000500000L, entity.updatedAt)
+        assertTrue(entity.isDeleted)
+        assertEquals("SYNCED", entity.syncStatus)
+    }
+
+    @Test
+    fun testInvalidConversionMetadataDowngradedToUnverified() {
+        // Effective date in future relative to transactionDate -> invalid official metadata
+        val dto = TransactionDto(
+            transactionId = "tx999",
+            householdId = "hh_alpha",
+            createdByUid = "user_123",
+            transactionDate = "2026-08-10",
+            description = "Test invalid rate date",
+            amountRon = 50.0,
+            amountEur = 10.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-15", // After transaction date
+            type = "Income",
+            account = "Cash",
+            category = "Bonus",
+            destination = "Bubu",
+            exchangeRateMetadata = ExchangeRateMetadataDto(
+                source = "BNR_OFFICIAL",
+                status = "OFFICIAL",
+                rate = 5.0,
+                effectiveDate = "2026-08-15" // Invalid: after transaction date 2026-08-10
+            )
+        )
+
+        val entity = dto.toEntity()
+        assertNotNull(entity)
+        assertEquals("UNVERIFIED", entity!!.exchangeRateSource)
+        assertEquals("UNVERIFIED", entity.conversionStatus)
+        // Ensure downloaded amounts are preserved exactly
+        assertEquals(50.0, entity.amountRON, 0.0001)
+        assertEquals(10.0, entity.amountEUR, 0.0001)
+        assertEquals(5.0, entity.exchangeRate, 0.0001)
+    }
+
+    @Test
+    fun testMalformedRequiredFieldsRejected() {
+        val baseDto = TransactionDto(
+            transactionId = "tx_bad",
+            householdId = "hh_alpha",
+            createdByUid = "user_123",
+            transactionDate = "2026-08-10",
+            description = "Bad tx",
+            amountRon = 50.0,
+            amountEur = 10.0,
+            exchangeRate = 5.0,
+            type = "Expense",
+            account = "Card",
+            category = "General"
+        )
+
+        // Invalid transaction type
+        assertNull(baseDto.copy(type = "InvalidType").toEntity())
+
+        // Invalid account
+        assertNull(baseDto.copy(account = "CryptoAccount").toEntity())
+
+        // Invalid destination for Expense
+        assertNull(baseDto.copy(destination = "Bubu").toEntity())
+
+        // Missing transactionDate
+        assertNull(baseDto.copy(transactionDate = "").toEntity())
+
+        // Missing category
+        assertNull(baseDto.copy(category = "").toEntity())
+
+        // Invalid zero/negative rate
+        assertNull(baseDto.copy(exchangeRate = 0.0).toEntity())
+
+        // Invalid Category Type
+        val badCatDto = CategoryDto(
+            categoryId = "c1",
+            name = "Test",
+            type = "UnknownType"
+        )
+        assertNull(badCatDto.toEntity())
+    }
+
+    @Test
+    fun testValidIncomeDestinationsAllowed() {
+        val dtoBubu = TransactionDto(
+            transactionId = "tx_inc_1",
+            transactionDate = "2026-08-10",
+            amountRon = 100.0,
+            amountEur = 20.0,
+            exchangeRate = 5.0,
+            type = "Income",
+            account = "Cash",
+            category = "Gift",
+            destination = "Bubu"
+        )
+        assertNotNull(dtoBubu.toEntity())
+
+        val dtoPiticania = dtoBubu.copy(destination = "Piticania")
+        assertNotNull(dtoPiticania.toEntity())
+
+        val dtoNullDest = dtoBubu.copy(destination = null)
+        assertNotNull(dtoNullDest.toEntity())
+
+        val dtoInvalidDest = dtoBubu.copy(destination = "UnknownDest")
+        assertNull(dtoInvalidDest.toEntity())
+    }
+}

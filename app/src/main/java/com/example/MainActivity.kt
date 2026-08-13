@@ -88,6 +88,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
     val monthlyDataPoints by viewModel.monthlyDataPoints.collectAsStateWithLifecycle()
     val smartInsights by viewModel.smartInsights.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -134,7 +135,8 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         categoryShares = categoryExpenseShares,
                         smartInsights = smartInsights,
                         onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
-                        onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
+                        onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
+                        syncStatus = syncStatus
                     )
 
                     1 -> TransactionsScreen(
