@@ -4,7 +4,7 @@
   "description": "FinTrack Firestore Security Rules and Emulator Tests",
   "main": "index.js",
   "scripts": {
-    "test": "npx tsc && npx mocha dist/tests/**/*.test.js --timeout 15000",
+    "test": "tsc && mocha dist/tests/**/*.test.js --timeout 15000",
     "test:emulator": "firebase emulators:exec --only firestore 'npm test'"
   },
   "devDependencies": {

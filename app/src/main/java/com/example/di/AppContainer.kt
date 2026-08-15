@@ -13,6 +13,8 @@ import com.example.data.service.ExchangeRateService
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.FirebaseAuthRepository
 
+import com.example.data.repository.FirestoreMigrationPreflightCoordinator
+import com.example.data.repository.FirestoreMigrationUploader
 import com.example.data.repository.FirestoreSyncRepository
 
 interface AppContainer {
@@ -22,12 +24,29 @@ interface AppContainer {
     val authRepository: AuthRepository
     val database: FinTrackDatabase
     val syncRepository: FirestoreSyncRepository
+    val migrationPreflightCoordinator: FirestoreMigrationPreflightCoordinator
+    val migrationUploader: FirestoreMigrationUploader
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
 
     override val syncRepository: FirestoreSyncRepository by lazy {
         FirestoreSyncRepository(database = database)
+    }
+
+    override val migrationPreflightCoordinator: FirestoreMigrationPreflightCoordinator by lazy {
+        FirestoreMigrationPreflightCoordinator(
+            database = database,
+            snapshotSource = com.example.data.repository.DefaultFirestoreSnapshotSource()
+        )
+    }
+
+    override val migrationUploader: FirestoreMigrationUploader by lazy {
+        FirestoreMigrationUploader(
+            database = database,
+            snapshotSource = com.example.data.repository.DefaultFirestoreSnapshotSource(),
+            syncRepository = syncRepository
+        )
     }
 
     override val authRepository: AuthRepository by lazy {

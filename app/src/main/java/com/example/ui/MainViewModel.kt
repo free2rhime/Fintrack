@@ -34,12 +34,69 @@ import com.example.data.util.CsvDuplicateMode
 import com.example.data.util.CsvImportFinalResult
 import com.example.data.util.CsvImporter
 import com.example.data.util.CsvPreviewData
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 import com.example.data.repository.PendingRetryResult
 
 import com.example.data.repository.FirestoreSyncRepository
+import com.example.data.repository.FirestoreMigrationPreflightCoordinator
+import com.example.data.repository.FirestoreMigrationUploader
+import com.example.data.repository.PreflightValidationResult
+import com.example.data.repository.MigrationSessionCreationResult
+import com.example.data.repository.MigrationUploadResult
+import com.example.data.repository.ConflictReason
+
+sealed class MigrationUiState {
+    object Idle : MigrationUiState()
+    object RunningPreflight : MigrationUiState()
+    data class Preview(val preview: MigrationPreviewState) : MigrationUiState()
+    data class Conflict(val conflict: MigrationConflictState) : MigrationUiState()
+    data class Uploading(val progress: MigrationProgressState) : MigrationUiState()
+    data class Success(val result: MigrationResultState.Success) : MigrationUiState()
+    data class Failure(val failure: MigrationResultState.Failure) : MigrationUiState()
+}
+
+data class MigrationPreviewState(
+    val householdId: String,
+    val userUid: String,
+    val userRole: String,
+    val transactionsCount: Int,
+    val categoriesCount: Int,
+    val exchangeRatesCount: Int,
+    val totalRecords: Int,
+    val backupBundlePath: String?,
+    val preflightReadyData: PreflightValidationResult.Ready? = null
+)
+
+data class MigrationProgressState(
+    val stage: String,
+    val processedCount: Int,
+    val totalCount: Int,
+    val progressFraction: Float = if (totalCount > 0) processedCount.toFloat() / totalCount.toFloat() else 0f
+)
+
+sealed class MigrationResultState {
+    data class Success(
+        val migrationId: String,
+        val categoriesUploaded: Int,
+        val ratesUploaded: Int,
+        val transactionsUploaded: Int,
+        val totalProcessed: Int
+    ) : MigrationResultState()
+
+    data class Failure(
+        val stage: String,
+        val sanitizedError: String,
+        val backupBundlePath: String? = null
+    ) : MigrationResultState()
+}
+
+data class MigrationConflictState(
+    val reason: String,
+    val details: String
+)
 
 data class DiscrepancyItem(
     val transactionId: String,
@@ -82,11 +139,17 @@ class MainViewModel(
     val settingsRepository: SettingsRepository,
     val authRepository: AuthRepository,
     val syncRepository: FirestoreSyncRepository? = null,
+    val preflightCoordinator: FirestoreMigrationPreflightCoordinator? = null,
+    val migrationUploader: FirestoreMigrationUploader? = null,
+    val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     application: Application
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    private val _migrationUiState = MutableStateFlow<MigrationUiState>(MigrationUiState.Idle)
+    val migrationUiState: StateFlow<MigrationUiState> = _migrationUiState.asStateFlow()
 
     val syncStatus: StateFlow<String> = (syncRepository?.syncStatusState ?: MutableStateFlow("Signed out"))
         .stateIn(
@@ -749,5 +812,212 @@ class MainViewModel(
 
     private fun showNotification(msg: String) {
         _uiState.value = _uiState.value.copy(userNotification = msg)
+    }
+
+    // ==========================================
+    // MIGRATION ORCHESTRATION METHODS (STAGE 3A)
+    // ==========================================
+
+    fun startMigrationPreflight(
+        targetHouseholdId: String? = null,
+        targetUserUid: String? = null,
+        backupBundleDir: File? = null
+    ) {
+        _migrationUiState.value = MigrationUiState.RunningPreflight
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val resolvedUserUid = targetUserUid
+                    ?: (authState.value as? AuthState.SignedIn)?.userUid
+                    ?: authRepository.getCurrentUserUid()
+                val resolvedHouseholdId = targetHouseholdId
+                    ?: syncRepository?.activeHouseholdId
+                    ?: if (resolvedUserUid != null) "household_$resolvedUserUid" else null
+
+                if (resolvedUserUid.isNullOrBlank() || resolvedHouseholdId.isNullOrBlank()) {
+                    _migrationUiState.value = MigrationUiState.Conflict(
+                        MigrationConflictState(
+                            reason = ConflictReason.INSUFFICIENT_PERMISSIONS.name,
+                            details = "Authentication required: You must be signed in with an active household to migrate data."
+                        )
+                    )
+                    return@launch
+                }
+
+                val coordinator = preflightCoordinator
+                if (coordinator == null) {
+                    _migrationUiState.value = MigrationUiState.Failure(
+                        MigrationResultState.Failure(
+                            stage = "PREFLIGHT",
+                            sanitizedError = "Migration preflight service is not initialized."
+                        )
+                    )
+                    return@launch
+                }
+
+                val result = coordinator.validatePreflight(
+                    householdId = resolvedHouseholdId,
+                    userUid = resolvedUserUid,
+                    backupBundleDir = backupBundleDir
+                )
+
+                when (result) {
+                    is PreflightValidationResult.Ready -> {
+                        _migrationUiState.value = MigrationUiState.Preview(
+                            MigrationPreviewState(
+                                householdId = result.householdId,
+                                userUid = result.userUid,
+                                userRole = result.memberInfo.role,
+                                transactionsCount = result.localCounts.transactionsCount,
+                                categoriesCount = result.localCounts.categoriesCount,
+                                exchangeRatesCount = result.localCounts.exchangeRatesCount,
+                                totalRecords = result.localCounts.totalCount,
+                                backupBundlePath = result.backupBundlePath,
+                                preflightReadyData = result
+                            )
+                        )
+                    }
+                    is PreflightValidationResult.Conflict -> {
+                        _migrationUiState.value = MigrationUiState.Conflict(
+                            MigrationConflictState(
+                                reason = result.reason.name,
+                                details = sanitizeMigrationError(result.details)
+                            )
+                        )
+                    }
+                    is PreflightValidationResult.Failure -> {
+                        _migrationUiState.value = MigrationUiState.Failure(
+                            MigrationResultState.Failure(
+                                stage = "PREFLIGHT",
+                                sanitizedError = sanitizeMigrationError(result.sanitizedError)
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _migrationUiState.value = MigrationUiState.Failure(
+                    MigrationResultState.Failure(
+                        stage = "PREFLIGHT",
+                        sanitizedError = sanitizeMigrationError(e.message)
+                    )
+                )
+            }
+        }
+    }
+
+    fun cancelMigrationPreview() {
+        if (_migrationUiState.value is MigrationUiState.Preview) {
+            _migrationUiState.value = MigrationUiState.Idle
+        }
+    }
+
+    fun dismissMigrationDialogs() {
+        _migrationUiState.value = MigrationUiState.Idle
+    }
+
+    fun confirmAndExecuteMigration() {
+        val current = _migrationUiState.value
+        val preview = (current as? MigrationUiState.Preview)?.preview ?: return
+
+        _migrationUiState.value = MigrationUiState.Uploading(
+            MigrationProgressState(
+                stage = "INITIALIZING",
+                processedCount = 0,
+                totalCount = preview.totalRecords
+            )
+        )
+
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val coordinator = preflightCoordinator
+                val uploader = migrationUploader
+
+                if (coordinator == null || uploader == null) {
+                    _migrationUiState.value = MigrationUiState.Failure(
+                        MigrationResultState.Failure(
+                            stage = "UPLOADING",
+                            sanitizedError = "Migration services are not initialized.",
+                            backupBundlePath = preview.backupBundlePath
+                        )
+                    )
+                    return@launch
+                }
+
+                val readyData = preview.preflightReadyData
+                val migrationId = if (readyData != null) {
+                    val sessionResult = coordinator.createMigrationSession(readyData)
+                    when (sessionResult) {
+                        is MigrationSessionCreationResult.Success -> sessionResult.migrationId
+                        is MigrationSessionCreationResult.Failure -> {
+                            _migrationUiState.value = MigrationUiState.Failure(
+                                MigrationResultState.Failure(
+                                    stage = "SESSION_INITIALIZATION",
+                                    sanitizedError = sanitizeMigrationError(sessionResult.sanitizedError),
+                                    backupBundlePath = preview.backupBundlePath
+                                )
+                            )
+                            return@launch
+                        }
+                    }
+                } else {
+                    "mig_" + java.util.UUID.randomUUID().toString()
+                }
+
+                val uploadResult = uploader.executeMigration(
+                    householdId = preview.householdId,
+                    userUid = preview.userUid,
+                    migrationId = migrationId,
+                    backupBundlePath = preview.backupBundlePath,
+                    onProgress = { stage, processed, total ->
+                        _migrationUiState.value = MigrationUiState.Uploading(
+                            MigrationProgressState(
+                                stage = stage,
+                                processedCount = processed,
+                                totalCount = total
+                            )
+                        )
+                    }
+                )
+
+                when (uploadResult) {
+                    is MigrationUploadResult.Success -> {
+                        _migrationUiState.value = MigrationUiState.Success(
+                            MigrationResultState.Success(
+                                migrationId = uploadResult.migrationId,
+                                categoriesUploaded = uploadResult.categoriesUploaded,
+                                ratesUploaded = uploadResult.ratesUploaded,
+                                transactionsUploaded = uploadResult.transactionsUploaded,
+                                totalProcessed = uploadResult.totalProcessed
+                            )
+                        )
+                    }
+                    is MigrationUploadResult.Failure -> {
+                        _migrationUiState.value = MigrationUiState.Failure(
+                            MigrationResultState.Failure(
+                                stage = uploadResult.stage,
+                                sanitizedError = sanitizeMigrationError(uploadResult.sanitizedError),
+                                backupBundlePath = preview.backupBundlePath
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _migrationUiState.value = MigrationUiState.Failure(
+                    MigrationResultState.Failure(
+                        stage = "UPLOADING",
+                        sanitizedError = sanitizeMigrationError(e.message),
+                        backupBundlePath = preview.backupBundlePath
+                    )
+                )
+            }
+        }
+    }
+
+    private fun sanitizeMigrationError(rawError: String?): String {
+        if (rawError.isNullOrBlank()) return "An unexpected error occurred during migration."
+        val clean = rawError.lines()
+            .map { it.replace(Regex("at [a-zA-Z0-9_$.]+\\(.*\\)"), "").trim() }
+            .filter { it.isNotBlank() && !it.startsWith("java.") && !it.startsWith("kotlin.") && !it.startsWith("android.") }
+            .firstOrNull() ?: "An unexpected error occurred during migration."
+        return clean.take(150)
     }
 }

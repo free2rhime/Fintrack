@@ -520,4 +520,200 @@ describe('FinTrack Firestore Security Rules', () => {
       }));
     });
   });
+
+  // --------------------------------------------------------------------------
+  // 7. Controlled One-Time Migration Security Contract Tests
+  // --------------------------------------------------------------------------
+  describe('Controlled Migration Security Contract', () => {
+    const MIGRATION_ID = 'mig_001';
+
+    beforeEach(async () => {
+      // Seed an active migration session initiated by OWNER_UID
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, `households/${HOUSEHOLD_ID}/migrationState/${MIGRATION_ID}`), {
+          migrationId: MIGRATION_ID,
+          householdId: HOUSEHOLD_ID,
+          initiatedByUid: OWNER_UID,
+          stage: 'TRANSACTIONS_UPLOADING',
+          createdAt: '2026-08-13T00:00:00Z',
+          updatedAt: '2026-08-13T00:00:00Z'
+        });
+      });
+    });
+
+    it('denies unauthenticated migration access', async () => {
+      const unauthDb = testEnv.unauthenticatedContext().firestore();
+      await assertFails(setDoc(doc(unauthDb, `households/${HOUSEHOLD_ID}/migrationState/mig_unauth`), {
+        migrationId: 'mig_unauth',
+        householdId: HOUSEHOLD_ID,
+        initiatedByUid: 'anonymous',
+        stage: 'PREFLIGHT'
+      }));
+    });
+
+    it('denies non-member migration access', async () => {
+      const strangerDb = testEnv.authenticatedContext(STRANGER_UID).firestore();
+      await assertFails(setDoc(doc(strangerDb, `households/${HOUSEHOLD_ID}/migrationState/mig_stranger`), {
+        migrationId: 'mig_stranger',
+        householdId: HOUSEHOLD_ID,
+        initiatedByUid: STRANGER_UID,
+        stage: 'PREFLIGHT'
+      }));
+    });
+
+    it('denies ordinary member migration access', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/migrationState/mig_member`), {
+        migrationId: 'mig_member',
+        householdId: HOUSEHOLD_ID,
+        initiatedByUid: MEMBER_UID,
+        stage: 'PREFLIGHT'
+      }));
+    });
+
+    it('allows owner or admin to create a valid migration-state document', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertSucceeds(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/migrationState/mig_owner_new`), {
+        migrationId: 'mig_owner_new',
+        householdId: HOUSEHOLD_ID,
+        initiatedByUid: OWNER_UID,
+        stage: 'PREFLIGHT'
+      }));
+
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+      await assertSucceeds(setDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/migrationState/mig_admin_new`), {
+        migrationId: 'mig_admin_new',
+        householdId: HOUSEHOLD_ID,
+        initiatedByUid: ADMIN_UID,
+        stage: 'PREFLIGHT'
+      }));
+    });
+
+    it('allows migration write with a valid active session and preserved original createdByUid', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertSucceeds(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/transactions/tx_mig_01`), {
+        transactionId: 'tx_mig_01',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amount: 250.0,
+        currency: 'RON',
+        transactionDate: '2026-08-01',
+        createdByUid: 'user_legacy_author',
+        migrationId: MIGRATION_ID
+      }));
+    });
+
+    it('denies migration write without a valid active session', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertFails(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/transactions/tx_mig_no_session`), {
+        transactionId: 'tx_mig_no_session',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amount: 250.0,
+        currency: 'RON',
+        transactionDate: '2026-08-01',
+        createdByUid: 'user_legacy_author',
+        migrationId: 'mig_nonexistent'
+      }));
+    });
+
+    it('denies migration write for another household', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertFails(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/transactions/tx_mig_bad_h`), {
+        transactionId: 'tx_mig_bad_h',
+        householdId: 'household_other',
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amount: 250.0,
+        currency: 'RON',
+        transactionDate: '2026-08-01',
+        createdByUid: 'user_legacy_author',
+        migrationId: MIGRATION_ID
+      }));
+    });
+
+    it('denies migration write initiated by another caller than the session owner', async () => {
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+      await assertFails(setDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/transactions/tx_mig_wrong_caller`), {
+        transactionId: 'tx_mig_wrong_caller',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amount: 250.0,
+        currency: 'RON',
+        transactionDate: '2026-08-01',
+        createdByUid: ADMIN_UID,
+        migrationId: MIGRATION_ID // initiated by OWNER_UID
+      }));
+    });
+
+    it('denies overwriting an existing document during migration (create-only)', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertFails(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/transactions/tx_existing`), {
+        transactionId: 'tx_existing',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amount: 999.0,
+        currency: 'RON',
+        transactionDate: '2026-08-10',
+        createdByUid: MEMBER_UID,
+        migrationId: MIGRATION_ID
+      }));
+    });
+
+    it('denies migration write with malformed financial metadata', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertFails(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/transactions/tx_mig_malformed`), {
+        transactionId: 'tx_mig_malformed',
+        householdId: HOUSEHOLD_ID,
+        type: 'InvalidType',
+        account: 'Card',
+        destination: null,
+        amount: 100.0,
+        currency: 'RON',
+        transactionDate: '2026-08-01',
+        createdByUid: OWNER_UID,
+        migrationId: MIGRATION_ID
+      }));
+    });
+
+    it('denies upgrading questionable metadata to OFFICIAL status', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertFails(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/exchangeRates/2026-08-01`), {
+        source: 'MANUAL_IMPORT',
+        status: 'OFFICIAL',
+        effectiveDate: '2026-08-01',
+        rates: { EUR: 4.95 },
+        migrationId: MIGRATION_ID
+      }));
+    });
+
+    it('allows valid PENDING, FAILED, or UNVERIFIED exchange rates under strict non-official rules', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertSucceeds(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/exchangeRates/2026-08-02`), {
+        source: 'MANUAL_IMPORT',
+        status: 'UNVERIFIED',
+        effectiveDate: '2026-08-02',
+        rates: { EUR: 4.95 },
+        migrationId: MIGRATION_ID
+      }));
+
+      await assertSucceeds(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/exchangeRates/2026-08-03`), {
+        source: 'MANUAL_IMPORT',
+        status: 'PENDING',
+        effectiveDate: '2026-08-03',
+        rates: { EUR: 4.96 },
+        migrationId: MIGRATION_ID
+      }));
+    });
+  });
 });

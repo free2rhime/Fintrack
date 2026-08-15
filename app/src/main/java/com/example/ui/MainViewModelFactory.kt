@@ -19,6 +19,8 @@ class MainViewModelFactory(
                 settingsRepository = appContainer.settingsRepository,
                 authRepository = appContainer.authRepository,
                 syncRepository = appContainer.syncRepository,
+                preflightCoordinator = appContainer.migrationPreflightCoordinator,
+                migrationUploader = appContainer.migrationUploader,
                 application = application
             ) as T
         }

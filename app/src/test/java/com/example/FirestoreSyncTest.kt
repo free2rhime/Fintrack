@@ -71,6 +71,89 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
         return if (userUid == "user_special") "hh_special_99" else null
     }
 
+    val members = mutableMapOf<Pair<String, String>, Map<String, Any?>>()
+    var activeMigrationSession: Map<String, Any?>? = null
+    var remoteTransactionCount: Int = 0
+    var remoteCategoryCount: Int = 0
+    var remoteExchangeRateCount: Int = 0
+    val createdMigrationDocs = mutableMapOf<String, Map<String, Any?>>()
+    val updatedMigrationDocs = mutableListOf<Pair<String, Map<String, Any?>>>()
+    var shouldFailMigrationDocCreation: Boolean = false
+    var shouldFailMigrationDocUpdate: Boolean = false
+    var shouldFailCategoryUpload: Boolean = false
+    var shouldFailExchangeRateUpload: Boolean = false
+    var shouldFailTransactionUpload: Boolean = false
+
+    val uploadedCategoryBatches = mutableListOf<List<Map<String, Any?>>>()
+    val uploadedExchangeRateBatches = mutableListOf<List<Map<String, Any?>>>()
+    val uploadedTransactionBatches = mutableListOf<List<Map<String, Any?>>>()
+    val operationOrder = mutableListOf<String>()
+
+    override suspend fun getHouseholdMembership(householdId: String, userUid: String): Map<String, Any?>? {
+        return members[Pair(householdId, userUid)]
+    }
+
+    override suspend fun getActiveMigrationSession(householdId: String): Map<String, Any?>? {
+        return activeMigrationSession
+    }
+
+    override suspend fun getRemoteTransactionCount(householdId: String): Int {
+        return remoteTransactionCount
+    }
+
+    override suspend fun getRemoteCategoryCount(householdId: String): Int {
+        return remoteCategoryCount
+    }
+
+    override suspend fun getRemoteExchangeRateCount(householdId: String): Int {
+        return remoteExchangeRateCount
+    }
+
+    override suspend fun createMigrationStateDoc(householdId: String, migrationId: String, data: Map<String, Any?>): Boolean {
+        if (shouldFailMigrationDocCreation) return false
+        createdMigrationDocs[migrationId] = data
+        return true
+    }
+
+    override suspend fun updateMigrationStateDoc(householdId: String, migrationId: String, updates: Map<String, Any?>): Boolean {
+        if (shouldFailMigrationDocUpdate) return false
+        updatedMigrationDocs.add(Pair(migrationId, updates))
+        val current = createdMigrationDocs[migrationId] ?: emptyMap()
+        createdMigrationDocs[migrationId] = current + updates
+        return true
+    }
+
+    override suspend fun uploadCategoriesBatch(householdId: String, categories: List<Map<String, Any?>>): Boolean {
+        operationOrder.add("CATEGORIES")
+        if (shouldFailCategoryUpload) return false
+        uploadedCategoryBatches.add(categories)
+        remoteCategoryCount += categories.size
+        return true
+    }
+
+    override suspend fun uploadExchangeRatesBatch(householdId: String, rates: List<Map<String, Any?>>): Boolean {
+        operationOrder.add("RATES")
+        if (shouldFailExchangeRateUpload) return false
+        uploadedExchangeRateBatches.add(rates)
+        remoteExchangeRateCount += rates.size
+        return true
+    }
+
+    override suspend fun uploadTransactionsBatch(householdId: String, transactions: List<Map<String, Any?>>): Boolean {
+        operationOrder.add("TRANSACTIONS")
+        if (shouldFailTransactionUpload) return false
+        uploadedTransactionBatches.add(transactions)
+        remoteTransactionCount += transactions.size
+        return true
+    }
+
+    fun setMember(householdId: String, userUid: String, role: String, status: String) {
+        members[Pair(householdId, userUid)] = mapOf(
+            "role" to role,
+            "status" to status
+        )
+    }
+
     fun emitTransactions(docs: List<Pair<String, Map<String, Any?>>>) {
         txCallback?.invoke(docs)
     }

@@ -51,6 +51,20 @@ service cloud.firestore {
 
     // Domain validation helpers
 
+    function isValidMigrationState(data, householdId) {
+      return data.householdId == householdId &&
+             data.initiatedByUid == request.auth.uid &&
+             data.stage in ['PREFLIGHT', 'BACKUP_CREATED', 'CATEGORIES_UPLOADING', 'RATES_UPLOADING', 'TRANSACTIONS_UPLOADING', 'VERIFYING', 'COMPLETED', 'FAILED', 'CANCELLED'];
+    }
+
+    function hasActiveMigrationSession(householdId, migrationId) {
+      return isAuthenticated() &&
+             isHouseholdAdminOrOwner(householdId) &&
+             exists(/databases/$(database)/documents/households/$(householdId)/migrationState/$(migrationId)) &&
+             get(/databases/$(database)/documents/households/$(householdId)/migrationState/$(migrationId)).data.initiatedByUid == request.auth.uid &&
+             get(/databases/$(database)/documents/households/$(householdId)/migrationState/$(migrationId)).data.stage in ['PREFLIGHT', 'BACKUP_CREATED', 'CATEGORIES_UPLOADING', 'RATES_UPLOADING', 'TRANSACTIONS_UPLOADING', 'VERIFYING'];
+    }
+
     function isValidTransactionType(type) {
       return type in ['Income', 'Expense'];
     }
@@ -71,6 +85,11 @@ service cloud.firestore {
         meta.rate is number && meta.rate > 0 &&
         meta.effectiveDate is string &&
         meta.effectiveDate <= transactionDate
+      ) || (
+        meta.status in ['PENDING', 'FAILED', 'UNVERIFIED'] &&
+        meta.status != 'OFFICIAL' &&
+        meta.rate is number && meta.rate > 0 &&
+        meta.effectiveDate is string
       );
     }
 
@@ -92,6 +111,18 @@ service cloud.firestore {
              incoming.householdId == existing.householdId &&
              incoming.createdByUid == existing.createdByUid &&
              isTransactionValid(incoming);
+    }
+
+    function isValidExchangeRateData(data) {
+      return (
+        data.source == 'BNR_OFFICIAL' &&
+        data.status == 'OFFICIAL' &&
+        data.rates is map
+      ) || (
+        data.status in ['PENDING', 'FAILED', 'UNVERIFIED'] &&
+        data.status != 'OFFICIAL' &&
+        data.rates is map
+      );
     }
 
     // Default deny for unauthenticated or non-matching paths
@@ -123,14 +154,37 @@ service cloud.firestore {
         allow update, delete: if isHouseholdAdminOrOwner(householdId);
       }
 
+      // Migration State subcollection
+      match /migrationState/{migrationId} {
+        allow read: if isHouseholdAdminOrOwner(householdId);
+        allow create: if isHouseholdAdminOrOwner(householdId) &&
+                         isValidMigrationState(request.resource.data, householdId);
+        allow update: if isHouseholdAdminOrOwner(householdId) &&
+                         request.resource.data.householdId == householdId &&
+                         request.resource.data.initiatedByUid == resource.data.initiatedByUid &&
+                         isValidMigrationState(request.resource.data, householdId);
+        allow delete: if isHouseholdAdminOrOwner(householdId);
+      }
+
       // Transactions subcollection
       match /transactions/{transactionId} {
         allow read: if isHouseholdMember(householdId);
-        allow create: if isHouseholdMember(householdId) &&
-                         request.resource.data.householdId == householdId &&
-                         request.resource.data.createdByUid == request.auth.uid &&
-                         isTransactionValid(request.resource.data);
-        allow update: if isHouseholdMember(householdId) &&
+        allow create: if (
+                          !('migrationId' in request.resource.data) &&
+                          isHouseholdMember(householdId) &&
+                          request.resource.data.householdId == householdId &&
+                          request.resource.data.createdByUid == request.auth.uid &&
+                          isTransactionValid(request.resource.data)
+                        ) || (
+                          'migrationId' in request.resource.data &&
+                          isHouseholdAdminOrOwner(householdId) &&
+                          hasActiveMigrationSession(householdId, request.resource.data.migrationId) &&
+                          request.resource.data.householdId == householdId &&
+                          request.resource.data.createdByUid is string &&
+                          isTransactionValid(request.resource.data)
+                        );
+        allow update: if !('migrationId' in request.resource.data) &&
+                         isHouseholdMember(householdId) &&
                          isTransactionUpdateValid(resource.data, request.resource.data);
         allow delete: if isHouseholdMember(householdId) &&
                          (resource.data.createdByUid == request.auth.uid || isHouseholdAdminOrOwner(householdId));
@@ -139,20 +193,41 @@ service cloud.firestore {
       // Categories subcollection
       match /categories/{categoryId} {
         allow read: if isHouseholdMember(householdId);
-        allow create: if isHouseholdMember(householdId) &&
-                         request.resource.data.householdId == householdId &&
-                         isValidTransactionType(request.resource.data.type);
-        allow update: if isHouseholdMember(householdId) &&
-                         request.resource.data.householdId == resource.data.householdId;
+        allow create: if (
+                          !('migrationId' in request.resource.data) &&
+                          isHouseholdMember(householdId) &&
+                          request.resource.data.householdId == householdId &&
+                          isValidTransactionType(request.resource.data.type)
+                        ) || (
+                          'migrationId' in request.resource.data &&
+                          isHouseholdAdminOrOwner(householdId) &&
+                          hasActiveMigrationSession(householdId, request.resource.data.migrationId) &&
+                          request.resource.data.householdId == householdId &&
+                          isValidTransactionType(request.resource.data.type)
+                        );
+        allow update: if !('migrationId' in request.resource.data) &&
+                         isHouseholdMember(householdId);
         allow delete: if isHouseholdAdminOrOwner(householdId);
       }
 
       // Exchange Rates subcollection
       match /exchangeRates/{requestedDate} {
         allow read: if isHouseholdMember(householdId);
-        allow create, update: if isHouseholdMember(householdId) &&
-                                 request.resource.data.source == 'BNR_OFFICIAL' &&
-                                 request.resource.data.status == 'OFFICIAL';
+        allow create: if (
+                          !('migrationId' in request.resource.data) &&
+                          isHouseholdMember(householdId) &&
+                          request.resource.data.source == 'BNR_OFFICIAL' &&
+                          request.resource.data.status == 'OFFICIAL'
+                        ) || (
+                          'migrationId' in request.resource.data &&
+                          isHouseholdAdminOrOwner(householdId) &&
+                          hasActiveMigrationSession(householdId, request.resource.data.migrationId) &&
+                          isValidExchangeRateData(request.resource.data)
+                        );
+        allow update: if !('migrationId' in request.resource.data) &&
+                         isHouseholdMember(householdId) &&
+                         request.resource.data.source == 'BNR_OFFICIAL' &&
+                         request.resource.data.status == 'OFFICIAL';
         allow delete: if isHouseholdAdminOrOwner(householdId);
       }
     }

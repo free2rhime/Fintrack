@@ -101,6 +101,85 @@ data class CategoryDto(
     }
 }
 
+data class ExchangeRateDto(
+    @get:PropertyName("requestedDate") @set:PropertyName("requestedDate") var requestedDate: String? = null,
+    @get:PropertyName("effectiveDate") @set:PropertyName("effectiveDate") var effectiveDate: String? = null,
+    @get:PropertyName("rate") @set:PropertyName("rate") var rate: Double? = null,
+    @get:PropertyName("source") @set:PropertyName("source") var source: String? = null,
+    @get:PropertyName("fetchedAt") @set:PropertyName("fetchedAt") var fetchedAt: Long? = null,
+    @get:PropertyName("status") @set:PropertyName("status") var status: String? = null,
+    @get:PropertyName("householdId") @set:PropertyName("householdId") var householdId: String? = null,
+    @get:PropertyName("migrationId") @set:PropertyName("migrationId") var migrationId: String? = null,
+    @get:PropertyName("rates") @set:PropertyName("rates") var rates: Map<String, Double>? = null
+) {
+    companion object {
+        fun fromEntity(entity: ExchangeRateEntity, householdId: String, migrationId: String? = null): ExchangeRateDto {
+            return ExchangeRateDto(
+                requestedDate = entity.requestedDate.ifBlank { entity.date },
+                effectiveDate = entity.effectiveDate.ifBlank { entity.date },
+                rate = entity.rate,
+                source = entity.source,
+                fetchedAt = entity.fetchedAt,
+                status = entity.status,
+                householdId = householdId,
+                migrationId = migrationId,
+                rates = mapOf("EUR" to entity.rate)
+            )
+        }
+
+        fun fromMap(map: Map<String, Any?>, docId: String): ExchangeRateDto {
+            val ratesMap = (map["rates"] as? Map<*, *>)?.entries?.associate {
+                (it.key as String) to ((it.value as? Number)?.toDouble() ?: 0.0)
+            }
+            return ExchangeRateDto(
+                requestedDate = (map["requestedDate"] as? String) ?: docId,
+                effectiveDate = map["effectiveDate"] as? String,
+                rate = (map["rate"] as? Number)?.toDouble(),
+                source = map["source"] as? String,
+                fetchedAt = (map["fetchedAt"] as? Number)?.toLong(),
+                status = map["status"] as? String,
+                householdId = map["householdId"] as? String,
+                migrationId = map["migrationId"] as? String,
+                rates = ratesMap
+            )
+        }
+    }
+}
+
+data class MigrationStateDto(
+    @get:PropertyName("migrationId") @set:PropertyName("migrationId") var migrationId: String? = null,
+    @get:PropertyName("householdId") @set:PropertyName("householdId") var householdId: String? = null,
+    @get:PropertyName("initiatedByUid") @set:PropertyName("initiatedByUid") var initiatedByUid: String? = null,
+    @get:PropertyName("stage") @set:PropertyName("stage") var stage: String? = null,
+    @get:PropertyName("processedCount") @set:PropertyName("processedCount") var processedCount: Int? = null,
+    @get:PropertyName("totalCount") @set:PropertyName("totalCount") var totalCount: Int? = null,
+    @get:PropertyName("currentPhase") @set:PropertyName("currentPhase") var currentPhase: String? = null,
+    @get:PropertyName("lastProcessedId") @set:PropertyName("lastProcessedId") var lastProcessedId: String? = null,
+    @get:PropertyName("lastError") @set:PropertyName("lastError") var lastError: String? = null,
+    @get:PropertyName("backupPath") @set:PropertyName("backupPath") var backupPath: String? = null,
+    @get:PropertyName("createdAt") @set:PropertyName("createdAt") var createdAt: Long? = null,
+    @get:PropertyName("updatedAt") @set:PropertyName("updatedAt") var updatedAt: Long? = null
+) {
+    companion object {
+        fun fromEntity(entity: MigrationStateEntity): MigrationStateDto {
+            return MigrationStateDto(
+                migrationId = entity.migrationId,
+                householdId = entity.householdId,
+                initiatedByUid = entity.initiatedByUid,
+                stage = entity.stage,
+                processedCount = entity.processedCount,
+                totalCount = entity.totalCount,
+                currentPhase = entity.currentPhase,
+                lastProcessedId = entity.lastProcessedId,
+                lastError = entity.lastError,
+                backupPath = entity.backupPath,
+                createdAt = entity.createdAt,
+                updatedAt = entity.updatedAt
+            )
+        }
+    }
+}
+
 object FirestoreDtoValidator {
 
     fun isValidTransactionType(type: String?): Boolean {
@@ -127,6 +206,22 @@ object FirestoreDtoValidator {
         val effDate = meta.effectiveDate
         val validDate = !effDate.isNullOrBlank() && effDate <= transactionDate
         return validSource && validStatus && validRate && validDate
+    }
+
+    fun isValidExchangeRateStatus(status: String?): Boolean {
+        return status != null && status in listOf("OFFICIAL", "PENDING", "FAILED", "UNVERIFIED")
+    }
+
+    fun isValidExchangeRateDto(dto: ExchangeRateDto): Boolean {
+        val status = dto.status ?: return false
+        if (!isValidExchangeRateStatus(status)) return false
+        val rate = dto.rate ?: dto.rates?.get("EUR") ?: return false
+        if (rate <= 0 || rate.isNaN() || rate.isInfinite()) return false
+
+        if (status == "OFFICIAL") {
+            if (dto.source != "BNR_OFFICIAL") return false
+        }
+        return true
     }
 }
 
@@ -206,3 +301,35 @@ fun CategoryDto.toEntity(documentId: String? = null): CategoryEntity? {
         syncStatus = "SYNCED"
     )
 }
+
+fun ExchangeRateDto.toEntity(documentId: String? = null): ExchangeRateEntity? {
+    val reqDate = requestedDate?.takeIf { it.isNotBlank() } ?: documentId?.takeIf { it.isNotBlank() } ?: return null
+    val effDate = effectiveDate?.takeIf { it.isNotBlank() } ?: reqDate
+    val rateVal = rate ?: rates?.get("EUR") ?: return null
+    if (rateVal <= 0 || rateVal.isNaN() || rateVal.isInfinite()) return null
+
+    val rawStatus = status?.takeIf { FirestoreDtoValidator.isValidExchangeRateStatus(it) } ?: "UNVERIFIED"
+    val rawSource = source?.takeIf { it.isNotBlank() } ?: "UNVERIFIED"
+
+    // Maintain strict non-official rules: never upgrade questionable metadata to OFFICIAL
+    val finalStatus: String
+    val finalSource: String
+    if (rawStatus == "OFFICIAL" && rawSource == "BNR_OFFICIAL") {
+        finalStatus = "OFFICIAL"
+        finalSource = "BNR_OFFICIAL"
+    } else {
+        finalStatus = if (rawStatus == "OFFICIAL") "UNVERIFIED" else rawStatus
+        finalSource = if (rawSource == "BNR_OFFICIAL" && rawStatus != "OFFICIAL") "UNVERIFIED" else rawSource
+    }
+
+    return ExchangeRateEntity(
+        date = reqDate,
+        requestedDate = reqDate,
+        effectiveDate = effDate,
+        rate = rateVal,
+        source = finalSource,
+        fetchedAt = fetchedAt ?: System.currentTimeMillis(),
+        status = finalStatus
+    )
+}
+

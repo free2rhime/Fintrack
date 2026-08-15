@@ -32,6 +32,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.repository.AuthState
 import com.example.data.util.CsvExporter
 import com.example.ui.MainViewModel
+import com.example.ui.MigrationUiState
+import com.example.ui.components.MigrationConflictDialog
+import com.example.ui.components.MigrationPreviewDialog
+import com.example.ui.components.MigrationProgressDialog
+import com.example.ui.components.MigrationResultDialog
 import com.example.ui.components.TransactionFormDialog
 import com.example.ui.navigation.FinTrackBottomNavigation
 import com.example.ui.screens.AnalyticsScreen
@@ -89,6 +94,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
     val smartInsights by viewModel.smartInsights.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+    val migrationUiState by viewModel.migrationUiState.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -195,9 +201,45 @@ fun FinTrackApp(viewModel: MainViewModel) {
                             onRunBnrDiagnostic = { viewModel.runBnrDiagnostic() },
                             debugDiagnosticResult = uiState.debugDiagnosticResult,
                             onDismissDebugDiagnostic = { viewModel.dismissDebugDiagnostic() },
-                            isRetryingPending = uiState.isRetryingPending
+                            isRetryingPending = uiState.isRetryingPending,
+                            onStartMigration = { viewModel.startMigrationPreflight() }
                         )
                     }
+                }
+
+                // Migration Dialogs (Stage 3B)
+                when (val mState = migrationUiState) {
+                    is MigrationUiState.Preview -> {
+                        MigrationPreviewDialog(
+                            previewState = mState.preview,
+                            onConfirm = { viewModel.confirmAndExecuteMigration() },
+                            onCancel = { viewModel.cancelMigrationPreview() }
+                        )
+                    }
+                    is MigrationUiState.Conflict -> {
+                        MigrationConflictDialog(
+                            conflictState = mState.conflict,
+                            onDismiss = { viewModel.dismissMigrationDialogs() }
+                        )
+                    }
+                    is MigrationUiState.Uploading -> {
+                        MigrationProgressDialog(
+                            progressState = mState.progress
+                        )
+                    }
+                    is MigrationUiState.Success -> {
+                        MigrationResultDialog(
+                            resultState = mState.result,
+                            onDismiss = { viewModel.dismissMigrationDialogs() }
+                        )
+                    }
+                    is MigrationUiState.Failure -> {
+                        MigrationResultDialog(
+                            resultState = mState.failure,
+                            onDismiss = { viewModel.dismissMigrationDialogs() }
+                        )
+                    }
+                    else -> {}
                 }
 
                 // Transaction Form Dialog for Create / Edit / Duplicate

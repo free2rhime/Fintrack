@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.example.data.model.CategoryEntity
+import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionEntity
 import java.io.File
 
@@ -38,6 +40,54 @@ object CsvExporter {
 
     fun writeTransactionsToFile(file: File, transactions: List<TransactionEntity>): File {
         file.writeText(generateCsvContent(transactions))
+        return file
+    }
+
+    fun generateCategoriesCsvContent(categories: List<CategoryEntity>): String {
+        val header = "Category_ID,Name,Type,SubCategory,User_ID,Created_At,Updated_At,Is_Deleted,Sync_Status\n"
+        val sb = StringBuilder(header)
+        for (cat in categories) {
+            val line = listOf(
+                cat.id,
+                "\"${cat.name.replace("\"", "\"\"")}\"",
+                cat.type,
+                "\"${cat.subCategory.replace("\"", "\"\"")}\"",
+                cat.userId,
+                cat.createdAt,
+                cat.updatedAt,
+                cat.isDeleted,
+                cat.syncStatus
+            ).joinToString(",")
+            sb.append(line).append("\n")
+        }
+        return sb.toString()
+    }
+
+    fun writeCategoriesToFile(file: File, categories: List<CategoryEntity>): File {
+        file.writeText(generateCategoriesCsvContent(categories))
+        return file
+    }
+
+    fun generateExchangeRatesCsvContent(exchangeRates: List<ExchangeRateEntity>): String {
+        val header = "Rate_Date,Requested_Date,Effective_Date,Rate,Source,Fetched_At,Status\n"
+        val sb = StringBuilder(header)
+        for (rate in exchangeRates) {
+            val line = listOf(
+                rate.date,
+                rate.requestedDate,
+                rate.effectiveDate,
+                rate.rate,
+                rate.source,
+                rate.fetchedAt,
+                rate.status
+            ).joinToString(",")
+            sb.append(line).append("\n")
+        }
+        return sb.toString()
+    }
+
+    fun writeExchangeRatesToFile(file: File, exchangeRates: List<ExchangeRateEntity>): File {
+        file.writeText(generateExchangeRatesCsvContent(exchangeRates))
         return file
     }
 

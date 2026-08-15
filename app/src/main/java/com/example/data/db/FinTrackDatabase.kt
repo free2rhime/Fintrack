@@ -6,10 +6,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.dao.CategoryDao
 import com.example.data.dao.ExchangeRateDao
+import com.example.data.dao.MigrationStateDao
 import com.example.data.dao.SyncOutboxDao
 import com.example.data.dao.TransactionDao
 import com.example.data.model.CategoryEntity
 import com.example.data.model.ExchangeRateEntity
+import com.example.data.model.MigrationStateEntity
 import com.example.data.model.SyncOutboxEntity
 import com.example.data.model.TransactionEntity
 
@@ -17,8 +19,14 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TransactionEntity::class, CategoryEntity::class, ExchangeRateEntity::class, SyncOutboxEntity::class],
-    version = 4,
+    entities = [
+        TransactionEntity::class,
+        CategoryEntity::class,
+        ExchangeRateEntity::class,
+        SyncOutboxEntity::class,
+        MigrationStateEntity::class
+    ],
+    version = 5,
     exportSchema = true
 )
 abstract class FinTrackDatabase : RoomDatabase() {
@@ -26,6 +34,7 @@ abstract class FinTrackDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun exchangeRateDao(): ExchangeRateDao
     abstract fun syncOutboxDao(): SyncOutboxDao
+    abstract fun migrationStateDao(): MigrationStateDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -168,6 +177,30 @@ abstract class FinTrackDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `migration_state` (
+                        `migrationId` TEXT NOT NULL,
+                        `householdId` TEXT NOT NULL,
+                        `initiatedByUid` TEXT NOT NULL,
+                        `stage` TEXT NOT NULL,
+                        `processedCount` INTEGER NOT NULL DEFAULT 0,
+                        `totalCount` INTEGER NOT NULL DEFAULT 0,
+                        `currentPhase` TEXT NOT NULL DEFAULT '',
+                        `lastProcessedId` TEXT DEFAULT NULL,
+                        `lastError` TEXT DEFAULT NULL,
+                        `backupPath` TEXT DEFAULT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`migrationId`)
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: FinTrackDatabase? = null
 
@@ -178,7 +211,7 @@ abstract class FinTrackDatabase : RoomDatabase() {
                     FinTrackDatabase::class.java,
                     "fintrack_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
                 INSTANCE = instance
                 instance
