@@ -421,6 +421,37 @@ describe('FinTrack Firestore Security Rules', () => {
         }
       }));
     });
+
+    it('allows a transaction when exchangeRateMetadata is absent', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertSucceeds(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_conv_absent`), {
+        transactionId: 'tx_conv_absent',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amount: 100,
+        currency: 'RON',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies a transaction when exchangeRateMetadata is explicitly null', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_conv_null`), {
+        transactionId: 'tx_conv_null',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amount: 100,
+        currency: 'EUR',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID,
+        exchangeRateMetadata: null
+      }));
+    });
   });
 
   // --------------------------------------------------------------------------
