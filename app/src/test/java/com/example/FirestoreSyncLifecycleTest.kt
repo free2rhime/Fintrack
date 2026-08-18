@@ -110,11 +110,16 @@ class FirestoreSyncLifecycleTest {
 
         assertEquals("Signed out", viewModel.syncStatus.value)
 
-        fakeAuthRepo.signInWithTestUid("user_stage3")
+        fakeAuthRepo.signInWithTestUid("user_special")
         testScheduler.advanceUntilIdle()
 
         assertTrue(syncRepository.isListening)
-        assertEquals("user_stage3", syncRepository.activeUserUid)
+        assertEquals("user_special", syncRepository.activeUserUid)
+        assertEquals("Connecting", viewModel.syncStatus.value)
+
+        fakeSnapshotSource.txCallback?.invoke(emptyList())
+        testScheduler.advanceUntilIdle()
+
         assertEquals("Synced", viewModel.syncStatus.value)
     }
 
@@ -131,7 +136,7 @@ class FirestoreSyncLifecycleTest {
         )
         backgroundScope.launch { viewModel.syncStatus.collect {} }
 
-        fakeAuthRepo.signInWithTestUid("user_stage3")
+        fakeAuthRepo.signInWithTestUid("user_special")
         testScheduler.advanceUntilIdle()
         assertTrue(syncRepository.isListening)
 
@@ -155,12 +160,12 @@ class FirestoreSyncLifecycleTest {
         )
         backgroundScope.launch { viewModel.syncStatus.collect {} }
 
-        fakeAuthRepo.signInWithTestUid("user_stage3")
+        fakeAuthRepo.signInWithTestUid("user_special")
         testScheduler.advanceUntilIdle()
         val removeCountFirst = fakeSnapshotSource.txListenerRemoveCount
 
         // Emitting signed-in state again for the same user
-        fakeAuthRepo.signInWithTestUid("user_stage3")
+        fakeAuthRepo.signInWithTestUid("user_special")
         testScheduler.advanceUntilIdle()
 
         assertEquals(removeCountFirst, fakeSnapshotSource.txListenerRemoveCount)

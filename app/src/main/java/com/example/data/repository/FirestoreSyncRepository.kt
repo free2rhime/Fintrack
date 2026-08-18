@@ -8,6 +8,7 @@ import com.example.data.model.TransactionDto
 import com.example.data.model.TransactionEntity
 import com.example.data.model.toEntity
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -203,12 +204,13 @@ class DefaultFirestoreSnapshotSource(
         val firestore = firestoreSupplier() ?: return null
         return try {
             val querySnapshot = firestore.collectionGroup("members")
-                .whereEqualTo("uid", userUid)
                 .whereEqualTo("status", "ACTIVE")
                 .get()
                 .await()
 
-            val firstDoc = querySnapshot.documents.firstOrNull()
+            val firstDoc = querySnapshot.documents.firstOrNull { document ->
+                document.id == userUid
+            }
             firstDoc?.reference?.parent?.parent?.id
         } catch (_: Exception) {
             null
@@ -431,10 +433,15 @@ class FirestoreSyncRepository(
         return verificationHelper.verifyHouseholdAdminOrOwner(householdId, userUid)
     }
 
-    suspend fun startSync(userUid: String, requestedHouseholdId: String? = null): String {
+    suspend fun startSync(userUid: String, requestedHouseholdId: String? = null): String? {
         val resolvedHouseholdId = requestedHouseholdId
             ?: snapshotSource.resolveHouseholdId(userUid)
-            ?: "household_$userUid"
+
+        if (resolvedHouseholdId == null) {
+            stopSync()
+            _syncStatusState.value = "No household"
+            return null
+        }
 
         // Prevent duplicate listener registration
         if (isListening && activeUserUid == userUid && activeHouseholdId == resolvedHouseholdId) {
@@ -446,39 +453,54 @@ class FirestoreSyncRepository(
 
         activeUserUid = userUid
         activeHouseholdId = resolvedHouseholdId
-        _syncStatusState.value = "Syncing..."
+        _syncStatusState.value = "Connecting"
 
         txListenerHandle = snapshotSource.listenToTransactions(
             householdId = resolvedHouseholdId,
             onSnapshot = { docs ->
+                _syncStatusState.value = "Synced"
                 if (!isSuppressed) {
                     coroutineScope.launch {
                         processTransactionSnapshot(docs)
                     }
                 }
             },
-            onError = { _ ->
-                _syncStatusState.value = "Offline"
+            onError = { error ->
+                _syncStatusState.value =
+                    if (error is FirebaseFirestoreException &&
+                        error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+                    ) {
+                        "Permission denied"
+                    } else {
+                        "Offline"
+                    }
             }
         )
 
         catListenerHandle = snapshotSource.listenToCategories(
             householdId = resolvedHouseholdId,
             onSnapshot = { docs ->
+                _syncStatusState.value = "Synced"
                 if (!isSuppressed) {
                     coroutineScope.launch {
                         processCategorySnapshot(docs)
                     }
                 }
             },
-            onError = { _ ->
-                _syncStatusState.value = "Offline"
+            onError = { error ->
+                _syncStatusState.value =
+                    if (error is FirebaseFirestoreException &&
+                        error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+                    ) {
+                        "Permission denied"
+                    } else {
+                        "Offline"
+                    }
             }
         )
 
         isListening = true
         listenerCount = 2
-        _syncStatusState.value = "Synced"
 
         return resolvedHouseholdId
     }
