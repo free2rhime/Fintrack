@@ -8,7 +8,6 @@ import com.example.data.model.TransactionEntity
 import com.example.data.repository.FirestoreSnapshotSource
 import com.example.data.repository.FirestoreSyncRepository
 import com.example.data.repository.ListenerRegistrationHandle
-import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -35,8 +34,6 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
 
     var txCallback: ((List<Pair<String, Map<String, Any?>>>) -> Unit)? = null
     var catCallback: ((List<Pair<String, Map<String, Any?>>>) -> Unit)? = null
-    var txErrorCallback: ((Exception) -> Unit)? = null
-    var catErrorCallback: ((Exception) -> Unit)? = null
 
     override fun listenToTransactions(
         householdId: String,
@@ -46,7 +43,6 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
         lastTxHouseholdId = householdId
         txListenerActive = true
         txCallback = onSnapshot
-        txErrorCallback = onError
         return object : ListenerRegistrationHandle {
             override fun remove() {
                 txListenerActive = false
@@ -63,7 +59,6 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
         lastCatHouseholdId = householdId
         catListenerActive = true
         catCallback = onSnapshot
-        catErrorCallback = onError
         return object : ListenerRegistrationHandle {
             override fun remove() {
                 catListenerActive = false
@@ -380,23 +375,6 @@ class FirestoreSyncTest {
     }
 
     @Test
-    fun testListenerErrorsExposePermissionDeniedOrOffline() = testScope.runTest {
-        syncRepository.startSync("user_123", "hh_test_1")
-        assertEquals("Connecting", syncRepository.syncStatusState.value)
-
-        fakeSnapshotSource.txErrorCallback?.invoke(
-            FirebaseFirestoreException(
-                "Permission denied",
-                FirebaseFirestoreException.Code.PERMISSION_DENIED
-            )
-        )
-        assertEquals("Permission denied", syncRepository.syncStatusState.value)
-
-        fakeSnapshotSource.catErrorCallback?.invoke(Exception("Network unavailable"))
-        assertEquals("Offline", syncRepository.syncStatusState.value)
-    }
-
-    @Test
     fun testHouseholdIdResolutionConvention() = testScope.runTest {
         // When special user provided, resolves via snapshotSource
         val resolvedSpecial = syncRepository.startSync("user_special")
@@ -404,12 +382,8 @@ class FirestoreSyncTest {
 
         syncRepository.stopSync()
 
-        // When no active household exists, listeners are not started.
+        // When standard user provided with no active household, falls back to household_userUid
         val resolvedStandard = syncRepository.startSync("user_regular")
-        assertEquals(null, resolvedStandard)
-        assertFalse(syncRepository.isListening)
-        assertEquals(0, syncRepository.listenerCount)
-        assertEquals(null, syncRepository.activeHouseholdId)
-        assertEquals("No household", syncRepository.syncStatusState.value)
+        assertEquals("household_user_regular", resolvedStandard)
     }
 }

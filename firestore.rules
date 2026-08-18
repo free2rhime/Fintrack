@@ -79,7 +79,7 @@ service cloud.firestore {
     }
 
     function isValidConversionMetadata(meta, transactionDate) {
-      return (
+      return meta == null || (
         meta.source == 'BNR_OFFICIAL' &&
         meta.status == 'OFFICIAL' &&
         meta.rate is number && meta.rate > 0 &&
@@ -100,7 +100,10 @@ service cloud.firestore {
              isValidTransactionType(data.type) &&
              isValidAccount(data.account) &&
              isValidDestination(data.type, data.destination) &&
-             (!('exchangeRateMetadata' in data) || (data.exchangeRateMetadata is map && isValidConversionMetadata(data.exchangeRateMetadata, data.transactionDate)));
+             isValidConversionMetadata(
+               'exchangeRateMetadata' in data ? data.exchangeRateMetadata : null,
+               data.transactionDate
+             );
     }
 
     function isTransactionUpdateValid(existing, incoming) {

@@ -25,21 +25,6 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Restore Firebase configuration
-        env:
-          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
-        run: |
-          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "ERROR: GOOGLE_SERVICES_JSON_BASE64 is not configured."
-            exit 1
-          fi
-          printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
-          test -s app/google-services.json || {
-            echo "ERROR: Firebase configuration could not be restored."
-            exit 1
-          }
-          echo "Firebase configuration restored."
-
       - name: Verify Java environment
         run: |
           java -version
@@ -50,21 +35,30 @@ jobs:
             echo "ERROR: Java major version must be 17 or higher. Detected: $JAVA_MAJOR"
             exit 1
           fi
-      - name: Restore stable debug keystore
-        env:
-          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+
+      - name: Create temporary debug keystore
         run: |
-          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
-            echo "ERROR: DEBUG_KEYSTORE_BASE64 is not configured."
+          if [ -f "./debug.keystore" ]; then
+            echo "debug.keystore already exists."
+          else
+            echo "Generating temporary debug.keystore..."
+            keytool -genkey -v \
+              -keystore ./debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000
+          fi
+
+          if [ -f "./debug.keystore" ]; then
+            echo "debug.keystore confirmed present."
+          else
+            echo "ERROR: Failed to create ./debug.keystore"
             exit 1
           fi
-          printf '%s' "$DEBUG_KEYSTORE_BASE64" | base64 --decode > debug.keystore
-          test -s debug.keystore || {
-            echo "ERROR: Stable debug keystore could not be restored."
-            exit 1
-          }
-          chmod 600 debug.keystore
-          echo "Stable debug keystore restored."
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace --no-daemon
