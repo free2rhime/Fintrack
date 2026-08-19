@@ -34,6 +34,9 @@ jobs:
       - name: Run FirestoreSyncLifecycleTest
         run: gradle :app:testDebugUnitTest --tests "com.example.FirestoreSyncLifecycleTest" --no-daemon
 
+      - name: Run Stage 2 household protection test
+        run: gradle :app:testDebugUnitTest --tests "com.example.Stage3AViewModelTest.testStartMigrationWithoutActiveHouseholdProducesConflict" --no-daemon
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
