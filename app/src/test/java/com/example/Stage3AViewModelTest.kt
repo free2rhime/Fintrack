@@ -468,7 +468,7 @@ class Stage3AViewModelTest {
 
         val state = viewModel.migrationUiState.value
 
-        fail("Observed state: $state")
+        throw AssertionError("Observed state: $state")
 
         val conflict = (state as MigrationUiState.Conflict).conflict
 
