@@ -458,4 +458,31 @@ class Stage3AViewModelTest {
         viewModel.dismissMigrationDialogs()
         assertEquals(MigrationUiState.Idle, viewModel.migrationUiState.value)
     }
+    @Test
+    fun testStartMigrationWithoutActiveHouseholdProducesConflict() = runTest(testDispatcher) {
+        advanceUntilIdle()
+
+        viewModel.startMigrationPreflight()
+
+        advanceUntilIdle()
+
+        val state = viewModel.migrationUiState.value
+
+    assertTrue(
+        "Expected MigrationUiState.Conflict but got $state",
+        state is MigrationUiState.Conflict
+         )
+
+        val conflict = (state as MigrationUiState.Conflict).conflict
+
+    assertEquals(
+        "INSUFFICIENT_PERMISSIONS",
+        conflict.reason
+         )
+
+    assertEquals(
+        "Authentication required: You must be signed in with an active household to migrate data.",
+        conflict.details
+        )
+}
 }
