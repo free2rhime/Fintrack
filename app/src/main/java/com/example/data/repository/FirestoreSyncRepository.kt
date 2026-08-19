@@ -434,7 +434,9 @@ class FirestoreSyncRepository(
     suspend fun startSync(userUid: String, requestedHouseholdId: String? = null): String {
         val resolvedHouseholdId = requestedHouseholdId
             ?: snapshotSource.resolveHouseholdId(userUid)
-            ?: "household_$userUid"
+            ?: throw IllegalStateException(
+                "No household found for userUid=$userUid"
+            )
 
         // Prevent duplicate listener registration
         if (isListening && activeUserUid == userUid && activeHouseholdId == resolvedHouseholdId) {
