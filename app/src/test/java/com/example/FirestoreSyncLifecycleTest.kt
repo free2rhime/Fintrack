@@ -81,6 +81,7 @@ class FirestoreSyncLifecycleTest {
             .build()
 
         fakeSnapshotSource = FakeSnapshotSource()
+        fakeSnapshotSource.setMember("hh_stage3", "user_stage3", "OWNER", "ACTIVE")
         syncRepository = FirestoreSyncRepository(
             database = db,
             snapshotSource = fakeSnapshotSource,

@@ -68,6 +68,12 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
     }
 
     override suspend fun resolveHouseholdId(userUid: String): String? {
+        val activeMember = members.entries.firstOrNull {
+            it.key.second == userUid && (it.value["status"] as? String)?.uppercase() == "ACTIVE"
+        }
+        if (activeMember != null) {
+            return activeMember.key.first
+        }
         return if (userUid == "user_special") "hh_special_99" else null
     }
 
@@ -382,8 +388,10 @@ class FirestoreSyncTest {
 
         syncRepository.stopSync()
 
-        // When standard user provided with no active household, falls back to household_userUid
+        // When standard user provided with no active household, returns null and does not start sync
         val resolvedStandard = syncRepository.startSync("user_regular")
-        assertEquals("household_user_regular", resolvedStandard)
+        assertNull(resolvedStandard)
+        assertFalse(syncRepository.isListening)
+        assertNull(syncRepository.activeHouseholdId)
     }
 }

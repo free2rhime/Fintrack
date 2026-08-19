@@ -135,7 +135,7 @@ class FirestoreMigrationPreflightCoordinator(
 
             // 6. Local entity counts calculation
             val localTxCount = database.transactionDao().getAllTransactionsList().size
-            val localCatCount = database.categoryDao().getAllCategories().first().size
+            val localCatCount = database.categoryDao().getAllCategoriesList().size
             val localRateCount = database.exchangeRateDao().getAllOfficialRates().size
 
             PreflightValidationResult.Ready(

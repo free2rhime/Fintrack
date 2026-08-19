@@ -105,6 +105,8 @@ class Stage3AViewModelTest {
         application = ApplicationProvider.getApplicationContext()
         db = Room.inMemoryDatabaseBuilder(application, FinTrackDatabase::class.java)
             .allowMainThreadQueries()
+            .setQueryExecutor(Runnable::run)
+            .setTransactionExecutor(Runnable::run)
             .build()
 
         tempBackupDir = File(application.cacheDir, "vm_test_backup_${System.currentTimeMillis()}").apply {

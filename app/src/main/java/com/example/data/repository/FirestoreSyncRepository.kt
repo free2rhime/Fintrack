@@ -431,10 +431,15 @@ class FirestoreSyncRepository(
         return verificationHelper.verifyHouseholdAdminOrOwner(householdId, userUid)
     }
 
-    suspend fun startSync(userUid: String, requestedHouseholdId: String? = null): String {
+    suspend fun startSync(userUid: String, requestedHouseholdId: String? = null): String? {
         val resolvedHouseholdId = requestedHouseholdId
             ?: snapshotSource.resolveHouseholdId(userUid)
-            ?: "household_$userUid"
+
+        if (resolvedHouseholdId == null) {
+            stopSync()
+            _syncStatusState.value = "No active household"
+            return null
+        }
 
         // Prevent duplicate listener registration
         if (isListening && activeUserUid == userUid && activeHouseholdId == resolvedHouseholdId) {

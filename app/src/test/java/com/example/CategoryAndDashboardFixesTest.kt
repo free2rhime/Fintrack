@@ -175,6 +175,10 @@ class FakeCategoryDao : CategoryDao {
         return MutableStateFlow(memory.toList())
     }
 
+    override suspend fun getAllCategoriesList(): List<CategoryEntity> {
+        return memory.toList()
+    }
+
     override suspend fun insertCategory(category: CategoryEntity) {
         memory.removeAll { it.id == category.id }
         memory.add(category)
