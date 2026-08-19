@@ -831,7 +831,6 @@ class MainViewModel(
                     ?: authRepository.getCurrentUserUid()
                 val resolvedHouseholdId = targetHouseholdId
                     ?: syncRepository?.activeHouseholdId
-                    ?: if (resolvedUserUid != null) "household_$resolvedUserUid" else null
 
                 if (resolvedUserUid.isNullOrBlank() || resolvedHouseholdId.isNullOrBlank()) {
                     _migrationUiState.value = MigrationUiState.Conflict(
