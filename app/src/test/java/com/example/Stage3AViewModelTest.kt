@@ -470,7 +470,12 @@ class Stage3AViewModelTest {
 
         println("DEBUG_STATE=$state")
 
-        assertTrue("Force failure", false)
+        assertEquals(
+
+                      "DEBUG_STATE=$state",
+                      "EXPECTED",
+                      "ACTUAL"
+         )
 
         val conflict = (state as MigrationUiState.Conflict).conflict
 
