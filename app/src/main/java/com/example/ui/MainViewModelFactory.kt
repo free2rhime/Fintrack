@@ -21,6 +21,7 @@ class MainViewModelFactory(
                 syncRepository = appContainer.syncRepository,
                 preflightCoordinator = appContainer.migrationPreflightCoordinator,
                 migrationUploader = appContainer.migrationUploader,
+                database = appContainer.database,
                 application = application
             ) as T
         }

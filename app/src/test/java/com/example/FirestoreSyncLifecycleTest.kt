@@ -7,6 +7,7 @@ import com.example.data.db.FinTrackDatabase
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.AuthState
 import com.example.data.repository.FirestoreSyncRepository
+import com.example.data.repository.SyncStatus
 import com.example.ui.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -109,14 +110,24 @@ class FirestoreSyncLifecycleTest {
         )
         backgroundScope.launch { viewModel.syncStatus.collect {} }
 
-        assertEquals("Signed out", viewModel.syncStatus.value)
+        assertEquals(SyncStatus.SignedOut, viewModel.syncStatus.value)
+        assertEquals(SyncStatus.SignedOut, syncRepository.syncStatusState.value)
 
         fakeAuthRepo.signInWithTestUid("user_stage3")
         testScheduler.advanceUntilIdle()
 
         assertTrue(syncRepository.isListening)
         assertEquals("user_stage3", syncRepository.activeUserUid)
-        assertEquals("Synced", viewModel.syncStatus.value)
+        assertEquals(SyncStatus.Connecting, syncRepository.syncStatusState.value)
+        assertEquals(SyncStatus.Connecting, viewModel.syncStatus.value)
+
+        // Handshake: emit transaction and category initial snapshots
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SyncStatus.Synced("hh_stage3"), syncRepository.syncStatusState.value)
+        assertEquals(SyncStatus.Synced("hh_stage3"), viewModel.syncStatus.value)
     }
 
     @Test
@@ -140,7 +151,7 @@ class FirestoreSyncLifecycleTest {
         testScheduler.advanceUntilIdle()
 
         assertFalse(syncRepository.isListening)
-        assertEquals("Signed out", viewModel.syncStatus.value)
+        assertEquals(SyncStatus.SignedOut, viewModel.syncStatus.value)
     }
 
     @Test
@@ -166,5 +177,49 @@ class FirestoreSyncLifecycleTest {
 
         assertEquals(removeCountFirst, fakeSnapshotSource.txListenerRemoveCount)
         assertEquals(2, syncRepository.listenerCount)
+    }
+
+    @Test
+    fun testAuthSignInWithoutHouseholdEmitsNoHousehold() = testScope.runTest {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val viewModel = MainViewModel(
+            transactionRepository = FakeTransactionRepository(),
+            categoryRepository = FakeCategoryRepository(),
+            settingsRepository = FakeSettingsRepository(),
+            authRepository = fakeAuthRepo,
+            syncRepository = syncRepository,
+            application = app
+        )
+        backgroundScope.launch { viewModel.syncStatus.collect {} }
+
+        // Sign in user with no household
+        fakeAuthRepo.signInWithTestUid("user_orphan")
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(syncRepository.isListening)
+        assertEquals(SyncStatus.NoHousehold, syncRepository.syncStatusState.value)
+        assertEquals(SyncStatus.NoHousehold, viewModel.syncStatus.value)
+    }
+
+    @Test
+    fun testAuthSignInWithPermissionDeniedResolutionEmitsPermissionDenied() = testScope.runTest {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val viewModel = MainViewModel(
+            transactionRepository = FakeTransactionRepository(),
+            categoryRepository = FakeCategoryRepository(),
+            settingsRepository = FakeSettingsRepository(),
+            authRepository = fakeAuthRepo,
+            syncRepository = syncRepository,
+            application = app
+        )
+        backgroundScope.launch { viewModel.syncStatus.collect {} }
+
+        fakeSnapshotSource.customResolutionResults["user_forbidden"] = com.example.data.repository.HouseholdResolutionResult.PermissionDenied
+        fakeAuthRepo.signInWithTestUid("user_forbidden")
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(syncRepository.isListening)
+        assertEquals(SyncStatus.PermissionDenied, syncRepository.syncStatusState.value)
+        assertEquals(SyncStatus.PermissionDenied, viewModel.syncStatus.value)
     }
 }

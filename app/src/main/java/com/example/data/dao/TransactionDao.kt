@@ -10,11 +10,20 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TransactionDao {
-    @Query("SELECT * FROM transactions ORDER BY date DESC, createdAt DESC")
-    fun getAllTransactions(): Flow<List<TransactionEntity>>
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        ORDER BY date DESC, createdAt DESC
+    """)
+    fun getAllTransactions(householdId: String? = null): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE date >= :startDate AND date <= :endDate ORDER BY date DESC, createdAt DESC")
-    fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>>
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND date >= :startDate AND date <= :endDate 
+        ORDER BY date DESC, createdAt DESC
+    """)
+    fun getTransactionsInRange(startDate: String, endDate: String, householdId: String? = null): Flow<List<TransactionEntity>>
 
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: String): TransactionEntity?
@@ -28,11 +37,22 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE conversionStatus = 'PENDING' OR conversionStatus LIKE 'PENDING\\_%' ESCAPE '\\' OR conversionStatus = 'FAILED' OR conversionStatus LIKE 'FAILED\\_%' ESCAPE '\\'")
     suspend fun getPendingTransactions(): List<TransactionEntity>
 
-    @Query("SELECT * FROM transactions ORDER BY date DESC, createdAt DESC")
-    suspend fun getAllTransactionsList(): List<TransactionEntity>
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        ORDER BY date DESC, createdAt DESC
+    """)
+    suspend fun getAllTransactionsList(householdId: String? = null): List<TransactionEntity>
 
-    @Query("SELECT description FROM transactions WHERE description IS NOT NULL AND TRIM(description) != '' AND LOWER(description) LIKE '%' || LOWER(:query) || '%' GROUP BY description ORDER BY MAX(createdAt) DESC, COUNT(*) DESC LIMIT :limit")
-    suspend fun getDescriptionSuggestions(query: String, limit: Int = 8): List<String>
+    @Query("""
+        SELECT description FROM transactions 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND description IS NOT NULL AND TRIM(description) != '' AND LOWER(description) LIKE '%' || LOWER(:query) || '%' 
+        GROUP BY description 
+        ORDER BY MAX(createdAt) DESC, COUNT(*) DESC 
+        LIMIT :limit
+    """)
+    suspend fun getDescriptionSuggestions(query: String, limit: Int = 8, householdId: String? = null): List<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity)
@@ -46,6 +66,16 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: String)
 
-    @Query("DELETE FROM transactions")
-    suspend fun deleteAllTransactions()
+    @Query("""
+        DELETE FROM transactions 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+    """)
+    suspend fun deleteTransactionsByHousehold(householdId: String? = null)
+
+    @Query("""
+        DELETE FROM transactions 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+    """)
+    suspend fun deleteAllTransactions(householdId: String? = null)
 }
+

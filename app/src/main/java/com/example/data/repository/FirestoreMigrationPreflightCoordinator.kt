@@ -65,7 +65,7 @@ class FirestoreMigrationPreflightCoordinator(
     suspend fun validatePreflight(
         householdId: String?,
         userUid: String?,
-        backupBundleDir: File? = null
+        backupBundleDir: File
     ): PreflightValidationResult {
         if (householdId.isNullOrBlank()) {
             return PreflightValidationResult.Failure("Invalid household ID: Household ID must not be blank")
@@ -91,18 +91,15 @@ class FirestoreMigrationPreflightCoordinator(
                 }
             }
 
-            // 2. Backup validation check (if backup bundle is provided)
-            var validatedBackupPath: String? = null
-            if (backupBundleDir != null) {
-                val backupResult = backupManager.validateMigrationBackupBundle(backupBundleDir)
-                if (!backupResult.isValid) {
-                    return PreflightValidationResult.Conflict(
-                        ConflictReason.BACKUP_INVALID,
-                        backupResult.errorMessage ?: "Backup bundle validation failed"
-                    )
-                }
-                validatedBackupPath = backupBundleDir.absolutePath
+            // 2. Mandatory backup validation check
+            val backupResult = backupManager.validateMigrationBackupBundle(backupBundleDir)
+            if (!backupResult.isValid) {
+                return PreflightValidationResult.Conflict(
+                    ConflictReason.BACKUP_INVALID,
+                    backupResult.errorMessage ?: "Backup bundle validation failed"
+                )
             }
+            val validatedBackupPath = backupBundleDir.absolutePath
 
             // 3. Active migration check
             val activeSession = snapshotSource.getActiveMigrationSession(householdId)
@@ -133,7 +130,16 @@ class FirestoreMigrationPreflightCoordinator(
                 )
             }
 
-            // 6. Local entity counts calculation
+            // 6. Remote exchange rate conflict check
+            val remoteRateCount = snapshotSource.getRemoteExchangeRateCount(householdId)
+            if (remoteRateCount > 0) {
+                return PreflightValidationResult.Conflict(
+                    ConflictReason.EXISTING_REMOTE_DATA_DETECTED,
+                    "Conflicting remote exchange rate data detected in household '$householdId' ($remoteRateCount documents found). Preflight aborted to prevent data collision."
+                )
+            }
+
+            // 7. Local entity counts calculation
             val localTxCount = database.transactionDao().getAllTransactionsList().size
             val localCatCount = database.categoryDao().getAllCategoriesList().size
             val localRateCount = database.exchangeRateDao().getAllOfficialRates().size

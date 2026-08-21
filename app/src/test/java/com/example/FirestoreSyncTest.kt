@@ -5,6 +5,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.db.FinTrackDatabase
 import com.example.data.model.TransactionEntity
+import com.example.data.repository.HouseholdResolutionResult
+import com.example.data.repository.SyncStatus
 import com.example.data.repository.FirestoreSnapshotSource
 import com.example.data.repository.FirestoreSyncRepository
 import com.example.data.repository.ListenerRegistrationHandle
@@ -34,6 +36,13 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
 
     var txCallback: ((List<Pair<String, Map<String, Any?>>>) -> Unit)? = null
     var catCallback: ((List<Pair<String, Map<String, Any?>>>) -> Unit)? = null
+    var txErrorCallback: ((Exception) -> Unit)? = null
+    var catErrorCallback: ((Exception) -> Unit)? = null
+
+    var autoEmitInitialSnapshot: Boolean = false
+    var shouldFailHouseholdResolution: Boolean = false
+    var shouldPermissionDenyHouseholdResolution: Boolean = false
+    val customResolutionResults = mutableMapOf<String, HouseholdResolutionResult>()
 
     override fun listenToTransactions(
         householdId: String,
@@ -43,6 +52,10 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
         lastTxHouseholdId = householdId
         txListenerActive = true
         txCallback = onSnapshot
+        txErrorCallback = onError
+        if (autoEmitInitialSnapshot) {
+            onSnapshot(emptyList())
+        }
         return object : ListenerRegistrationHandle {
             override fun remove() {
                 txListenerActive = false
@@ -59,6 +72,10 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
         lastCatHouseholdId = householdId
         catListenerActive = true
         catCallback = onSnapshot
+        catErrorCallback = onError
+        if (autoEmitInitialSnapshot) {
+            onSnapshot(emptyList())
+        }
         return object : ListenerRegistrationHandle {
             override fun remove() {
                 catListenerActive = false
@@ -67,14 +84,25 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
         }
     }
 
-    override suspend fun resolveHouseholdId(userUid: String): String? {
+    override suspend fun resolveHouseholdId(userUid: String): HouseholdResolutionResult {
+        customResolutionResults[userUid]?.let { return it }
+        if (shouldPermissionDenyHouseholdResolution) {
+            return HouseholdResolutionResult.PermissionDenied
+        }
+        if (shouldFailHouseholdResolution) {
+            return HouseholdResolutionResult.Failure("Network failure during household resolution")
+        }
         val activeMember = members.entries.firstOrNull {
             it.key.second == userUid && (it.value["status"] as? String)?.uppercase() == "ACTIVE"
         }
         if (activeMember != null) {
-            return activeMember.key.first
+            return HouseholdResolutionResult.Success(activeMember.key.first)
         }
-        return if (userUid == "user_special") "hh_special_99" else null
+        return if (userUid == "user_special") {
+            HouseholdResolutionResult.Success("hh_special_99")
+        } else {
+            HouseholdResolutionResult.NoHousehold
+        }
     }
 
     val members = mutableMapOf<Pair<String, String>, Map<String, Any?>>()
@@ -82,6 +110,10 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
     var remoteTransactionCount: Int = 0
     var remoteCategoryCount: Int = 0
     var remoteExchangeRateCount: Int = 0
+    var shouldFailRemoteTransactionCount: Boolean = false
+    var shouldFailRemoteCategoryCount: Boolean = false
+    var shouldFailRemoteExchangeRateCount: Boolean = false
+    var remoteCountException: Exception? = null
     val createdMigrationDocs = mutableMapOf<String, Map<String, Any?>>()
     val updatedMigrationDocs = mutableListOf<Pair<String, Map<String, Any?>>>()
     var shouldFailMigrationDocCreation: Boolean = false
@@ -104,14 +136,23 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
     }
 
     override suspend fun getRemoteTransactionCount(householdId: String): Int {
+        if (shouldFailRemoteTransactionCount) {
+            throw remoteCountException ?: IllegalStateException("Simulated remote transaction count failure")
+        }
         return remoteTransactionCount
     }
 
     override suspend fun getRemoteCategoryCount(householdId: String): Int {
+        if (shouldFailRemoteCategoryCount) {
+            throw remoteCountException ?: IllegalStateException("Simulated remote category count failure")
+        }
         return remoteCategoryCount
     }
 
     override suspend fun getRemoteExchangeRateCount(householdId: String): Int {
+        if (shouldFailRemoteExchangeRateCount) {
+            throw remoteCountException ?: IllegalStateException("Simulated remote exchange rate count failure")
+        }
         return remoteExchangeRateCount
     }
 
@@ -166,6 +207,14 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
 
     fun emitCategories(docs: List<Pair<String, Map<String, Any?>>>) {
         catCallback?.invoke(docs)
+    }
+
+    fun emitTransactionError(ex: Exception) {
+        txErrorCallback?.invoke(ex)
+    }
+
+    fun emitCategoryError(ex: Exception) {
+        catErrorCallback?.invoke(ex)
     }
 }
 
@@ -393,5 +442,100 @@ class FirestoreSyncTest {
         assertNull(resolvedStandard)
         assertFalse(syncRepository.isListening)
         assertNull(syncRepository.activeHouseholdId)
+        assertEquals(SyncStatus.NoHousehold, syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun testTwoSnapshotHandshakeTransitionsSyncingToSynced() = testScope.runTest {
+        fakeSnapshotSource.autoEmitInitialSnapshot = false
+
+        val resolved = syncRepository.startSync("user_123", "hh_test_1")
+        assertEquals("hh_test_1", resolved)
+        assertTrue(syncRepository.isListening)
+
+        // Before any snapshot is received, status must be Connecting/Syncing
+        assertEquals(SyncStatus.Connecting, syncRepository.syncStatusState.value)
+        assertFalse(syncRepository.isHandshakeComplete)
+        assertFalse(syncRepository.hasReceivedTxSnapshot)
+        assertFalse(syncRepository.hasReceivedCatSnapshot)
+
+        // 1st snapshot arrives (Transactions)
+        fakeSnapshotSource.emitTransactions(emptyList())
+        assertTrue(syncRepository.hasReceivedTxSnapshot)
+        assertFalse(syncRepository.hasReceivedCatSnapshot)
+        assertFalse(syncRepository.isHandshakeComplete)
+        assertEquals(SyncStatus.Connecting, syncRepository.syncStatusState.value) // Still syncing/connecting!
+
+        // 2nd snapshot arrives (Categories) -> Handshake complete!
+        fakeSnapshotSource.emitCategories(emptyList())
+        assertTrue(syncRepository.hasReceivedCatSnapshot)
+        assertTrue(syncRepository.isHandshakeComplete)
+        assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun testDifferentiatePermissionDeniedVsOfflineInListeners() = testScope.runTest {
+        syncRepository.startSync("user_123", "hh_test_1")
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+        assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
+
+        // Permission denied error in listener
+        fakeSnapshotSource.emitTransactionError(SecurityException("PERMISSION_DENIED: User lacks access"))
+        assertEquals(SyncStatus.PermissionDenied, syncRepository.syncStatusState.value)
+
+        // Re-start sync and emit offline/network error
+        syncRepository.startSync("user_123", "hh_test_1")
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+        assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
+
+        fakeSnapshotSource.emitCategoryError(java.io.IOException("Network unavailable"))
+        assertEquals(SyncStatus.Offline, syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun testDifferentiatePermissionDeniedVsOfflineInHouseholdResolution() = testScope.runTest {
+        // Case 1: Permission Denied during resolution
+        fakeSnapshotSource.shouldPermissionDenyHouseholdResolution = true
+        val resolvedDenied = syncRepository.startSync("user_denied")
+        assertNull(resolvedDenied)
+        assertFalse(syncRepository.isListening)
+        assertEquals(SyncStatus.PermissionDenied, syncRepository.syncStatusState.value)
+
+        // Case 2: Network / Unexpected Failure during resolution
+        fakeSnapshotSource.shouldPermissionDenyHouseholdResolution = false
+        fakeSnapshotSource.shouldFailHouseholdResolution = true
+        val resolvedFailed = syncRepository.startSync("user_fail")
+        assertNull(resolvedFailed)
+        assertFalse(syncRepository.isListening)
+        assertEquals(SyncStatus.Offline, syncRepository.syncStatusState.value)
+
+        // Case 3: No Active Household found
+        fakeSnapshotSource.shouldFailHouseholdResolution = false
+        val resolvedNone = syncRepository.startSync("user_none")
+        assertNull(resolvedNone)
+        assertFalse(syncRepository.isListening)
+        assertEquals(SyncStatus.NoHousehold, syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun testHouseholdResolutionResultContractDirect() = testScope.runTest {
+        fakeSnapshotSource.setMember("hh_active_1", "user_active_1", "MEMBER", "ACTIVE")
+        val successResult = syncRepository.resolveHousehold("user_active_1")
+        assertTrue(successResult is HouseholdResolutionResult.Success)
+        assertEquals("hh_active_1", (successResult as HouseholdResolutionResult.Success).householdId)
+
+        val noneResult = syncRepository.resolveHousehold("user_unknown")
+        assertTrue(noneResult is HouseholdResolutionResult.NoHousehold)
+
+        fakeSnapshotSource.shouldPermissionDenyHouseholdResolution = true
+        val permResult = syncRepository.resolveHousehold("user_perm_err")
+        assertTrue(permResult is HouseholdResolutionResult.PermissionDenied)
+
+        fakeSnapshotSource.shouldPermissionDenyHouseholdResolution = false
+        fakeSnapshotSource.shouldFailHouseholdResolution = true
+        val failResult = syncRepository.resolveHousehold("user_fail_err")
+        assertTrue(failResult is HouseholdResolutionResult.Failure)
     }
 }

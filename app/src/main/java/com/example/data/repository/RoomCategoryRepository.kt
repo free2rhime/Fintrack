@@ -13,10 +13,13 @@ import kotlinx.coroutines.flow.first
 class RoomCategoryRepository(
     private val categoryDao: CategoryDao,
     private val syncOutboxDao: SyncOutboxDao? = null,
-    private val database: RoomDatabase? = null
+    private val database: RoomDatabase? = null,
+    private val onOutboxMutated: (() -> Unit)? = null
 ) : CategoryRepository {
 
-    override val allCategories: Flow<List<CategoryEntity>> = categoryDao.getAllCategories()
+    override fun getCategories(householdId: String?): Flow<List<CategoryEntity>> {
+        return categoryDao.getAllCategories(householdId)
+    }
 
     override suspend fun getAllCategoriesList(): List<CategoryEntity> = allCategories.first()
 
@@ -113,11 +116,13 @@ class RoomCategoryRepository(
     }
 
     private suspend fun <T> executeWithTransaction(block: suspend () -> T): T {
-        return if (database != null) {
+        val result = if (database != null) {
             database.withTransaction { block() }
         } else {
             block()
         }
+        onOutboxMutated?.invoke()
+        return result
     }
 
     private suspend fun enqueueOutboxInternal(entityId: String, operation: String) {

@@ -71,6 +71,47 @@ data class TransactionDto(
             )
         }
     }
+
+    fun toMap(): Map<String, Any?> {
+        val metaMap = exchangeRateMetadata?.let {
+            mapOf(
+                "source" to it.source,
+                "status" to it.status,
+                "rate" to it.rate,
+                "effectiveDate" to it.effectiveDate
+            )
+        } ?: mapOf(
+            "source" to exchangeRateSource,
+            "status" to conversionStatus,
+            "rate" to exchangeRate,
+            "effectiveDate" to exchangeRateDate
+        )
+
+        return mapOf(
+            "transactionId" to transactionId,
+            "householdId" to householdId,
+            "createdByUid" to createdByUid,
+            "transactionDate" to transactionDate,
+            "description" to description,
+            "amountRon" to amountRon,
+            "amountEur" to amountEur,
+            "exchangeRate" to exchangeRate,
+            "exchangeRateDate" to exchangeRateDate,
+            "type" to type,
+            "account" to account,
+            "category" to category,
+            "subCategory" to subCategory,
+            "destination" to destination,
+            "createdAt" to createdAt,
+            "updatedAt" to updatedAt,
+            "exchangeRateMetadata" to metaMap,
+            "exchangeRateSource" to exchangeRateSource,
+            "conversionStatus" to conversionStatus,
+            "categoryId" to categoryId,
+            "subCategoryId" to subCategoryId,
+            "isDeleted" to (isDeleted ?: false)
+        )
+    }
 }
 
 data class CategoryDto(
@@ -98,6 +139,20 @@ data class CategoryDto(
                 isDeleted = map["isDeleted"] as? Boolean ?: false
             )
         }
+    }
+
+    fun toMap(): Map<String, Any?> {
+        return mapOf(
+            "categoryId" to categoryId,
+            "householdId" to householdId,
+            "name" to name,
+            "type" to type,
+            "subCategory" to subCategory,
+            "createdByUid" to createdByUid,
+            "createdAt" to createdAt,
+            "updatedAt" to updatedAt,
+            "isDeleted" to (isDeleted ?: false)
+        )
     }
 }
 
@@ -144,6 +199,20 @@ data class ExchangeRateDto(
             )
         }
     }
+
+    fun toMap(): Map<String, Any?> {
+        return mapOf(
+            "requestedDate" to requestedDate,
+            "effectiveDate" to effectiveDate,
+            "rate" to rate,
+            "source" to source,
+            "fetchedAt" to fetchedAt,
+            "status" to status,
+            "householdId" to householdId,
+            "migrationId" to migrationId,
+            "rates" to (rates ?: mapOf("EUR" to (rate ?: 0.0)))
+        )
+    }
 }
 
 data class MigrationStateDto(
@@ -177,6 +246,123 @@ data class MigrationStateDto(
                 updatedAt = entity.updatedAt
             )
         }
+    }
+}
+
+data class HouseholdDto(
+    @get:PropertyName("householdId") @set:PropertyName("householdId") var householdId: String? = null,
+    @get:PropertyName("name") @set:PropertyName("name") var name: String? = null,
+    @get:PropertyName("createdByUid") @set:PropertyName("createdByUid") var createdByUid: String? = null,
+    @get:PropertyName("createdAt") @set:PropertyName("createdAt") var createdAt: Long? = null,
+    @get:PropertyName("updatedAt") @set:PropertyName("updatedAt") var updatedAt: Long? = null
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any?>, docId: String): HouseholdDto {
+            return HouseholdDto(
+                householdId = (map["householdId"] as? String) ?: docId,
+                name = map["name"] as? String,
+                createdByUid = map["createdByUid"] as? String,
+                createdAt = (map["createdAt"] as? Number)?.toLong(),
+                updatedAt = (map["updatedAt"] as? Number)?.toLong()
+            )
+        }
+    }
+
+    fun toMap(): Map<String, Any?> {
+        return mapOf(
+            "householdId" to householdId,
+            "name" to name,
+            "createdByUid" to createdByUid,
+            "createdAt" to createdAt,
+            "updatedAt" to updatedAt
+        )
+    }
+}
+
+data class HouseholdMemberDto(
+    @get:PropertyName("uid") @set:PropertyName("uid") var uid: String? = null,
+    @get:PropertyName("email") @set:PropertyName("email") var email: String? = null,
+    @get:PropertyName("displayName") @set:PropertyName("displayName") var displayName: String? = null,
+    @get:PropertyName("role") @set:PropertyName("role") var role: String? = null,
+    @get:PropertyName("status") @set:PropertyName("status") var status: String? = null,
+    @get:PropertyName("joinedAt") @set:PropertyName("joinedAt") var joinedAt: Long? = null,
+    @get:PropertyName("invitedByUid") @set:PropertyName("invitedByUid") var invitedByUid: String? = null
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any?>, docId: String): HouseholdMemberDto {
+            return HouseholdMemberDto(
+                uid = (map["uid"] as? String) ?: docId,
+                email = map["email"] as? String,
+                displayName = map["displayName"] as? String,
+                role = map["role"] as? String,
+                status = map["status"] as? String,
+                joinedAt = (map["joinedAt"] as? Number)?.toLong(),
+                invitedByUid = map["invitedByUid"] as? String
+            )
+        }
+    }
+
+    fun toMap(): Map<String, Any?> {
+        return mapOf(
+            "uid" to uid,
+            "email" to email,
+            "displayName" to displayName,
+            "role" to role,
+            "status" to status,
+            "joinedAt" to joinedAt,
+            "invitedByUid" to invitedByUid
+        )
+    }
+}
+
+data class HouseholdInviteDto(
+    @get:PropertyName("inviteId") @set:PropertyName("inviteId") var inviteId: String? = null,
+    @get:PropertyName("householdId") @set:PropertyName("householdId") var householdId: String? = null,
+    @get:PropertyName("householdName") @set:PropertyName("householdName") var householdName: String? = null,
+    @get:PropertyName("inviterUid") @set:PropertyName("inviterUid") var inviterUid: String? = null,
+    @get:PropertyName("inviterEmail") @set:PropertyName("inviterEmail") var inviterEmail: String? = null,
+    @get:PropertyName("inviterDisplayName") @set:PropertyName("inviterDisplayName") var inviterDisplayName: String? = null,
+    @get:PropertyName("inviteeEmail") @set:PropertyName("inviteeEmail") var inviteeEmail: String? = null,
+    @get:PropertyName("targetRole") @set:PropertyName("targetRole") var targetRole: String? = "member",
+    @get:PropertyName("status") @set:PropertyName("status") var status: String? = "PENDING",
+    @get:PropertyName("createdAt") @set:PropertyName("createdAt") var createdAt: Long? = null,
+    @get:PropertyName("expiresAt") @set:PropertyName("expiresAt") var expiresAt: Long? = null,
+    @get:PropertyName("respondedAt") @set:PropertyName("respondedAt") var respondedAt: Long? = null
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any?>, docId: String): HouseholdInviteDto {
+            return HouseholdInviteDto(
+                inviteId = (map["inviteId"] as? String) ?: docId,
+                householdId = map["householdId"] as? String,
+                householdName = map["householdName"] as? String,
+                inviterUid = map["inviterUid"] as? String,
+                inviterEmail = map["inviterEmail"] as? String,
+                inviterDisplayName = map["inviterDisplayName"] as? String,
+                inviteeEmail = map["inviteeEmail"] as? String,
+                targetRole = (map["targetRole"] as? String) ?: "member",
+                status = (map["status"] as? String) ?: "PENDING",
+                createdAt = (map["createdAt"] as? Number)?.toLong(),
+                expiresAt = (map["expiresAt"] as? Number)?.toLong(),
+                respondedAt = (map["respondedAt"] as? Number)?.toLong()
+            )
+        }
+    }
+
+    fun toMap(): Map<String, Any?> {
+        return mapOf(
+            "inviteId" to inviteId,
+            "householdId" to householdId,
+            "householdName" to householdName,
+            "inviterUid" to inviterUid,
+            "inviterEmail" to inviterEmail,
+            "inviterDisplayName" to inviterDisplayName,
+            "inviteeEmail" to inviteeEmail,
+            "targetRole" to targetRole,
+            "status" to status,
+            "createdAt" to createdAt,
+            "expiresAt" to expiresAt,
+            "respondedAt" to respondedAt
+        )
     }
 }
 
@@ -332,4 +518,71 @@ fun ExchangeRateDto.toEntity(documentId: String? = null): ExchangeRateEntity? {
         status = finalStatus
     )
 }
+
+fun TransactionEntity.toFirestoreMap(householdId: String, userUid: String? = null, migrationId: String? = null): Map<String, Any?> {
+    val effectiveUid = if (userId.isNotBlank() && userId != "local_user") userId else (userUid ?: "remote_user")
+    val effectiveRateDate = exchangeRateDate.ifBlank { date }
+    return mapOf(
+        "transactionId" to id,
+        "householdId" to householdId,
+        "createdByUid" to effectiveUid,
+        "transactionDate" to date,
+        "description" to description,
+        "amountRon" to amountRON,
+        "amountEur" to amountEUR,
+        "exchangeRate" to exchangeRate,
+        "exchangeRateDate" to effectiveRateDate,
+        "type" to type,
+        "account" to account,
+        "category" to category,
+        "subCategory" to subCategory,
+        "destination" to destination,
+        "createdAt" to createdAt,
+        "updatedAt" to updatedAt,
+        "exchangeRateSource" to exchangeRateSource,
+        "conversionStatus" to conversionStatus,
+        "categoryId" to categoryId,
+        "subCategoryId" to subCategoryId,
+        "isDeleted" to isDeleted,
+        "migrationId" to migrationId,
+        "exchangeRateMetadata" to mapOf(
+            "source" to exchangeRateSource,
+            "status" to conversionStatus,
+            "rate" to exchangeRate,
+            "effectiveDate" to effectiveRateDate
+        )
+    )
+}
+
+fun CategoryEntity.toFirestoreMap(householdId: String, userUid: String? = null): Map<String, Any?> {
+    val effectiveUid = if (userId.isNotBlank() && userId != "local_user") userId else (userUid ?: "remote_user")
+    return mapOf(
+        "categoryId" to id,
+        "householdId" to householdId,
+        "name" to name,
+        "type" to type,
+        "subCategory" to subCategory,
+        "createdByUid" to effectiveUid,
+        "createdAt" to createdAt,
+        "updatedAt" to updatedAt,
+        "isDeleted" to isDeleted
+    )
+}
+
+fun ExchangeRateEntity.toFirestoreMap(householdId: String, migrationId: String? = null): Map<String, Any?> {
+    val reqDate = requestedDate.ifBlank { date }
+    val effDate = effectiveDate.ifBlank { date }
+    return mapOf(
+        "requestedDate" to reqDate,
+        "effectiveDate" to effDate,
+        "rate" to rate,
+        "source" to source,
+        "fetchedAt" to fetchedAt,
+        "status" to status,
+        "householdId" to householdId,
+        "migrationId" to migrationId,
+        "rates" to mapOf("EUR" to rate)
+    )
+}
+
 

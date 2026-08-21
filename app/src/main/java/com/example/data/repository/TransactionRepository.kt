@@ -24,6 +24,9 @@ data class PendingRetryResult(
 
 interface TransactionRepository {
     val allTransactions: Flow<List<TransactionEntity>>
+        get() = getTransactions(null)
+
+    fun getTransactions(householdId: String? = null): Flow<List<TransactionEntity>>
 
     fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>>
 

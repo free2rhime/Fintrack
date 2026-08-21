@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import android.util.Log
 import androidx.room.withTransaction
 import com.example.data.db.FinTrackDatabase
 import com.example.data.model.CategoryDto
@@ -7,7 +8,9 @@ import com.example.data.model.CategoryEntity
 import com.example.data.model.TransactionDto
 import com.example.data.model.TransactionEntity
 import com.example.data.model.toEntity
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +22,49 @@ import kotlinx.coroutines.tasks.await
 interface ListenerRegistrationHandle {
     fun remove()
 }
+
+sealed class SyncStatus {
+    object SignedOut : SyncStatus() {
+        override fun toString(): String = "Signed out"
+    }
+    object NoHousehold : SyncStatus() {
+        override fun toString(): String = "No active household"
+    }
+    object Connecting : SyncStatus() {
+        override fun toString(): String = "Syncing..."
+    }
+    data class Synced(val householdId: String? = null) : SyncStatus() {
+        override fun toString(): String = "Synced"
+    }
+    object Offline : SyncStatus() {
+        override fun toString(): String = "Offline"
+    }
+    object PermissionDenied : SyncStatus() {
+        override fun toString(): String = "Permission denied"
+    }
+}
+
+sealed class HouseholdResolutionResult {
+    data class Success(val householdId: String) : HouseholdResolutionResult()
+    object NoHousehold : HouseholdResolutionResult()
+    object PermissionDenied : HouseholdResolutionResult()
+    data class Failure(val error: String) : HouseholdResolutionResult()
+}
+
+enum class SyncConflictType {
+    UPDATE_VS_UPDATE,
+    DELETE_VS_UPDATE,
+    UPDATE_VS_DELETE
+}
+
+data class SyncConflictEvent(
+    val entityType: String,
+    val entityId: String,
+    val conflictType: SyncConflictType,
+    val localOperation: String,
+    val remoteIsDeleted: Boolean,
+    val details: String = ""
+)
 
 interface FirestoreSnapshotSource {
     fun listenToTransactions(
@@ -33,7 +79,7 @@ interface FirestoreSnapshotSource {
         onError: (Exception) -> Unit
     ): ListenerRegistrationHandle
 
-    suspend fun resolveHouseholdId(userUid: String): String?
+    suspend fun resolveHouseholdId(userUid: String): HouseholdResolutionResult
 
     suspend fun getHouseholdMembership(householdId: String, userUid: String): Map<String, Any?>? {
         return null
@@ -74,6 +120,18 @@ interface FirestoreSnapshotSource {
     suspend fun uploadTransactionsBatch(householdId: String, transactions: List<Map<String, Any?>>): Boolean {
         return false
     }
+
+    suspend fun upsertTransaction(householdId: String, transactionId: String, data: Map<String, Any?>) {}
+
+    suspend fun deleteTransaction(householdId: String, transactionId: String) {}
+
+    suspend fun upsertCategory(householdId: String, categoryId: String, data: Map<String, Any?>) {}
+
+    suspend fun deleteCategory(householdId: String, categoryId: String) {}
+
+    suspend fun upsertExchangeRate(householdId: String, exchangeRateId: String, data: Map<String, Any?>) {}
+
+    suspend fun deleteExchangeRate(householdId: String, exchangeRateId: String) {}
 }
 
 data class HouseholdMemberInfo(
@@ -199,8 +257,9 @@ class DefaultFirestoreSnapshotSource(
         }
     }
 
-    override suspend fun resolveHouseholdId(userUid: String): String? {
-        val firestore = firestoreSupplier() ?: return null
+    override suspend fun resolveHouseholdId(userUid: String): HouseholdResolutionResult {
+        val firestore = firestoreSupplier()
+            ?: return HouseholdResolutionResult.Failure("Firestore instance is not available")
         return try {
             val querySnapshot = firestore.collectionGroup("members")
                 .whereEqualTo("uid", userUid)
@@ -209,9 +268,24 @@ class DefaultFirestoreSnapshotSource(
                 .await()
 
             val firstDoc = querySnapshot.documents.firstOrNull()
-            firstDoc?.reference?.parent?.parent?.id
-        } catch (_: Exception) {
-            null
+            val householdId = firstDoc?.reference?.parent?.parent?.id
+            if (householdId != null) {
+                HouseholdResolutionResult.Success(householdId)
+            } else {
+                HouseholdResolutionResult.NoHousehold
+            }
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (msg.contains("PERMISSION_DENIED", ignoreCase = true) ||
+                msg.contains("permission-denied", ignoreCase = true) ||
+                msg.contains("permission denied", ignoreCase = true) ||
+                e is SecurityException
+            ) {
+                HouseholdResolutionResult.PermissionDenied
+            } else {
+                val sanitized = e.message?.lines()?.firstOrNull()?.take(100) ?: "Resolution error"
+                HouseholdResolutionResult.Failure(sanitized)
+            }
         }
     }
 
@@ -255,48 +329,36 @@ class DefaultFirestoreSnapshotSource(
     }
 
     override suspend fun getRemoteTransactionCount(householdId: String): Int {
-        val firestore = firestoreSupplier() ?: return 0
-        return try {
-            val snapshot = firestore.collection("households")
-                .document(householdId)
-                .collection("transactions")
-                .limit(100)
-                .get()
-                .await()
-            snapshot.size()
-        } catch (_: Exception) {
-            0
-        }
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        val snapshot = firestore.collection("households")
+            .document(householdId)
+            .collection("transactions")
+            .count()
+            .get(AggregateSource.SERVER)
+            .await()
+        return snapshot.count.toInt()
     }
 
     override suspend fun getRemoteCategoryCount(householdId: String): Int {
-        val firestore = firestoreSupplier() ?: return 0
-        return try {
-            val snapshot = firestore.collection("households")
-                .document(householdId)
-                .collection("categories")
-                .limit(100)
-                .get()
-                .await()
-            snapshot.size()
-        } catch (_: Exception) {
-            0
-        }
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        val snapshot = firestore.collection("households")
+            .document(householdId)
+            .collection("categories")
+            .count()
+            .get(AggregateSource.SERVER)
+            .await()
+        return snapshot.count.toInt()
     }
 
     override suspend fun getRemoteExchangeRateCount(householdId: String): Int {
-        val firestore = firestoreSupplier() ?: return 0
-        return try {
-            val snapshot = firestore.collection("households")
-                .document(householdId)
-                .collection("exchangeRates")
-                .limit(100)
-                .get()
-                .await()
-            snapshot.size()
-        } catch (_: Exception) {
-            0
-        }
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        val snapshot = firestore.collection("households")
+            .document(householdId)
+            .collection("exchangeRates")
+            .count()
+            .get(AggregateSource.SERVER)
+            .await()
+        return snapshot.count.toInt()
     }
 
     override suspend fun createMigrationStateDoc(householdId: String, migrationId: String, data: Map<String, Any?>): Boolean {
@@ -385,6 +447,78 @@ class DefaultFirestoreSnapshotSource(
             false
         }
     }
+
+    override suspend fun upsertTransaction(householdId: String, transactionId: String, data: Map<String, Any?>) {
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        firestore.collection("households")
+            .document(householdId)
+            .collection("transactions")
+            .document(transactionId)
+            .set(data, SetOptions.merge())
+            .await()
+    }
+
+    override suspend fun deleteTransaction(householdId: String, transactionId: String) {
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        firestore.collection("households")
+            .document(householdId)
+            .collection("transactions")
+            .document(transactionId)
+            .set(
+                mapOf(
+                    "isDeleted" to true,
+                    "updatedAt" to System.currentTimeMillis()
+                ),
+                SetOptions.merge()
+            )
+            .await()
+    }
+
+    override suspend fun upsertCategory(householdId: String, categoryId: String, data: Map<String, Any?>) {
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        firestore.collection("households")
+            .document(householdId)
+            .collection("categories")
+            .document(categoryId)
+            .set(data, SetOptions.merge())
+            .await()
+    }
+
+    override suspend fun deleteCategory(householdId: String, categoryId: String) {
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        firestore.collection("households")
+            .document(householdId)
+            .collection("categories")
+            .document(categoryId)
+            .set(
+                mapOf(
+                    "isDeleted" to true,
+                    "updatedAt" to System.currentTimeMillis()
+                ),
+                SetOptions.merge()
+            )
+            .await()
+    }
+
+    override suspend fun upsertExchangeRate(householdId: String, exchangeRateId: String, data: Map<String, Any?>) {
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        firestore.collection("households")
+            .document(householdId)
+            .collection("exchangeRates")
+            .document(exchangeRateId)
+            .set(data, SetOptions.merge())
+            .await()
+    }
+
+    override suspend fun deleteExchangeRate(householdId: String, exchangeRateId: String) {
+        val firestore = firestoreSupplier() ?: throw IllegalStateException("Firestore instance unavailable")
+        firestore.collection("households")
+            .document(householdId)
+            .collection("exchangeRates")
+            .document(exchangeRateId)
+            .delete()
+            .await()
+    }
 }
 
 class FirestoreSyncRepository(
@@ -392,8 +526,24 @@ class FirestoreSyncRepository(
     private val snapshotSource: FirestoreSnapshotSource = DefaultFirestoreSnapshotSource(),
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
-    private val _syncStatusState = MutableStateFlow("Signed out")
-    val syncStatusState: StateFlow<String> = _syncStatusState.asStateFlow()
+    companion object {
+        private const val TAG = "FirestoreSyncRepository"
+    }
+
+    var onConflictDetected: ((SyncConflictEvent) -> Unit)? = null
+
+    private val _syncStatusState = MutableStateFlow<SyncStatus>(SyncStatus.SignedOut)
+    val syncStatusState: StateFlow<SyncStatus> = _syncStatusState.asStateFlow()
+
+    val outboundSyncEngine: OutboundSyncEngine by lazy {
+        OutboundSyncEngine(
+            database = database,
+            syncOutboxDao = database.syncOutboxDao(),
+            snapshotSource = snapshotSource,
+            syncStatusProvider = { _syncStatusState.value },
+            coroutineScope = coroutineScope
+        )
+    }
 
     private val verificationHelper = HouseholdVerificationHelper(snapshotSource)
 
@@ -411,6 +561,15 @@ class FirestoreSyncRepository(
 
     var isSuppressed: Boolean = false
         private set
+
+    var hasReceivedTxSnapshot: Boolean = false
+        private set
+
+    var hasReceivedCatSnapshot: Boolean = false
+        private set
+
+    val isHandshakeComplete: Boolean
+        get() = hasReceivedTxSnapshot && hasReceivedCatSnapshot
 
     private var txListenerHandle: ListenerRegistrationHandle? = null
     private var catListenerHandle: ListenerRegistrationHandle? = null
@@ -431,18 +590,74 @@ class FirestoreSyncRepository(
         return verificationHelper.verifyHouseholdAdminOrOwner(householdId, userUid)
     }
 
-    suspend fun startSync(userUid: String, requestedHouseholdId: String? = null): String? {
-        val resolvedHouseholdId = requestedHouseholdId
-            ?: snapshotSource.resolveHouseholdId(userUid)
+    suspend fun resolveHousehold(userUid: String): HouseholdResolutionResult {
+        return snapshotSource.resolveHouseholdId(userUid)
+    }
 
-        if (resolvedHouseholdId == null) {
+    private fun isPermissionDenied(e: Exception): Boolean {
+        if (e is SecurityException) return true
+        val msg = e.message ?: ""
+        if (msg.contains("PERMISSION_DENIED", ignoreCase = true) ||
+            msg.contains("permission-denied", ignoreCase = true) ||
+            msg.contains("permission denied", ignoreCase = true) ||
+            msg.contains("insufficient permissions", ignoreCase = true)
+        ) {
+            return true
+        }
+        val causeMsg = e.cause?.message ?: ""
+        if (causeMsg.contains("PERMISSION_DENIED", ignoreCase = true) ||
+            causeMsg.contains("permission-denied", ignoreCase = true) ||
+            causeMsg.contains("permission denied", ignoreCase = true) ||
+            causeMsg.contains("insufficient permissions", ignoreCase = true)
+        ) {
+            return true
+        }
+        return false
+    }
+
+    private fun checkHandshakeAndUpdateState() {
+        if (hasReceivedTxSnapshot && hasReceivedCatSnapshot) {
+            if (_syncStatusState.value == SyncStatus.Connecting) {
+                _syncStatusState.value = SyncStatus.Synced(activeHouseholdId)
+                outboundSyncEngine.start(_syncStatusState)
+            }
+        }
+    }
+
+    suspend fun startSync(userUid: String, requestedHouseholdId: String? = null): String? {
+        val resolvedHouseholdId = if (requestedHouseholdId != null) {
+            requestedHouseholdId
+        } else {
+            when (val resolution = snapshotSource.resolveHouseholdId(userUid)) {
+                is HouseholdResolutionResult.Success -> resolution.householdId
+                is HouseholdResolutionResult.NoHousehold -> {
+                    stopSync()
+                    _syncStatusState.value = SyncStatus.NoHousehold
+                    return null
+                }
+                is HouseholdResolutionResult.PermissionDenied -> {
+                    stopSync()
+                    _syncStatusState.value = SyncStatus.PermissionDenied
+                    return null
+                }
+                is HouseholdResolutionResult.Failure -> {
+                    stopSync()
+                    _syncStatusState.value = SyncStatus.Offline
+                    return null
+                }
+            }
+        }
+
+        if (resolvedHouseholdId.isBlank()) {
             stopSync()
-            _syncStatusState.value = "No active household"
+            _syncStatusState.value = SyncStatus.NoHousehold
             return null
         }
 
-        // Prevent duplicate listener registration
-        if (isListening && activeUserUid == userUid && activeHouseholdId == resolvedHouseholdId) {
+        // Prevent duplicate listener registration if already actively syncing
+        if (isListening && activeUserUid == userUid && activeHouseholdId == resolvedHouseholdId &&
+            (_syncStatusState.value is SyncStatus.Synced || _syncStatusState.value == SyncStatus.Connecting)
+        ) {
             return resolvedHouseholdId
         }
 
@@ -451,39 +666,52 @@ class FirestoreSyncRepository(
 
         activeUserUid = userUid
         activeHouseholdId = resolvedHouseholdId
-        _syncStatusState.value = "Syncing..."
+        _syncStatusState.value = SyncStatus.Connecting
+        hasReceivedTxSnapshot = false
+        hasReceivedCatSnapshot = false
 
         txListenerHandle = snapshotSource.listenToTransactions(
             householdId = resolvedHouseholdId,
             onSnapshot = { docs ->
+                hasReceivedTxSnapshot = true
+                checkHandshakeAndUpdateState()
                 if (!isSuppressed) {
                     coroutineScope.launch {
                         processTransactionSnapshot(docs)
                     }
                 }
             },
-            onError = { _ ->
-                _syncStatusState.value = "Offline"
+            onError = { ex ->
+                if (isPermissionDenied(ex)) {
+                    _syncStatusState.value = SyncStatus.PermissionDenied
+                } else {
+                    _syncStatusState.value = SyncStatus.Offline
+                }
             }
         )
 
         catListenerHandle = snapshotSource.listenToCategories(
             householdId = resolvedHouseholdId,
             onSnapshot = { docs ->
+                hasReceivedCatSnapshot = true
+                checkHandshakeAndUpdateState()
                 if (!isSuppressed) {
                     coroutineScope.launch {
                         processCategorySnapshot(docs)
                     }
                 }
             },
-            onError = { _ ->
-                _syncStatusState.value = "Offline"
+            onError = { ex ->
+                if (isPermissionDenied(ex)) {
+                    _syncStatusState.value = SyncStatus.PermissionDenied
+                } else {
+                    _syncStatusState.value = SyncStatus.Offline
+                }
             }
         )
 
         isListening = true
         listenerCount = 2
-        _syncStatusState.value = "Synced"
 
         return resolvedHouseholdId
     }
@@ -494,11 +722,15 @@ class FirestoreSyncRepository(
         catListenerHandle?.remove()
         catListenerHandle = null
 
+        outboundSyncEngine.stop()
+
         activeUserUid = null
         activeHouseholdId = null
         isListening = false
         listenerCount = 0
-        _syncStatusState.value = "Signed out"
+        hasReceivedTxSnapshot = false
+        hasReceivedCatSnapshot = false
+        _syncStatusState.value = SyncStatus.SignedOut
     }
 
     suspend fun processTransactionSnapshot(docs: List<Pair<String, Map<String, Any?>>>) {
@@ -507,10 +739,32 @@ class FirestoreSyncRepository(
         }
 
         database.withTransaction {
+            val activeOutboxIds = database.syncOutboxDao().getActiveEntityIdsByType("TRANSACTION").toSet()
             val txDao = database.transactionDao()
             val toUpsert = mutableListOf<TransactionEntity>()
 
             for ((docId, map) in docs) {
+                if (activeOutboxIds.contains(docId)) {
+                    // Shield active local mutation from remote snapshot overwrite
+                    val activeEntry = database.syncOutboxDao().getActiveEntry("TRANSACTION", docId)
+                    val localTx = txDao.getTransactionById(docId)
+                    val dto = TransactionDto.fromMap(map, docId)
+                    val conflictEvent = detectTransactionConflict(
+                        docId = docId,
+                        activeOperation = activeEntry?.operation ?: "UPSERT",
+                        localEntity = localTx,
+                        remoteDto = dto
+                    )
+                    if (conflictEvent != null) {
+                        Log.w(
+                            TAG,
+                            "Sync conflict detected [${conflictEvent.conflictType}] for TRANSACTION '$docId'. " +
+                            "Resolution: LOCAL_OUTBOX_PRECEDENCE (local active mutation preserved)."
+                        )
+                        onConflictDetected?.invoke(conflictEvent)
+                    }
+                    continue
+                }
                 val dto = TransactionDto.fromMap(map, docId)
                 val entity = dto.toEntity(docId)
                 if (entity == null) {
@@ -536,10 +790,32 @@ class FirestoreSyncRepository(
         }
 
         database.withTransaction {
+            val activeOutboxIds = database.syncOutboxDao().getActiveEntityIdsByType("CATEGORY").toSet()
             val catDao = database.categoryDao()
             val toUpsert = mutableListOf<CategoryEntity>()
 
             for ((docId, map) in docs) {
+                if (activeOutboxIds.contains(docId)) {
+                    // Shield active local mutation from remote snapshot overwrite
+                    val activeEntry = database.syncOutboxDao().getActiveEntry("CATEGORY", docId)
+                    val localCat = catDao.getCategoryById(docId)
+                    val dto = CategoryDto.fromMap(map, docId)
+                    val conflictEvent = detectCategoryConflict(
+                        docId = docId,
+                        activeOperation = activeEntry?.operation ?: "UPSERT",
+                        localEntity = localCat,
+                        remoteDto = dto
+                    )
+                    if (conflictEvent != null) {
+                        Log.w(
+                            TAG,
+                            "Sync conflict detected [${conflictEvent.conflictType}] for CATEGORY '$docId'. " +
+                            "Resolution: LOCAL_OUTBOX_PRECEDENCE (local active mutation preserved)."
+                        )
+                        onConflictDetected?.invoke(conflictEvent)
+                    }
+                    continue
+                }
                 val dto = CategoryDto.fromMap(map, docId)
                 val entity = dto.toEntity(docId)
                 if (entity == null) {
@@ -556,6 +832,90 @@ class FirestoreSyncRepository(
             if (toUpsert.isNotEmpty()) {
                 catDao.insertAllCategories(toUpsert)
             }
+        }
+    }
+
+    private fun detectTransactionConflict(
+        docId: String,
+        activeOperation: String,
+        localEntity: TransactionEntity?,
+        remoteDto: TransactionDto
+    ): SyncConflictEvent? {
+        val remoteIsDeleted = remoteDto.isDeleted == true
+        val isLocalDelete = activeOperation.equals("DELETE", ignoreCase = true) || (localEntity == null)
+        val isLocalUpsert = activeOperation.equals("UPSERT", ignoreCase = true) || (!isLocalDelete && localEntity != null)
+
+        val conflictType: SyncConflictType? = when {
+            isLocalDelete && !remoteIsDeleted -> SyncConflictType.DELETE_VS_UPDATE
+            isLocalUpsert && remoteIsDeleted -> SyncConflictType.UPDATE_VS_DELETE
+            isLocalUpsert && !remoteIsDeleted -> {
+                if (localEntity == null) {
+                    SyncConflictType.UPDATE_VS_UPDATE
+                } else {
+                    val differs = localEntity.amountRON != remoteDto.amountRon ||
+                            localEntity.amountEUR != remoteDto.amountEur ||
+                            localEntity.exchangeRate != remoteDto.exchangeRate ||
+                            localEntity.date != remoteDto.transactionDate ||
+                            localEntity.description != remoteDto.description ||
+                            localEntity.category != remoteDto.category ||
+                            localEntity.subCategory != (remoteDto.subCategory ?: "") ||
+                            localEntity.type != remoteDto.type ||
+                            localEntity.account != remoteDto.account
+
+                    if (differs) SyncConflictType.UPDATE_VS_UPDATE else null
+                }
+            }
+            else -> null
+        }
+
+        return conflictType?.let { type ->
+            SyncConflictEvent(
+                entityType = "TRANSACTION",
+                entityId = docId,
+                conflictType = type,
+                localOperation = activeOperation,
+                remoteIsDeleted = remoteIsDeleted,
+                details = "Remote snapshot differs from local pending mutation"
+            )
+        }
+    }
+
+    private fun detectCategoryConflict(
+        docId: String,
+        activeOperation: String,
+        localEntity: CategoryEntity?,
+        remoteDto: CategoryDto
+    ): SyncConflictEvent? {
+        val remoteIsDeleted = remoteDto.isDeleted == true
+        val isLocalDelete = activeOperation.equals("DELETE", ignoreCase = true) || (localEntity == null)
+        val isLocalUpsert = activeOperation.equals("UPSERT", ignoreCase = true) || (!isLocalDelete && localEntity != null)
+
+        val conflictType: SyncConflictType? = when {
+            isLocalDelete && !remoteIsDeleted -> SyncConflictType.DELETE_VS_UPDATE
+            isLocalUpsert && remoteIsDeleted -> SyncConflictType.UPDATE_VS_DELETE
+            isLocalUpsert && !remoteIsDeleted -> {
+                if (localEntity == null) {
+                    SyncConflictType.UPDATE_VS_UPDATE
+                } else {
+                    val differs = localEntity.name != remoteDto.name ||
+                            localEntity.type != remoteDto.type ||
+                            localEntity.subCategory != (remoteDto.subCategory ?: "")
+
+                    if (differs) SyncConflictType.UPDATE_VS_UPDATE else null
+                }
+            }
+            else -> null
+        }
+
+        return conflictType?.let { type ->
+            SyncConflictEvent(
+                entityType = "CATEGORY",
+                entityId = docId,
+                conflictType = type,
+                localOperation = activeOperation,
+                remoteIsDeleted = remoteIsDeleted,
+                details = "Remote snapshot differs from local pending mutation"
+            )
         }
     }
 }

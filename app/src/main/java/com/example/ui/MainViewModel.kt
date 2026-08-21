@@ -25,10 +25,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import com.example.data.util.CsvBackupManager
 import com.example.data.util.CsvExporter
 import com.example.data.util.CsvDuplicateMode
 import com.example.data.util.CsvImportFinalResult
@@ -36,17 +38,27 @@ import com.example.data.util.CsvImporter
 import com.example.data.util.CsvPreviewData
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import java.io.File
 
 import com.example.data.repository.PendingRetryResult
 
 import com.example.data.repository.FirestoreSyncRepository
+import com.example.data.repository.SyncStatus
 import com.example.data.repository.FirestoreMigrationPreflightCoordinator
 import com.example.data.repository.FirestoreMigrationUploader
 import com.example.data.repository.PreflightValidationResult
 import com.example.data.repository.MigrationSessionCreationResult
 import com.example.data.repository.MigrationUploadResult
 import com.example.data.repository.ConflictReason
+
+import com.example.data.model.HouseholdDto
+import com.example.data.model.HouseholdInviteDto
+import com.example.data.model.HouseholdMemberDto
+import com.example.data.repository.HouseholdRepository
+import com.example.data.repository.FirestoreHouseholdRepository
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOf
 
 sealed class MigrationUiState {
     object Idle : MigrationUiState()
@@ -60,6 +72,7 @@ sealed class MigrationUiState {
 
 data class MigrationPreviewState(
     val householdId: String,
+    val householdName: String? = null,
     val userUid: String,
     val userRole: String,
     val transactionsCount: Int,
@@ -67,6 +80,8 @@ data class MigrationPreviewState(
     val exchangeRatesCount: Int,
     val totalRecords: Int,
     val backupBundlePath: String?,
+    val backupTimestamp: Long? = null,
+    val backupValidationStatus: String = "VALIDATED",
     val preflightReadyData: PreflightValidationResult.Ready? = null
 )
 
@@ -133,6 +148,13 @@ data class MainUiState(
     val debugDiagnosticResult: com.example.data.service.BnrDiagnosticResult? = null
 )
 
+sealed interface HouseholdCreationUiState {
+    data object Idle : HouseholdCreationUiState
+    data object Creating : HouseholdCreationUiState
+    data class Success(val householdId: String) : HouseholdCreationUiState
+    data class Error(val message: String) : HouseholdCreationUiState
+}
+
 class MainViewModel(
     val transactionRepository: TransactionRepository,
     val categoryRepository: CategoryRepository,
@@ -141,9 +163,15 @@ class MainViewModel(
     val syncRepository: FirestoreSyncRepository? = null,
     val preflightCoordinator: FirestoreMigrationPreflightCoordinator? = null,
     val migrationUploader: FirestoreMigrationUploader? = null,
+    val householdRepository: HouseholdRepository? = null,
+    val database: FinTrackDatabase? = null,
     val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     application: Application
 ) : AndroidViewModel(application) {
+
+    private val activeHouseholdRepo: HouseholdRepository by lazy {
+        householdRepository ?: FirestoreHouseholdRepository(authRepository = authRepository)
+    }
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -151,12 +179,20 @@ class MainViewModel(
     private val _migrationUiState = MutableStateFlow<MigrationUiState>(MigrationUiState.Idle)
     val migrationUiState: StateFlow<MigrationUiState> = _migrationUiState.asStateFlow()
 
-    val syncStatus: StateFlow<String> = (syncRepository?.syncStatusState ?: MutableStateFlow("Signed out"))
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = syncRepository?.syncStatusState?.value ?: "Signed out"
-        )
+    private val _householdCreationUiState = MutableStateFlow<HouseholdCreationUiState>(HouseholdCreationUiState.Idle)
+    val householdCreationUiState: StateFlow<HouseholdCreationUiState> = _householdCreationUiState.asStateFlow()
+
+    private val _householdError = MutableStateFlow<String?>(null)
+    val householdError: StateFlow<String?> = _householdError.asStateFlow()
+
+    private val _isInvitationProcessing = MutableStateFlow(false)
+    val isInvitationProcessing: StateFlow<Boolean> = _isInvitationProcessing.asStateFlow()
+
+    private val _invitationError = MutableStateFlow<String?>(null)
+    val invitationError: StateFlow<String?> = _invitationError.asStateFlow()
+
+    val syncStatus: StateFlow<SyncStatus> = syncRepository?.syncStatusState
+        ?: MutableStateFlow(SyncStatus.SignedOut)
 
     val authState: StateFlow<AuthState> = authRepository.authState.stateIn(
         scope = viewModelScope,
@@ -172,6 +208,90 @@ class MainViewModel(
         initialValue = authRepository.getCurrentUserUid()
     )
 
+    val activeHouseholdId: StateFlow<String?> = syncStatus.map { status ->
+        when (status) {
+            is SyncStatus.Synced -> status.householdId ?: syncRepository?.activeHouseholdId
+            is SyncStatus.Connecting -> syncRepository?.activeHouseholdId
+            else -> null
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = (syncStatus.value as? SyncStatus.Synced)?.householdId ?: syncRepository?.activeHouseholdId
+    )
+
+    val currentHousehold: StateFlow<HouseholdDto?> = activeHouseholdId.flatMapLatest { householdId ->
+        if (householdId.isNullOrBlank()) {
+            flowOf(null)
+        } else {
+            activeHouseholdRepo.observeHousehold(householdId)
+                .catch { e ->
+                    _householdError.value = e.message
+                    emit(null)
+                }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    val householdMembers: StateFlow<List<HouseholdMemberDto>> = activeHouseholdId.flatMapLatest { householdId ->
+        if (householdId.isNullOrBlank()) {
+            flowOf(emptyList())
+        } else {
+            activeHouseholdRepo.observeHouseholdMembers(householdId)
+                .catch { e ->
+                    _householdError.value = e.message
+                    emit(emptyList())
+                }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val currentUserMembership: StateFlow<HouseholdMemberDto?> = combine(
+        householdMembers,
+        activeUserUid
+    ) { members, userUid ->
+        if (userUid.isNullOrBlank()) null
+        else members.find { it.uid == userUid }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    val isHouseholdLoading: StateFlow<Boolean> = combine(
+        activeHouseholdId,
+        currentHousehold
+    ) { householdId, household ->
+        !householdId.isNullOrBlank() && household == null
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val incomingInvites: StateFlow<List<HouseholdInviteDto>> = authState.flatMapLatest { state ->
+        val email = (state as? AuthState.SignedIn)?.email
+        if (email.isNullOrBlank()) {
+            flowOf(emptyList())
+        } else {
+            activeHouseholdRepo.observeIncomingInvites(email)
+                .catch { e ->
+                    _invitationError.value = e.message
+                    emit(emptyList())
+                }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     val themeMode: StateFlow<String> = settingsRepository.themeModeFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -184,30 +304,16 @@ class MainViewModel(
         initialValue = FilterSettings()
     )
 
-    val categories: StateFlow<List<CategoryEntity>> = combine(
-        categoryRepository.allCategories,
-        activeUserUid
-    ) { cats, uid ->
-        if (uid == null) {
-            emptyList()
-        } else {
-            cats.filter { it.userId == uid || it.userId == "local_user" }
-        }
+    val categories: StateFlow<List<CategoryEntity>> = activeHouseholdId.flatMapLatest { householdId ->
+        categoryRepository.getCategories(householdId)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
 
-    val allTransactions: StateFlow<List<TransactionEntity>> = combine(
-        transactionRepository.allTransactions,
-        activeUserUid
-    ) { txs, uid ->
-        if (uid == null) {
-            emptyList()
-        } else {
-            txs.filter { it.userId == uid }
-        }
+    val allTransactions: StateFlow<List<TransactionEntity>> = activeHouseholdId.flatMapLatest { householdId ->
+        transactionRepository.getTransactions(householdId)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -853,17 +959,56 @@ class MainViewModel(
                     return@launch
                 }
 
+                // Ensure a valid backup bundle exists before running preflight
+                val effectiveBackupDir = backupBundleDir ?: run {
+                    val backupsRootDir = File(getApplication<Application>().filesDir, "migration_backups").apply { mkdirs() }
+                    val newBundleDir = File(backupsRootDir, "backup_${System.currentTimeMillis()}")
+                    
+                    val allTxs = transactionRepository.allTransactions.first()
+                    val allCats = categoryRepository.getAllCategoriesList()
+                    val allRates = database?.exchangeRateDao()?.getAllOfficialRates() ?: emptyList()
+
+                    val backupCreationResult = CsvBackupManager.createMigrationBackupBundle(
+                        bundleDir = newBundleDir,
+                        transactions = allTxs,
+                        categories = allCats,
+                        exchangeRates = allRates
+                    )
+
+                    if (!backupCreationResult.isValid) {
+                        _migrationUiState.value = MigrationUiState.Failure(
+                            MigrationResultState.Failure(
+                                stage = "PREFLIGHT_BACKUP",
+                                sanitizedError = backupCreationResult.errorMessage ?: "Failed to generate mandatory preflight backup bundle."
+                            )
+                        )
+                        return@launch
+                    }
+                    newBundleDir
+                }
+
                 val result = coordinator.validatePreflight(
                     householdId = resolvedHouseholdId,
                     userUid = resolvedUserUid,
-                    backupBundleDir = backupBundleDir
+                    backupBundleDir = effectiveBackupDir
                 )
 
                 when (result) {
                     is PreflightValidationResult.Ready -> {
+                        val resolvedHouseholdName = currentHousehold.value?.name?.takeIf { it.isNotBlank() }
+                            ?: resolvedHouseholdId
+
+                        val manifestTimestamp = try {
+                            val manifestFile = File(effectiveBackupDir, CsvBackupManager.MANIFEST_FILE_NAME)
+                            if (manifestFile.exists()) {
+                                com.example.data.util.MigrationManifest.fromJson(manifestFile.readText())?.creationTimestamp
+                            } else null
+                        } catch (_: Exception) { null } ?: System.currentTimeMillis()
+
                         _migrationUiState.value = MigrationUiState.Preview(
                             MigrationPreviewState(
                                 householdId = result.householdId,
+                                householdName = resolvedHouseholdName,
                                 userUid = result.userUid,
                                 userRole = result.memberInfo.role,
                                 transactionsCount = result.localCounts.transactionsCount,
@@ -871,6 +1016,8 @@ class MainViewModel(
                                 exchangeRatesCount = result.localCounts.exchangeRatesCount,
                                 totalRecords = result.localCounts.totalCount,
                                 backupBundlePath = result.backupBundlePath,
+                                backupTimestamp = manifestTimestamp,
+                                backupValidationStatus = "VALIDATED",
                                 preflightReadyData = result
                             )
                         )
@@ -1018,5 +1165,126 @@ class MainViewModel(
             .filter { it.isNotBlank() && !it.startsWith("java.") && !it.startsWith("kotlin.") && !it.startsWith("android.") }
             .firstOrNull() ?: "An unexpected error occurred during migration."
         return clean.take(150)
+    }
+
+    fun resetHouseholdCreationState() {
+        _householdCreationUiState.value = HouseholdCreationUiState.Idle
+    }
+
+    fun createHousehold(name: String) {
+        if (_householdCreationUiState.value is HouseholdCreationUiState.Creating) {
+            return
+        }
+
+        val authStateVal = authState.value
+        val signedInUser = authStateVal as? AuthState.SignedIn
+        if (signedInUser == null) {
+            _householdCreationUiState.value = HouseholdCreationUiState.Error("You must be signed in to create a household")
+            return
+        }
+
+        val trimmedName = name.trim()
+        if (trimmedName.isEmpty()) {
+            _householdCreationUiState.value = HouseholdCreationUiState.Error("Household name cannot be empty")
+            return
+        }
+
+        if (trimmedName.length !in 2..50) {
+            _householdCreationUiState.value = HouseholdCreationUiState.Error("Household name must be between 2 and 50 characters")
+            return
+        }
+
+        _householdCreationUiState.value = HouseholdCreationUiState.Creating
+
+        viewModelScope.launch(ioDispatcher) {
+            val result = activeHouseholdRepo.createHousehold(trimmedName)
+            result.onSuccess { household ->
+                val householdId = household.householdId.orEmpty()
+                _householdCreationUiState.value = HouseholdCreationUiState.Success(householdId)
+                syncRepository?.startSync(signedInUser.userUid, householdId)
+            }.onFailure { error ->
+                _householdCreationUiState.value = HouseholdCreationUiState.Error(error.message ?: "Failed to create household")
+            }
+        }
+    }
+
+    fun sendInvite(inviteeEmail: String, onComplete: () -> Unit = {}) {
+        val household = currentHousehold.value
+        val householdId = household?.householdId
+        if (householdId.isNullOrBlank()) {
+            _invitationError.value = "No active household found"
+            showNotification("No active household found")
+            return
+        }
+
+        val trimmedEmail = inviteeEmail.trim()
+        if (trimmedEmail.isBlank()) {
+            _invitationError.value = "Email cannot be empty"
+            return
+        }
+
+        _isInvitationProcessing.value = true
+        _invitationError.value = null
+
+        viewModelScope.launch(ioDispatcher) {
+            val result = activeHouseholdRepo.sendInvite(
+                householdId = householdId,
+                householdName = household.name.orEmpty().ifEmpty { "Household" },
+                inviteeEmail = trimmedEmail
+            )
+            _isInvitationProcessing.value = false
+            result.onSuccess {
+                showNotification("Invitation sent")
+                onComplete()
+            }.onFailure { error ->
+                val msg = error.message ?: "Failed to send invitation"
+                _invitationError.value = msg
+                showNotification(msg)
+            }
+        }
+    }
+
+    fun acceptInvite(inviteId: String) {
+        if (inviteId.isBlank()) return
+        _isInvitationProcessing.value = true
+        _invitationError.value = null
+
+        viewModelScope.launch(ioDispatcher) {
+            val result = activeHouseholdRepo.acceptInvite(inviteId)
+            _isInvitationProcessing.value = false
+            result.onSuccess {
+                showNotification("Invitation accepted")
+                val signedInUser = authState.value as? AuthState.SignedIn
+                if (signedInUser != null) {
+                    syncRepository?.startSync(signedInUser.userUid)
+                }
+            }.onFailure { error ->
+                val msg = error.message ?: "Failed to accept invitation"
+                _invitationError.value = msg
+                showNotification(msg)
+            }
+        }
+    }
+
+    fun declineInvite(inviteId: String) {
+        if (inviteId.isBlank()) return
+        _isInvitationProcessing.value = true
+        _invitationError.value = null
+
+        viewModelScope.launch(ioDispatcher) {
+            val result = activeHouseholdRepo.declineInvite(inviteId)
+            _isInvitationProcessing.value = false
+            result.onSuccess {
+                showNotification("Invitation declined")
+            }.onFailure { error ->
+                val msg = error.message ?: "Failed to decline invitation"
+                _invitationError.value = msg
+                showNotification(msg)
+            }
+        }
+    }
+
+    fun clearInvitationError() {
+        _invitationError.value = null
     }
 }

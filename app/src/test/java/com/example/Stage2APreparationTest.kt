@@ -240,7 +240,8 @@ class Stage2APreparationTest {
                 object : com.example.data.repository.ListenerRegistrationHandle { override fun remove() {} }
             override fun listenToCategories(householdId: String, onSnapshot: (List<Pair<String, Map<String, Any?>>>) -> Unit, onError: (Exception) -> Unit) =
                 object : com.example.data.repository.ListenerRegistrationHandle { override fun remove() {} }
-            override suspend fun resolveHouseholdId(userUid: String): String? = null
+            override suspend fun resolveHouseholdId(userUid: String): com.example.data.repository.HouseholdResolutionResult =
+                com.example.data.repository.HouseholdResolutionResult.NoHousehold
             override suspend fun getHouseholdMembership(householdId: String, userUid: String): Map<String, Any?>? {
                 throw SecurityException("PERMISSION_DENIED: Missing security permissions at internal.network.FirebaseChannel.call(FirebaseChannel.kt:142)\n\tat com.google.internal.Stack.trace(Stack.kt:99)")
             }

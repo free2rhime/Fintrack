@@ -716,4 +716,101 @@ describe('FinTrack Firestore Security Rules', () => {
       }));
     });
   });
+
+  // --------------------------------------------------------------------------
+  // 8. Invitation Rules & Membership Invitation Flow
+  // --------------------------------------------------------------------------
+  describe('Invitation Security Rules', () => {
+    const INVITEE_EMAIL = 'invitee@fintrack.test';
+    const INVITEE_UID = 'user_invitee';
+    const INVITE_ID = 'invite_001';
+
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, `invitations/${INVITE_ID}`), {
+          inviteId: INVITE_ID,
+          householdId: HOUSEHOLD_ID,
+          householdName: 'The FinTrack Family',
+          inviterUid: OWNER_UID,
+          inviterEmail: 'owner@fintrack.test',
+          inviteeEmail: INVITEE_EMAIL,
+          targetRole: 'member',
+          status: 'PENDING',
+          createdAt: 1770000000000,
+          expiresAt: 1780000000000
+        });
+      });
+    });
+
+    it('allows household owner to create invitation', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertSucceeds(setDoc(doc(ownerDb, 'invitations/invite_new'), {
+        inviteId: 'invite_new',
+        householdId: HOUSEHOLD_ID,
+        householdName: 'The FinTrack Family',
+        inviterUid: OWNER_UID,
+        inviterEmail: 'owner@fintrack.test',
+        inviteeEmail: 'newperson@fintrack.test',
+        targetRole: 'member',
+        status: 'PENDING',
+        createdAt: 1770000000000,
+        expiresAt: 1780000000000
+      }));
+    });
+
+    it('denies non-owner from creating invitation', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, 'invitations/invite_bad'), {
+        inviteId: 'invite_bad',
+        householdId: HOUSEHOLD_ID,
+        householdName: 'The FinTrack Family',
+        inviterUid: MEMBER_UID,
+        inviterEmail: 'member@fintrack.test',
+        inviteeEmail: 'newperson@fintrack.test',
+        targetRole: 'member',
+        status: 'PENDING',
+        createdAt: 1770000000000,
+        expiresAt: 1780000000000
+      }));
+    });
+
+    it('allows invitee with matching email to read invitation', async () => {
+      const inviteeDb = testEnv.authenticatedContext(INVITEE_UID, { email: INVITEE_EMAIL }).firestore();
+      await assertSucceeds(getDoc(doc(inviteeDb, `invitations/${INVITE_ID}`)));
+    });
+
+    it('denies unrelated stranger from reading invitation', async () => {
+      const strangerDb = testEnv.authenticatedContext(STRANGER_UID, { email: 'stranger@fintrack.test' }).firestore();
+      await assertFails(getDoc(doc(strangerDb, `invitations/${INVITE_ID}`)));
+    });
+
+    it('allows invitee with matching email to accept invitation', async () => {
+      const inviteeDb = testEnv.authenticatedContext(INVITEE_UID, { email: INVITEE_EMAIL }).firestore();
+      await assertSucceeds(updateDoc(doc(inviteeDb, `invitations/${INVITE_ID}`), {
+        status: 'ACCEPTED',
+        respondedAt: 1770001000000
+      }));
+    });
+
+    it('allows invitee with matching email to decline invitation', async () => {
+      const inviteeDb = testEnv.authenticatedContext(INVITEE_UID, { email: INVITEE_EMAIL }).firestore();
+      await assertSucceeds(updateDoc(doc(inviteeDb, `invitations/${INVITE_ID}`), {
+        status: 'DECLINED',
+        respondedAt: 1770001000000
+      }));
+    });
+
+    it('allows invited member to create their active member doc with valid invitedByUid', async () => {
+      const inviteeDb = testEnv.authenticatedContext(INVITEE_UID, { email: INVITEE_EMAIL }).firestore();
+      await assertSucceeds(setDoc(doc(inviteeDb, `households/${HOUSEHOLD_ID}/members/${INVITEE_UID}`), {
+        uid: INVITEE_UID,
+        email: INVITEE_EMAIL,
+        role: 'member',
+        status: 'ACTIVE',
+        joinedAt: 1770001000000,
+        invitedByUid: OWNER_UID
+      }));
+    });
+  });
 });

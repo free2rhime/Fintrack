@@ -43,6 +43,24 @@ service cloud.firestore {
         getMemberData(householdId, request.auth.uid).role == 'owner';
     }
 
+    function isOwnerUid(householdId, ownerUid) {
+      return exists(/databases/$(database)/documents/households/$(householdId)/members/$(ownerUid)) &&
+        getMemberData(householdId, ownerUid).status == 'ACTIVE' &&
+        getMemberData(householdId, ownerUid).role == 'owner';
+    }
+
+    function isInvitee(data) {
+      return isAuthenticated() &&
+        request.auth.token.email != null &&
+        (request.auth.token.email == data.inviteeEmail ||
+         request.auth.token.email.lower() == data.inviteeEmail.lower());
+    }
+
+    function isInviter(data) {
+      return isAuthenticated() &&
+        data.inviterUid == request.auth.uid;
+    }
+
     function isHouseholdCreator(householdId) {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/households/$(householdId)) &&
@@ -143,12 +161,19 @@ service cloud.firestore {
       match /members/{uid} {
         allow read: if isHouseholdMember(householdId);
 
-        // Prevent self-join: Only admin/owner can add members, OR the household creator initializing their owner doc
+        // Prevent self-join: Only admin/owner can add members, OR the household creator initializing their owner doc, OR invited member joining
         allow create: if isHouseholdAdminOrOwner(householdId) ||
                          (isHouseholdCreator(householdId) &&
                           uid == request.auth.uid &&
                           request.resource.data.role == 'owner' &&
-                          request.resource.data.status == 'ACTIVE');
+                          request.resource.data.status == 'ACTIVE') ||
+                         (isAuthenticated() &&
+                          uid == request.auth.uid &&
+                          request.resource.data.role == 'member' &&
+                          request.resource.data.status == 'ACTIVE' &&
+                          'invitedByUid' in request.resource.data &&
+                          request.resource.data.invitedByUid is string &&
+                          isOwnerUid(householdId, request.resource.data.invitedByUid));
 
         // Only admin/owner can update or remove members
         allow update, delete: if isHouseholdAdminOrOwner(householdId);
@@ -230,6 +255,48 @@ service cloud.firestore {
                          request.resource.data.status == 'OFFICIAL';
         allow delete: if isHouseholdAdminOrOwner(householdId);
       }
+    }
+
+    // Invitations root collection
+    match /invitations/{inviteId} {
+      allow read: if isAuthenticated() && (
+                    isInvitee(resource.data) ||
+                    isInviter(resource.data) ||
+                    isHouseholdOwner(resource.data.householdId)
+                  );
+
+      allow create: if isAuthenticated() &&
+                       isHouseholdOwner(request.resource.data.householdId) &&
+                       request.resource.data.inviterUid == request.auth.uid &&
+                       request.resource.data.targetRole == 'member' &&
+                       request.resource.data.status == 'PENDING' &&
+                       request.resource.data.householdId is string &&
+                       request.resource.data.inviteeEmail is string;
+
+      allow update: if isAuthenticated() && (
+                      // Invitee responding (accept / decline)
+                      (
+                        isInvitee(resource.data) &&
+                        resource.data.status == 'PENDING' &&
+                        request.resource.data.status in ['ACCEPTED', 'DECLINED'] &&
+                        request.resource.data.inviteId == resource.data.inviteId &&
+                        request.resource.data.householdId == resource.data.householdId &&
+                        request.resource.data.inviterUid == resource.data.inviterUid &&
+                        request.resource.data.inviteeEmail == resource.data.inviteeEmail
+                      ) ||
+                      // Inviter / household owner cancelling
+                      (
+                        (isInviter(resource.data) || isHouseholdOwner(resource.data.householdId)) &&
+                        request.resource.data.status in ['CANCELLED', 'PENDING'] &&
+                        request.resource.data.inviteId == resource.data.inviteId &&
+                        request.resource.data.householdId == resource.data.householdId &&
+                        request.resource.data.inviterUid == resource.data.inviterUid &&
+                        request.resource.data.inviteeEmail == resource.data.inviteeEmail
+                      )
+                    );
+
+      allow delete: if isAuthenticated() &&
+                       (isInviter(resource.data) || isHouseholdOwner(resource.data.householdId));
     }
   }
 }

@@ -9,15 +9,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -46,14 +51,22 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.model.FilterSettings
+import com.example.data.model.HouseholdDto
+import com.example.data.model.HouseholdInviteDto
+import com.example.data.model.HouseholdMemberDto
 import com.example.data.repository.PendingRetryResult
 import com.example.data.service.BnrDiagnosticResult
 import com.example.ui.components.CurrencyToggle
+import com.example.ui.components.HouseholdOverviewCard
+import com.example.ui.components.InviteMemberDialog
 import com.example.ui.theme.ExpenseRed
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -61,6 +74,16 @@ fun SettingsScreen(
     themeMode: String,
     currentUid: String? = null,
     currentUserEmail: String? = null,
+    currentHousehold: HouseholdDto? = null,
+    currentUserMembership: HouseholdMemberDto? = null,
+    householdMembers: List<HouseholdMemberDto> = emptyList(),
+    incomingInvites: List<HouseholdInviteDto> = emptyList(),
+    isInvitationProcessing: Boolean = false,
+    invitationError: String? = null,
+    onSendInvite: (String) -> Unit = {},
+    onAcceptInvite: (String) -> Unit = {},
+    onDeclineInvite: (String) -> Unit = {},
+    onClearInviteError: () -> Unit = {},
     onSignOut: () -> Unit = {},
     onCurrencyChanged: (String) -> Unit,
     onThemeModeChanged: (String) -> Unit,
@@ -78,6 +101,23 @@ fun SettingsScreen(
     onStartMigration: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    var showInviteDialog by remember { mutableStateOf(false) }
+
+    if (showInviteDialog) {
+        InviteMemberDialog(
+            isLoading = isInvitationProcessing,
+            errorMessage = invitationError,
+            onSendInvite = { email ->
+                onSendInvite(email)
+                showInviteDialog = false
+            },
+            onDismiss = {
+                showInviteDialog = false
+                onClearInviteError()
+            }
+        )
+    }
+
     val csvPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -154,6 +194,148 @@ fun SettingsScreen(
                     Text("Sign Out", fontWeight = FontWeight.Bold)
                 }
             }
+        }
+
+        // PENDING INVITATIONS CARD
+        if (!currentUserEmail.isNullOrBlank() && incomingInvites.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("pending_invitations_card"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Pending Invitations",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        incomingInvites.forEach { invite ->
+                            val inviteId = invite.inviteId.orEmpty()
+                            val householdName = invite.householdName.orEmpty().ifEmpty { "Household" }
+                            val inviterEmail = invite.inviterEmail.orEmpty().ifEmpty { "Unknown" }
+                            val formattedExpiry = remember(invite.expiresAt) {
+                                val exp = invite.expiresAt
+                                if (exp != null && exp > 0L) {
+                                    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                                    sdf.format(Date(exp))
+                                } else {
+                                    "7 days"
+                                }
+                            }
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("pending_invite_item"),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = householdName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.testTag("invite_household_name")
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "From: $inviterEmail",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.testTag("invite_inviter_email")
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Expires: $formattedExpiry",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.testTag("invite_expires_at")
+                                    )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { onAcceptInvite(inviteId) },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(36.dp)
+                                                .testTag("accept_invite_button"),
+                                            shape = RoundedCornerShape(8.dp),
+                                            enabled = !isInvitationProcessing
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "Accept",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
+                                        OutlinedButton(
+                                            onClick = { onDeclineInvite(inviteId) },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(36.dp)
+                                                .testTag("decline_invite_button"),
+                                            shape = RoundedCornerShape(8.dp),
+                                            enabled = !isInvitationProcessing
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "Decline",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (currentHousehold != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HouseholdOverviewCard(
+                household = currentHousehold,
+                currentUserMembership = currentUserMembership,
+                householdMembers = householdMembers,
+                currentUid = currentUid,
+                onInviteMemberClick = { showInviteDialog = true }
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

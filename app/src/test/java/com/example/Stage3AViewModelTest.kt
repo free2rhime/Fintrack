@@ -406,7 +406,8 @@ class Stage3AViewModelTest {
                 object : com.example.data.repository.ListenerRegistrationHandle { override fun remove() {} }
             override fun listenToCategories(householdId: String, onSnapshot: (List<Pair<String, Map<String, Any?>>>) -> Unit, onError: (Exception) -> Unit) =
                 object : com.example.data.repository.ListenerRegistrationHandle { override fun remove() {} }
-            override suspend fun resolveHouseholdId(userUid: String): String? = null
+            override suspend fun resolveHouseholdId(userUid: String): com.example.data.repository.HouseholdResolutionResult =
+                com.example.data.repository.HouseholdResolutionResult.NoHousehold
             override suspend fun getHouseholdMembership(householdId: String, userUid: String): Map<String, Any?>? {
                 throw RuntimeException("INTERNAL_CRASH: Bad state at io.grpc.internal.Stream.flush(Stream.java:999)\n\tat java.lang.Thread.run(Thread.java:1012)")
             }

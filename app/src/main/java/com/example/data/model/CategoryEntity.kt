@@ -15,5 +15,7 @@ data class CategoryEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isDeleted: Boolean = false,
-    val syncStatus: String = "PENDING"
+    val syncStatus: String = "PENDING",
+    val householdId: String? = null,
+    val createdByUid: String? = null
 )

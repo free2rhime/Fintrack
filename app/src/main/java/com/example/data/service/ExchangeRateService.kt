@@ -1,5 +1,7 @@
 package com.example.data.service
 
+import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import com.example.data.dao.ExchangeRateDao
 import com.example.data.model.ExchangeRateEntity
 import java.io.InputStream
@@ -108,6 +110,9 @@ data class BnrXmlParseResult(
 
 class ExchangeRateService(
     private val exchangeRateDao: ExchangeRateDao,
+    private val syncOutboxDao: com.example.data.dao.SyncOutboxDao? = null,
+    private val database: androidx.room.RoomDatabase? = null,
+    private val onOutboxMutated: (() -> Unit)? = null,
     private val httpFetcher: (String) -> Pair<String?, String> = ExchangeRateService::fetchUrlWithStatus,
     private val detailedHttpFetcher: ((String) -> HttpResponseData)? = null
 ) {
@@ -173,7 +178,50 @@ class ExchangeRateService(
                 fetchedAt = System.currentTimeMillis(),
                 status = "OFFICIAL"
             )
-            exchangeRateDao.insertRate(entity)
+            val now = System.currentTimeMillis()
+            val dao = syncOutboxDao ?: (database as? com.example.data.db.FinTrackDatabase)?.syncOutboxDao()
+            if (database != null) {
+                database.withTransaction {
+                    exchangeRateDao.insertRate(entity)
+                    if (dao != null) {
+                        val existingPending = dao.getPendingEntryForEntity(entity.date)
+                        if (existingPending != null && existingPending.operation == "UPSERT") {
+                            dao.updateOutboxEntry(existingPending.copy(updatedAt = now))
+                        } else {
+                            dao.insertOutboxEntry(
+                                com.example.data.model.SyncOutboxEntity(
+                                    entityType = "EXCHANGE_RATE",
+                                    entityId = entity.date,
+                                    operation = "UPSERT",
+                                    status = "PENDING",
+                                    createdAt = now,
+                                    updatedAt = now
+                                )
+                            )
+                        }
+                    }
+                }
+            } else {
+                exchangeRateDao.insertRate(entity)
+                if (dao != null) {
+                    val existingPending = dao.getPendingEntryForEntity(entity.date)
+                    if (existingPending != null && existingPending.operation == "UPSERT") {
+                        dao.updateOutboxEntry(existingPending.copy(updatedAt = now))
+                    } else {
+                        dao.insertOutboxEntry(
+                            com.example.data.model.SyncOutboxEntity(
+                                entityType = "EXCHANGE_RATE",
+                                entityId = entity.date,
+                                operation = "UPSERT",
+                                status = "PENDING",
+                                createdAt = now,
+                                updatedAt = now
+                            )
+                        )
+                    }
+                }
+            }
+            onOutboxMutated?.invoke()
         }
 
         remoteResult

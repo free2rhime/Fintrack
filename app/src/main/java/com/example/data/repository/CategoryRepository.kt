@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.Flow
 interface CategoryRepository {
 
     val allCategories: Flow<List<CategoryEntity>>
+        get() = getCategories(null)
+
+    fun getCategories(householdId: String? = null): Flow<List<CategoryEntity>>
 
     suspend fun getAllCategoriesList(): List<CategoryEntity>
 

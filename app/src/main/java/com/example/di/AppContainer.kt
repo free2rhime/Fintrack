@@ -16,6 +16,8 @@ import com.example.data.repository.FirebaseAuthRepository
 import com.example.data.repository.FirestoreMigrationPreflightCoordinator
 import com.example.data.repository.FirestoreMigrationUploader
 import com.example.data.repository.FirestoreSyncRepository
+import com.example.data.repository.HouseholdRepository
+import com.example.data.repository.FirestoreHouseholdRepository
 
 interface AppContainer {
     val transactionRepository: TransactionRepository
@@ -26,9 +28,16 @@ interface AppContainer {
     val syncRepository: FirestoreSyncRepository
     val migrationPreflightCoordinator: FirestoreMigrationPreflightCoordinator
     val migrationUploader: FirestoreMigrationUploader
+    val householdRepository: HouseholdRepository
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
+
+    override val householdRepository: HouseholdRepository by lazy {
+        FirestoreHouseholdRepository(
+            authRepository = authRepository
+        )
+    }
 
     override val syncRepository: FirestoreSyncRepository by lazy {
         FirestoreSyncRepository(database = database)
@@ -58,7 +67,12 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     private val exchangeRateService: ExchangeRateService by lazy {
-        ExchangeRateService(database.exchangeRateDao())
+        ExchangeRateService(
+            exchangeRateDao = database.exchangeRateDao(),
+            syncOutboxDao = database.syncOutboxDao(),
+            database = database,
+            onOutboxMutated = { syncRepository.outboundSyncEngine.notifyPending() }
+        )
     }
 
     override val transactionRepository: TransactionRepository by lazy {
@@ -66,7 +80,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             transactionDao = database.transactionDao(),
             exchangeRateService = exchangeRateService,
             exchangeRateDao = database.exchangeRateDao(),
-            database = database
+            database = database,
+            syncOutboxDao = database.syncOutboxDao(),
+            onOutboxMutated = { syncRepository.outboundSyncEngine.notifyPending() }
         )
     }
 
@@ -74,7 +90,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         RoomCategoryRepository(
             categoryDao = database.categoryDao(),
             syncOutboxDao = database.syncOutboxDao(),
-            database = database
+            database = database,
+            onOutboxMutated = { syncRepository.outboundSyncEngine.notifyPending() }
         )
     }
 

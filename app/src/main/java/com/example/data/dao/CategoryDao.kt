@@ -11,11 +11,19 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CategoryDao {
-    @Query("SELECT * FROM categories ORDER BY type ASC, name ASC")
-    fun getAllCategories(): Flow<List<CategoryEntity>>
+    @Query("""
+        SELECT * FROM categories 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        ORDER BY type ASC, name ASC
+    """)
+    fun getAllCategories(householdId: String? = null): Flow<List<CategoryEntity>>
 
-    @Query("SELECT * FROM categories ORDER BY type ASC, name ASC")
-    suspend fun getAllCategoriesList(): List<CategoryEntity>
+    @Query("""
+        SELECT * FROM categories 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        ORDER BY type ASC, name ASC
+    """)
+    suspend fun getAllCategoriesList(householdId: String? = null): List<CategoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategory(category: CategoryEntity)
@@ -29,11 +37,19 @@ interface CategoryDao {
     @Delete
     suspend fun deleteCategory(category: CategoryEntity)
 
-    @Query("UPDATE categories SET name = :newName WHERE name = :oldName AND type = :type")
-    suspend fun updateCategoryGroup(oldName: String, newName: String, type: String)
+    @Query("""
+        UPDATE categories SET name = :newName 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND name = :oldName AND type = :type
+    """)
+    suspend fun updateCategoryGroup(oldName: String, newName: String, type: String, householdId: String? = null)
 
-    @Query("DELETE FROM categories WHERE name = :name AND type = :type")
-    suspend fun deleteCategoryGroup(name: String, type: String)
+    @Query("""
+        DELETE FROM categories 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND name = :name AND type = :type
+    """)
+    suspend fun deleteCategoryGroup(name: String, type: String, householdId: String? = null)
 
     @Query("UPDATE categories SET subCategory = :newSubCategory WHERE id = :id")
     suspend fun updateSubcategory(id: String, newSubCategory: String)
@@ -44,12 +60,26 @@ interface CategoryDao {
     @Query("DELETE FROM categories WHERE id = :id")
     suspend fun deleteCategoryById(id: String)
 
-    @Query("SELECT * FROM categories WHERE name = :name AND type = :type")
-    suspend fun getCategoriesGroup(name: String, type: String): List<CategoryEntity>
+    @Query("""
+        SELECT * FROM categories 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND name = :name AND type = :type
+    """)
+    suspend fun getCategoriesGroup(name: String, type: String, householdId: String? = null): List<CategoryEntity>
 
     @Query("SELECT * FROM categories WHERE id = :id")
     suspend fun getCategoryById(id: String): CategoryEntity?
 
-    @Query("DELETE FROM categories")
-    suspend fun deleteAllCategories()
+    @Query("""
+        DELETE FROM categories 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+    """)
+    suspend fun deleteCategoriesByHousehold(householdId: String? = null)
+
+    @Query("""
+        DELETE FROM categories 
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+    """)
+    suspend fun deleteAllCategories(householdId: String? = null)
 }
+

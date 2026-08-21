@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -35,6 +38,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -47,11 +54,14 @@ import com.example.ui.MigrationProgressState
 import com.example.ui.MigrationResultState
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
- * Stage 3B - Migration Preview Dialog
- * Displays target household, verified role, record counts, backup validation status,
- * and exposes Proceed and Cancel actions.
+ * Stage 3B / Stage 7 Step 4 - Migration Preview Dialog
+ * Displays target household name & ID, verified role, record counts, verified backup metadata,
+ * explicit acknowledgment checkbox, and exposes Proceed (enabled upon check) and Cancel actions.
  */
 @Composable
 fun MigrationPreviewDialog(
@@ -60,6 +70,17 @@ fun MigrationPreviewDialog(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isAcknowledged by remember { mutableStateOf(false) }
+
+    val formattedBackupTime = remember(previewState.backupTimestamp) {
+        val ts = previewState.backupTimestamp
+        if (ts != null && ts > 0) {
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
+        } else {
+            "Verified on device"
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onCancel,
         modifier = modifier.testTag("migration_preview_dialog"),
@@ -105,22 +126,46 @@ fun MigrationPreviewDialog(
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        // Household Name (Prominently displayed)
+                        val displayName = previewState.householdName?.takeIf { it.isNotBlank() } ?: previewState.householdId
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Target Household:",
+                                text = "Household Name:",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.testTag("preview_household_name")
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Household ID:",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = previewState.householdId,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("preview_household_id")
                             )
                         }
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -135,7 +180,8 @@ fun MigrationPreviewDialog(
                                 text = previewState.userRole,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.testTag("preview_user_role")
                             )
                         }
                     }
@@ -193,32 +239,84 @@ fun MigrationPreviewDialog(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Backup Validated",
-                            tint = IncomeGreen,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Backup Validated",
+                                tint = IncomeGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Preflight Backup Validated",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                        }
+                        
+                        Text(
+                            text = "Created: $formattedBackupTime",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.testTag("preview_backup_timestamp")
+                        )
+
+                        if (!previewState.backupBundlePath.isNullOrBlank()) {
                             Text(
-                                text = "A safety backup bundle was created and verified.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                text = "Path: ${previewState.backupBundlePath}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                modifier = Modifier.testTag("preview_backup_path")
                             )
                         }
+                    }
+                }
+
+                // Explicit Confirmation Checkbox (Safety acknowledgment)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isAcknowledged = !isAcknowledged }
+                        .testTag("migration_acknowledgment_card"),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isAcknowledged) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        }
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isAcknowledged,
+                            onCheckedChange = { isAcknowledged = it },
+                            modifier = Modifier.testTag("migration_acknowledgment_checkbox"),
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "I understand local FinTrack data will be uploaded to this shared household.",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
@@ -226,6 +324,7 @@ fun MigrationPreviewDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
+                enabled = isAcknowledged,
                 modifier = Modifier.testTag("migration_preview_confirm_button")
             ) {
                 Text("Proceed with Migration")

@@ -37,5 +37,7 @@ data class TransactionEntity(
     val subCategoryId: String? = null,
     val syncStatus: String = "PENDING",
     val lastSyncedAt: Long? = null,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val householdId: String? = null,
+    val createdByUid: String? = null
 )

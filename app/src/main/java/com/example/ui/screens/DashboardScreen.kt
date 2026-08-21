@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
+import com.example.data.repository.SyncStatus
 import com.example.data.util.NumberFormatter
 import com.example.domain.analytics.CategoryExpenseShare
 import com.example.domain.analytics.DashboardMetrics
@@ -75,7 +76,7 @@ fun DashboardScreen(
     smartInsights: SmartFinancialInsights,
     onPeriodSelected: (String) -> Unit,
     onCurrencyChanged: (String) -> Unit,
-    syncStatus: String = "Signed out",
+    syncStatus: SyncStatus = SyncStatus.SignedOut,
     modifier: Modifier = Modifier
 ) {
     var isSplineChart by remember { mutableStateOf(true) }
@@ -95,18 +96,47 @@ fun DashboardScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End
         ) {
+            val (statusText, containerColor, contentColor) = when (syncStatus) {
+                is SyncStatus.SignedOut -> Triple(
+                    "Signed out",
+                    MaterialTheme.colorScheme.surfaceVariant,
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                is SyncStatus.NoHousehold -> Triple(
+                    "No active household",
+                    MaterialTheme.colorScheme.secondaryContainer,
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                is SyncStatus.Connecting -> Triple(
+                    "Syncing...",
+                    MaterialTheme.colorScheme.tertiaryContainer,
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                is SyncStatus.Synced -> Triple(
+                    "Synced",
+                    MaterialTheme.colorScheme.primaryContainer,
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                is SyncStatus.PermissionDenied -> Triple(
+                    "Permission denied",
+                    MaterialTheme.colorScheme.error,
+                    MaterialTheme.colorScheme.onError
+                )
+                is SyncStatus.Offline -> Triple(
+                    "Offline",
+                    MaterialTheme.colorScheme.errorContainer,
+                    MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = when (syncStatus) {
-                    "Synced" -> MaterialTheme.colorScheme.primaryContainer
-                    "Syncing..." -> MaterialTheme.colorScheme.tertiaryContainer
-                    "Offline" -> MaterialTheme.colorScheme.errorContainer
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                }
+                color = containerColor
             ) {
                 Text(
-                    text = "Sync: $syncStatus",
+                    text = "Sync: $statusText",
                     style = MaterialTheme.typography.labelSmall,
+                    color = contentColor,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }

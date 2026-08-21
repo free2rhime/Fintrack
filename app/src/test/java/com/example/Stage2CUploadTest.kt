@@ -61,6 +61,8 @@ class Stage2CUploadTest {
 
     @Test
     fun testSuccessfulUploadReachesCompletedAndCorrectStageTransitions() = runTest {
+        fakeSnapshotSource.setMember("hh_100", "user_owner_100", "OWNER", "ACTIVE")
+
         // Setup local data
         db.categoryDao().insertCategory(CategoryEntity(id = "cat_1", name = "Food", type = "Expense"))
         db.categoryDao().insertCategory(CategoryEntity(id = "cat_2", name = "Salary", type = "Income"))
@@ -125,6 +127,8 @@ class Stage2CUploadTest {
 
     @Test
     fun testEntitiesSplitInto100ChunkBatches() = runTest {
+        fakeSnapshotSource.setMember("hh_batch_test", "user_admin", "ADMIN", "ACTIVE")
+
         // Insert 250 transactions
         for (i in 1..250) {
             db.transactionDao().insertTransaction(
@@ -159,6 +163,8 @@ class Stage2CUploadTest {
 
     @Test
     fun testUploadOrderIsCategoriesThenRatesThenTransactions() = runTest {
+        fakeSnapshotSource.setMember("hh_order_check", "user_admin", "ADMIN", "ACTIVE")
+
         db.categoryDao().insertCategory(CategoryEntity(id = "cat_ord", name = "TestCat", type = "Expense"))
         db.exchangeRateDao().insertRate(
             ExchangeRateEntity(date = "2026-08-14", rate = 4.97, source = "BNR_OFFICIAL", status = "OFFICIAL")
@@ -207,6 +213,7 @@ class Stage2CUploadTest {
             batchSize = 100
         )
 
+        fakeSnapshotSource.setMember("hh_sup", "user_sup", "OWNER", "ACTIVE")
         db.categoryDao().insertCategory(CategoryEntity(id = "cat_sup", name = "SuppressionCheck", type = "Income"))
 
         assertFalse("Suppression initially false", syncRepository.isSuppressed)
@@ -223,6 +230,7 @@ class Stage2CUploadTest {
 
     @Test
     fun testVerificationMismatchTransitionsToFailed() = runTest {
+        fakeSnapshotSource.setMember("hh_mismatch", "user_mismatch", "OWNER", "ACTIVE")
         db.categoryDao().insertCategory(CategoryEntity(id = "cat_mismatch", name = "Mismatch", type = "Expense"))
         db.transactionDao().insertTransaction(
             TransactionEntity(
@@ -273,6 +281,7 @@ class Stage2CUploadTest {
 
     @Test
     fun testUploadFailureTransitionsToFailedWithSanitizedError() = runTest {
+        fakeSnapshotSource.setMember("hh_upload_fail", "user_fail", "OWNER", "ACTIVE")
         fakeSnapshotSource.shouldFailTransactionUpload = true
 
         db.categoryDao().insertCategory(CategoryEntity(id = "cat_fail", name = "FailCat", type = "Expense"))

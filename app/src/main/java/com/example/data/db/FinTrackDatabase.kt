@@ -26,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOutboxEntity::class,
         MigrationStateEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class FinTrackDatabase : RoomDatabase() {
@@ -201,6 +201,44 @@ abstract class FinTrackDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Safely migrate transactions table
+                val txCursor = db.query("PRAGMA table_info(transactions)")
+                val txColumns = mutableSetOf<String>()
+                while (txCursor.moveToNext()) {
+                    val nameIdx = txCursor.getColumnIndex("name")
+                    if (nameIdx != -1) txColumns.add(txCursor.getString(nameIdx))
+                }
+                txCursor.close()
+
+                if (!txColumns.contains("householdId")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN householdId TEXT DEFAULT NULL")
+                }
+                if (!txColumns.contains("createdByUid")) {
+                    db.execSQL("ALTER TABLE transactions ADD COLUMN createdByUid TEXT DEFAULT NULL")
+                }
+                db.execSQL("UPDATE transactions SET createdByUid = userId WHERE createdByUid IS NULL")
+
+                // Safely migrate categories table
+                val catCursor = db.query("PRAGMA table_info(categories)")
+                val catColumns = mutableSetOf<String>()
+                while (catCursor.moveToNext()) {
+                    val nameIdx = catCursor.getColumnIndex("name")
+                    if (nameIdx != -1) catColumns.add(catCursor.getString(nameIdx))
+                }
+                catCursor.close()
+
+                if (!catColumns.contains("householdId")) {
+                    db.execSQL("ALTER TABLE categories ADD COLUMN householdId TEXT DEFAULT NULL")
+                }
+                if (!catColumns.contains("createdByUid")) {
+                    db.execSQL("ALTER TABLE categories ADD COLUMN createdByUid TEXT DEFAULT NULL")
+                }
+                db.execSQL("UPDATE categories SET createdByUid = userId WHERE createdByUid IS NULL")
+            }
+        }
+
         @Volatile
         private var INSTANCE: FinTrackDatabase? = null
 
@@ -211,7 +249,7 @@ abstract class FinTrackDatabase : RoomDatabase() {
                     FinTrackDatabase::class.java,
                     "fintrack_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
                 INSTANCE = instance
                 instance

@@ -99,7 +99,15 @@ class Stage2BPreflightTest {
             )
         )
 
-        val result = coordinator.validatePreflight("hh_clean_1", "user_owner_1")
+        // Create valid backup bundle matching Room state
+        CsvBackupManager.createMigrationBackupBundle(
+            bundleDir = tempBackupDir,
+            transactions = listOf(db.transactionDao().getAllTransactionsList().first()),
+            categories = listOf(db.categoryDao().getAllCategoriesList().first()),
+            exchangeRates = listOf(db.exchangeRateDao().getAllOfficialRates().first())
+        )
+
+        val result = coordinator.validatePreflight("hh_clean_1", "user_owner_1", tempBackupDir)
         assertTrue(result is PreflightValidationResult.Ready)
         val ready = result as PreflightValidationResult.Ready
         assertEquals("hh_clean_1", ready.householdId)
@@ -121,7 +129,7 @@ class Stage2BPreflightTest {
             "stage" to "CATEGORIES_UPLOADING"
         )
 
-        val result = coordinator.validatePreflight("hh_busy_1", "user_admin_1")
+        val result = coordinator.validatePreflight("hh_busy_1", "user_admin_1", tempBackupDir)
         assertTrue(result is PreflightValidationResult.Conflict)
         val conflict = result as PreflightValidationResult.Conflict
         assertEquals(ConflictReason.ACTIVE_MIGRATION_IN_PROGRESS, conflict.reason)
@@ -136,7 +144,7 @@ class Stage2BPreflightTest {
         fakeSnapshotSource.remoteCategoryCount = 0
         fakeSnapshotSource.activeMigrationSession = null
 
-        val result = coordinator.validatePreflight("hh_conflict_tx", "user_owner_1")
+        val result = coordinator.validatePreflight("hh_conflict_tx", "user_owner_1", tempBackupDir)
         assertTrue(result is PreflightValidationResult.Conflict)
         val conflict = result as PreflightValidationResult.Conflict
         assertEquals(ConflictReason.EXISTING_REMOTE_DATA_DETECTED, conflict.reason)
@@ -151,7 +159,7 @@ class Stage2BPreflightTest {
         fakeSnapshotSource.remoteCategoryCount = 8
         fakeSnapshotSource.activeMigrationSession = null
 
-        val result = coordinator.validatePreflight("hh_conflict_cat", "user_owner_1")
+        val result = coordinator.validatePreflight("hh_conflict_cat", "user_owner_1", tempBackupDir)
         assertTrue(result is PreflightValidationResult.Conflict)
         val conflict = result as PreflightValidationResult.Conflict
         assertEquals(ConflictReason.EXISTING_REMOTE_DATA_DETECTED, conflict.reason)
@@ -160,10 +168,26 @@ class Stage2BPreflightTest {
     }
 
     @Test
+    fun testExistingExchangeRateConflictBlocksPreflight() = runTest {
+        fakeSnapshotSource.setMember("hh_conflict_rate", "user_owner_1", "OWNER", "ACTIVE")
+        fakeSnapshotSource.remoteTransactionCount = 0
+        fakeSnapshotSource.remoteCategoryCount = 0
+        fakeSnapshotSource.remoteExchangeRateCount = 5
+        fakeSnapshotSource.activeMigrationSession = null
+
+        val result = coordinator.validatePreflight("hh_conflict_rate", "user_owner_1", tempBackupDir)
+        assertTrue(result is PreflightValidationResult.Conflict)
+        val conflict = result as PreflightValidationResult.Conflict
+        assertEquals(ConflictReason.EXISTING_REMOTE_DATA_DETECTED, conflict.reason)
+        assertTrue(conflict.details.contains("exchange rate"))
+        assertTrue(conflict.details.contains("5 documents found"))
+    }
+
+    @Test
     fun testNonAdminNonOwnerBlocked() = runTest {
         fakeSnapshotSource.setMember("hh_role_check", "user_regular_member", "MEMBER", "ACTIVE")
 
-        val result = coordinator.validatePreflight("hh_role_check", "user_regular_member")
+        val result = coordinator.validatePreflight("hh_role_check", "user_regular_member", tempBackupDir)
         assertTrue(result is PreflightValidationResult.Conflict)
         val conflict = result as PreflightValidationResult.Conflict
         assertEquals(ConflictReason.INSUFFICIENT_PERMISSIONS, conflict.reason)
@@ -176,12 +200,22 @@ class Stage2BPreflightTest {
         fakeSnapshotSource.setMember("hh_create_success", "user_owner_2", "OWNER", "ACTIVE")
         fakeSnapshotSource.remoteTransactionCount = 0
         fakeSnapshotSource.remoteCategoryCount = 0
+        fakeSnapshotSource.remoteExchangeRateCount = 0
         fakeSnapshotSource.activeMigrationSession = null
 
-        db.categoryDao().insertCategory(CategoryEntity(id = "cat_a", name = "Dining", type = "Expense"))
-        db.categoryDao().insertCategory(CategoryEntity(id = "cat_b", name = "Salary", type = "Income"))
+        val cat1 = CategoryEntity(id = "cat_a", name = "Dining", type = "Expense")
+        val cat2 = CategoryEntity(id = "cat_b", name = "Salary", type = "Income")
+        db.categoryDao().insertCategory(cat1)
+        db.categoryDao().insertCategory(cat2)
 
-        val preflightResult = coordinator.validatePreflight("hh_create_success", "user_owner_2")
+        CsvBackupManager.createMigrationBackupBundle(
+            bundleDir = tempBackupDir,
+            transactions = emptyList(),
+            categories = listOf(cat1, cat2),
+            exchangeRates = emptyList()
+        )
+
+        val preflightResult = coordinator.validatePreflight("hh_create_success", "user_owner_2", tempBackupDir)
         assertTrue(preflightResult is PreflightValidationResult.Ready)
         val ready = preflightResult as PreflightValidationResult.Ready
 
@@ -214,8 +248,12 @@ class Stage2BPreflightTest {
     @Test
     fun testMigrationStateFieldsSatisfySecurityContract() = runTest {
         fakeSnapshotSource.setMember("hh_contract_check", "user_admin_contract", "ADMIN", "ACTIVE")
+        fakeSnapshotSource.remoteTransactionCount = 0
+        fakeSnapshotSource.remoteCategoryCount = 0
+        fakeSnapshotSource.remoteExchangeRateCount = 0
+        fakeSnapshotSource.activeMigrationSession = null
 
-        val preflight = coordinator.validatePreflight("hh_contract_check", "user_admin_contract")
+        val preflight = coordinator.validatePreflight("hh_contract_check", "user_admin_contract", tempBackupDir)
         assertTrue(preflight is PreflightValidationResult.Ready)
         val ready = preflight as PreflightValidationResult.Ready
 
@@ -223,11 +261,6 @@ class Stage2BPreflightTest {
         assertTrue(createResult is MigrationSessionCreationResult.Success)
         val remoteDoc = fakeSnapshotSource.createdMigrationDocs["mig_contract_001"]!!
 
-        // Contract rules from firestore.rules:
-        // isValidMigrationState:
-        // data.householdId == householdId
-        // data.initiatedByUid == request.auth.uid
-        // data.stage in ['PREFLIGHT', 'BACKUP_CREATED', 'CATEGORIES_UPLOADING', 'RATES_UPLOADING', 'TRANSACTIONS_UPLOADING', 'VERIFYING', 'COMPLETED', 'FAILED', 'CANCELLED']
         assertEquals("hh_contract_check", remoteDoc["householdId"])
         assertEquals("user_admin_contract", remoteDoc["initiatedByUid"])
         val validStages = setOf(
@@ -247,7 +280,8 @@ class Stage2BPreflightTest {
                 object : com.example.data.repository.ListenerRegistrationHandle { override fun remove() {} }
             override fun listenToCategories(householdId: String, onSnapshot: (List<Pair<String, Map<String, Any?>>>) -> Unit, onError: (Exception) -> Unit) =
                 object : com.example.data.repository.ListenerRegistrationHandle { override fun remove() {} }
-            override suspend fun resolveHouseholdId(userUid: String): String? = null
+            override suspend fun resolveHouseholdId(userUid: String): com.example.data.repository.HouseholdResolutionResult =
+                com.example.data.repository.HouseholdResolutionResult.NoHousehold
             override suspend fun getHouseholdMembership(householdId: String, userUid: String): Map<String, Any?>? {
                 throw IllegalStateException("INTERNAL_DATABASE_CRASH: Fatal SQLite/Firestore error\n\tat com.google.cloud.FirestoreWorker.doWork(FirestoreWorker.kt:312)\n\tat java.lang.Thread.run(Thread.java:1012)")
             }
@@ -258,7 +292,7 @@ class Stage2BPreflightTest {
             snapshotSource = failingSnapshotSource
         )
 
-        val result = failingCoordinator.validatePreflight("hh_err", "user_1")
+        val result = failingCoordinator.validatePreflight("hh_err", "user_1", tempBackupDir)
         assertTrue(result is PreflightValidationResult.Failure)
         val failure = result as PreflightValidationResult.Failure
 

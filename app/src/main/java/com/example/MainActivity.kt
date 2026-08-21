@@ -183,11 +183,27 @@ fun FinTrackApp(viewModel: MainViewModel) {
                     4 -> {
                         val context = LocalContext.current
                         val allTxs by viewModel.allTransactions.collectAsStateWithLifecycle()
+                        val currentHousehold by viewModel.currentHousehold.collectAsStateWithLifecycle()
+                        val currentUserMembership by viewModel.currentUserMembership.collectAsStateWithLifecycle()
+                        val householdMembers by viewModel.householdMembers.collectAsStateWithLifecycle()
+                        val incomingInvites by viewModel.incomingInvites.collectAsStateWithLifecycle()
+                        val isInvitationProcessing by viewModel.isInvitationProcessing.collectAsStateWithLifecycle()
+                        val invitationError by viewModel.invitationError.collectAsStateWithLifecycle()
                         SettingsScreen(
                             filterSettings = filterSettings,
                             themeMode = themeMode,
                             currentUid = signedInState.userUid,
                             currentUserEmail = signedInState.email,
+                            currentHousehold = currentHousehold,
+                            currentUserMembership = currentUserMembership,
+                            householdMembers = householdMembers,
+                            incomingInvites = incomingInvites,
+                            isInvitationProcessing = isInvitationProcessing,
+                            invitationError = invitationError,
+                            onSendInvite = { email -> viewModel.sendInvite(email) },
+                            onAcceptInvite = { inviteId -> viewModel.acceptInvite(inviteId) },
+                            onDeclineInvite = { inviteId -> viewModel.declineInvite(inviteId) },
+                            onClearInviteError = { viewModel.clearInvitationError() },
                             onSignOut = { viewModel.signOut() },
                             onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
                             onThemeModeChanged = { viewModel.updateThemeMode(it) },

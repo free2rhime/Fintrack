@@ -26,11 +26,15 @@ class RoomTransactionRepository(
     private val transactionDao: TransactionDao,
     private val exchangeRateService: ExchangeRateService,
     private val exchangeRateDao: ExchangeRateDao,
-    private val database: RoomDatabase
+    private val database: RoomDatabase,
+    private val syncOutboxDao: com.example.data.dao.SyncOutboxDao? = null,
+    private val onOutboxMutated: (() -> Unit)? = null
 ) : TransactionRepository {
     private val syncMutex = Mutex()
 
-    override val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
+    override fun getTransactions(householdId: String?): Flow<List<TransactionEntity>> {
+        return transactionDao.getAllTransactions(householdId)
+    }
 
     override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> {
         return transactionDao.getTransactionsInRange(startDate, endDate)
@@ -41,7 +45,7 @@ class RoomTransactionRepository(
     }
 
     private suspend fun <T> executeWithTransaction(block: suspend () -> T): T {
-        return try {
+        val result = try {
             database.withTransaction { block() }
         } catch (e: Exception) {
             if (e is UninitializedPropertyAccessException || e is UnsupportedOperationException || e is IllegalStateException) {
@@ -50,6 +54,8 @@ class RoomTransactionRepository(
                 throw e
             }
         }
+        onOutboxMutated?.invoke()
+        return result
     }
 
     override suspend fun saveTransaction(
@@ -195,6 +201,9 @@ class RoomTransactionRepository(
             var failedCount = 0
             val failureReasonCounts = mutableMapOf<String, Int>()
 
+            val successfullyConverted = mutableListOf<TransactionEntity>()
+            val unresolvedDiagnostics = mutableListOf<TransactionEntity>()
+
             for (tx in eligiblePending) {
                 val bnrResult = exchangeRateService.getOfficialRate(tx.date)
                 if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
@@ -207,7 +216,7 @@ class RoomTransactionRepository(
                         conversionStatus = "OFFICIAL",
                         updatedAt = System.currentTimeMillis()
                     )
-                    transactionDao.insertTransaction(updated)
+                    successfullyConverted.add(updated)
                     convertedSuccessfully++
                 } else if (bnrResult.status == "NOT_YET_PUBLISHED") {
                     stillPending++
@@ -227,6 +236,26 @@ class RoomTransactionRepository(
                         conversionStatus = updatedStatus,
                         updatedAt = System.currentTimeMillis()
                     )
+                    unresolvedDiagnostics.add(updated)
+                }
+            }
+
+            if (successfullyConverted.isNotEmpty()) {
+                executeWithTransaction {
+                    for (updated in successfullyConverted) {
+                        transactionDao.insertTransaction(updated)
+                        enqueueOutboxOperationInternal(
+                            entityType = "TRANSACTION",
+                            entityId = updated.id,
+                            operation = "UPSERT",
+                            timestamp = updated.updatedAt
+                        )
+                    }
+                }
+            }
+
+            if (unresolvedDiagnostics.isNotEmpty()) {
+                for (updated in unresolvedDiagnostics) {
                     transactionDao.insertTransaction(updated)
                 }
             }
@@ -278,6 +307,7 @@ class RoomTransactionRepository(
         )
 
         transactionDao.insertTransaction(updatedTx)
+        enqueueOutboxOperationInternal("TRANSACTION", updatedTx.id, "UPSERT", updatedTx.updatedAt)
 
         // Clean up legacy unverified cache row if present
         exchangeRateDao.deleteUnverifiedRatesForDate(item.transaction.date)
@@ -292,6 +322,7 @@ class RoomTransactionRepository(
             status = "OFFICIAL"
         )
         exchangeRateDao.insertRate(rateEntity)
+        enqueueOutboxOperationInternal("EXCHANGE_RATE", rateEntity.date, "UPSERT", rateEntity.fetchedAt)
     }
 
     override suspend fun applyRepairToTransactionAndCache(
@@ -344,12 +375,12 @@ class RoomTransactionRepository(
         operation: String,
         timestamp: Long = System.currentTimeMillis()
     ) {
-        val syncOutboxDao = (database as? FinTrackDatabase)?.syncOutboxDao() ?: return
-        val existingPending = syncOutboxDao.getPendingEntryForEntity(entityId)
+        val dao = syncOutboxDao ?: (database as? FinTrackDatabase)?.syncOutboxDao() ?: return
+        val existingPending = dao.getPendingEntryForEntity(entityId)
         if (existingPending != null && existingPending.operation == operation) {
-            syncOutboxDao.updateOutboxEntry(existingPending.copy(updatedAt = timestamp))
+            dao.updateOutboxEntry(existingPending.copy(updatedAt = timestamp))
         } else {
-            syncOutboxDao.insertOutboxEntry(
+            dao.insertOutboxEntry(
                 com.example.data.model.SyncOutboxEntity(
                     entityType = entityType,
                     entityId = entityId,
@@ -375,11 +406,15 @@ class RoomTransactionRepository(
         backupFile: File,
         allExistingTransactions: List<TransactionEntity>
     ): CsvImportFinalResult {
-        return CsvImporter.executeAtomicImport(
+        val result = CsvImporter.executeAtomicImport(
             database = database as FinTrackDatabase,
             previewData = previewData,
             backupFile = backupFile,
             allExistingTransactions = allExistingTransactions
         )
+        if (result.success) {
+            onOutboxMutated?.invoke()
+        }
+        return result
     }
 }

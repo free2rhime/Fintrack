@@ -43,6 +43,33 @@ class FirestoreMigrationUploader(
         var processedCount = 0
 
         val migrationResult = try {
+            // ==========================================
+            // EXECUTION REVALIDATION & STALE PROTECTION
+            // ==========================================
+            val resolvedHousehold = snapshotSource.resolveHouseholdId(userUid)
+            if (resolvedHousehold !is HouseholdResolutionResult.Success || resolvedHousehold.householdId != householdId) {
+                val errorMsg = "Execution revalidation failed: Active household mismatch or user no longer belongs to household '$householdId'"
+                failMigration(migrationId, householdId, userUid, currentStage, errorMsg, 0, 0, backupBundlePath)
+                return MigrationUploadResult.Failure(migrationId, currentStage, errorMsg)
+            }
+
+            val memberData = snapshotSource.getHouseholdMembership(householdId, userUid)
+            val status = (memberData?.get("status") as? String)?.trim()?.uppercase()
+            val role = (memberData?.get("role") as? String)?.trim()?.uppercase()
+            if (status != "ACTIVE" || (role != "OWNER" && role != "ADMIN")) {
+                val errorMsg = "Execution revalidation failed: User '$userUid' is no longer an active OWNER or ADMIN in household '$householdId'"
+                failMigration(migrationId, householdId, userUid, currentStage, errorMsg, 0, 0, backupBundlePath)
+                return MigrationUploadResult.Failure(migrationId, currentStage, errorMsg)
+            }
+
+            val activeSession = snapshotSource.getActiveMigrationSession(householdId)
+            val activeMigrationId = activeSession?.get("migrationId") as? String
+            if (activeSession != null && activeMigrationId != null && activeMigrationId != migrationId) {
+                val errorMsg = "Execution revalidation failed: Migration lock held by another active session '$activeMigrationId'"
+                failMigration(migrationId, householdId, userUid, currentStage, errorMsg, 0, 0, backupBundlePath)
+                return MigrationUploadResult.Failure(migrationId, currentStage, errorMsg)
+            }
+
             // Load local data
             val localCategories = database.categoryDao().getAllCategories().first()
             val localRates = database.exchangeRateDao().getAllOfficialRates()
