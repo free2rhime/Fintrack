@@ -5,7 +5,7 @@ import {
   RulesTestEnvironment
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collectionGroup, query, where, getDocs } from 'firebase/firestore';
 
 describe('FinTrack Firestore Security Rules', () => {
   let testEnv: RulesTestEnvironment;
@@ -47,6 +47,7 @@ describe('FinTrack Firestore Security Rules', () => {
 
       // Owner member
       await setDoc(doc(db, `households/${HOUSEHOLD_ID}/members/${OWNER_UID}`), {
+        uid: OWNER_UID,
         role: 'owner',
         status: 'ACTIVE',
         joinedAt: '2026-08-01T00:00:00Z'
@@ -54,6 +55,7 @@ describe('FinTrack Firestore Security Rules', () => {
 
       // Admin member
       await setDoc(doc(db, `households/${HOUSEHOLD_ID}/members/${ADMIN_UID}`), {
+        uid: ADMIN_UID,
         role: 'admin',
         status: 'ACTIVE',
         joinedAt: '2026-08-01T00:00:00Z'
@@ -61,6 +63,7 @@ describe('FinTrack Firestore Security Rules', () => {
 
       // Regular member
       await setDoc(doc(db, `households/${HOUSEHOLD_ID}/members/${MEMBER_UID}`), {
+        uid: MEMBER_UID,
         role: 'member',
         status: 'ACTIVE',
         joinedAt: '2026-08-01T00:00:00Z'
@@ -68,6 +71,7 @@ describe('FinTrack Firestore Security Rules', () => {
 
       // Inactive member
       await setDoc(doc(db, `households/${HOUSEHOLD_ID}/members/${INACTIVE_UID}`), {
+        uid: INACTIVE_UID,
         role: 'member',
         status: 'INACTIVE',
         joinedAt: '2026-08-01T00:00:00Z'
@@ -810,6 +814,79 @@ describe('FinTrack Firestore Security Rules', () => {
         status: 'ACTIVE',
         joinedAt: 1770001000000,
         invitedByUid: OWNER_UID
+      }));
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 9. Collection-Group Member Resolution Rules
+  // --------------------------------------------------------------------------
+  describe('Collection-Group Member Resolution Rules', () => {
+    it('allows authenticated user to run collectionGroup("members") query for their own ACTIVE membership', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      const q = query(
+        collectionGroup(memberDb, 'members'),
+        where('uid', '==', MEMBER_UID),
+        where('status', '==', 'ACTIVE')
+      );
+      await assertSucceeds(getDocs(q));
+    });
+
+    it('denies authenticated user from querying another user\'s membership via collection-group query', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      const q = query(
+        collectionGroup(memberDb, 'members'),
+        where('uid', '==', STRANGER_UID),
+        where('status', '==', 'ACTIVE')
+      );
+      await assertFails(getDocs(q));
+    });
+
+    it('denies authenticated user from querying their own INACTIVE membership via collection-group query', async () => {
+      const inactiveDb = testEnv.authenticatedContext(INACTIVE_UID).firestore();
+      const q = query(
+        collectionGroup(inactiveDb, 'members'),
+        where('uid', '==', INACTIVE_UID),
+        where('status', '==', 'INACTIVE')
+      );
+      await assertFails(getDocs(q));
+    });
+
+    it('denies unauthenticated user from executing collectionGroup("members") query', async () => {
+      const unauthedDb = testEnv.unauthenticatedContext().firestore();
+      const q = query(
+        collectionGroup(unauthedDb, 'members'),
+        where('uid', '==', MEMBER_UID),
+        where('status', '==', 'ACTIVE')
+      );
+      await assertFails(getDocs(q));
+    });
+
+    it('denies collectionGroup("members") query missing the uid constraint', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      const q = query(
+        collectionGroup(memberDb, 'members'),
+        where('status', '==', 'ACTIVE')
+      );
+      await assertFails(getDocs(q));
+    });
+
+    it('denies collectionGroup("members") query missing the ACTIVE status constraint', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      const q = query(
+        collectionGroup(memberDb, 'members'),
+        where('uid', '==', MEMBER_UID)
+      );
+      await assertFails(getDocs(q));
+    });
+
+    it('denies write, update, or delete operations through the collection-group rule', async () => {
+      const strangerDb = testEnv.authenticatedContext(STRANGER_UID).firestore();
+      // Attempting to write a member document outside authorized household paths
+      await assertFails(setDoc(doc(strangerDb, `unauthorized_root/${STRANGER_UID}/members/${STRANGER_UID}`), {
+        uid: STRANGER_UID,
+        status: 'ACTIVE',
+        role: 'member'
       }));
     });
   });

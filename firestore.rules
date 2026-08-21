@@ -148,6 +148,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Collection-group query rule for membership resolution across households
+    match /{path=**}/members/{memberId} {
+      allow read: if isAuthenticated() &&
+                     resource.data.uid == request.auth.uid &&
+                     resource.data.status == 'ACTIVE';
+    }
+
     // Household root collection
     match /households/{householdId} {
       allow read: if isHouseholdMember(householdId);
