@@ -110,7 +110,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
             authState = authState,
             onSignInWithGoogle = { idToken -> viewModel.signInWithGoogle(idToken) },
             onSignInWithTestUid = { testUid -> viewModel.signInWithTestUid(testUid) },
-            onAuthError = { errorMsg -> },
+            onAuthError = { errorMsg -> viewModel.setAuthError(errorMsg) },
             onClearError = { viewModel.clearAuthError() }
         )
     } else {

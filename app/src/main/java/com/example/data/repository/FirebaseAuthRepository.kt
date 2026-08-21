@@ -124,6 +124,20 @@ class FirebaseAuthRepository(
         }
     }
 
+    override fun setAuthError(message: String) {
+        _authState.value = AuthState.AuthError(message)
+    }
+
+    fun getWebClientId(context: android.content.Context): String? {
+        return GoogleSignInConfigProvider.getWebClientId(context)
+    }
+
+    companion object {
+        fun getWebClientId(context: android.content.Context): String? {
+            return GoogleSignInConfigProvider.getWebClientId(context)
+        }
+    }
+
     private fun sanitizeAuthErrorMessage(e: Exception): String {
         val msg = e.localizedMessage ?: ""
         return when {

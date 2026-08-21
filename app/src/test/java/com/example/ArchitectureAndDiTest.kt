@@ -313,7 +313,7 @@ class FakeAuthRepository(
         return Result.success(testUid)
     }
 
-    fun setAuthError(message: String) {
+    override fun setAuthError(message: String) {
         _authState.value = AuthState.AuthError(message)
     }
 

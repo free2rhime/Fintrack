@@ -736,6 +736,10 @@ class MainViewModel(
         authRepository.clearError()
     }
 
+    fun setAuthError(message: String) {
+        authRepository.setAuthError(message)
+    }
+
     fun resetData() {
         viewModelScope.launch {
             transactionRepository.deleteAllTransactions()

@@ -64,6 +64,9 @@ class FakeTestAuthRepository(initialUid: String? = "user_owner_1") : AuthReposit
     }
     override fun getCurrentUserUid(): String? = (_authState.value as? AuthState.SignedIn)?.userUid
     override fun clearError() {}
+    override fun setAuthError(message: String) {
+        _authState.value = AuthState.AuthError(message)
+    }
 }
 
 class FakeTestSettingsRepository : SettingsRepository {

@@ -20,4 +20,5 @@ interface AuthRepository {
     suspend fun signOut()
     fun getCurrentUserUid(): String?
     fun clearError()
+    fun setAuthError(message: String)
 }

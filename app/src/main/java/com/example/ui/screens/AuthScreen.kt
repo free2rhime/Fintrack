@@ -44,8 +44,8 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
-import com.example.R
 import com.example.data.repository.AuthState
+import com.example.data.repository.GoogleSignInConfigProvider
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
@@ -252,18 +252,18 @@ private suspend fun triggerGoogleSignIn(
     onSignInWithGoogle: (idToken: String) -> Unit,
     onAuthError: (errorMessage: String) -> Unit
 ) {
+    val webClientId = GoogleSignInConfigProvider.getWebClientId(context)
+    if (webClientId == null) {
+        onAuthError("Google Sign-In is not configured. Web Client ID is missing.")
+        return
+    }
+
     try {
         val credentialManager = CredentialManager.create(context)
         val rawNonce = UUID.randomUUID().toString()
         val md = MessageDigest.getInstance("SHA-256")
         val digest = md.digest(rawNonce.toByteArray())
         val hashedNonce = digest.fold("") { str, it -> str + "%02x".format(it) }
-
-        val webClientId = try {
-            context.getString(R.string.default_web_client_id)
-        } catch (_: Exception) {
-            "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
-        }
 
         val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
