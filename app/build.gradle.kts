@@ -56,7 +56,20 @@ android {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      all {
+        it.testLogging {
+          events("passed", "skipped", "failed", "standardError")
+          exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+          showCauses = true
+          showExceptions = true
+          showStackTraces = true
+        }
+      }
+    }
+  }
   sourceSets {
     getByName("test") {
       assets.srcDirs("$projectDir/schemas", "$projectDir/src/test/assets")

@@ -10,7 +10,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowResources
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -31,34 +30,46 @@ class GoogleSignInConfigProviderTest {
     @Test
     fun testValidWebClientIdReturnsString() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-        if (resId != 0) {
-            val validClientId = "123456789-abcdef.apps.googleusercontent.com"
-            // Set valid string via ShadowResources
-            ShadowResources.getSystem().getString(resId)
-            // Dynamically test lookup with non-placeholder value
-            val testContext = object : android.content.ContextWrapper(context) {
-                override fun getString(id: Int): String {
-                    return if (id == resId) validClientId else super.getString(id)
-                }
+        val validClientId = "123456789-abcdef.apps.googleusercontent.com"
+        val mockResources = object : android.content.res.Resources(
+            context.resources.assets,
+            context.resources.displayMetrics,
+            context.resources.configuration
+        ) {
+            override fun getIdentifier(name: String?, defType: String?, defPackage: String?): Int {
+                return if (name == "default_web_client_id") 12345 else super.getIdentifier(name, defType, defPackage)
             }
-            val resolved = GoogleSignInConfigProvider.getWebClientId(testContext)
-            assertEquals(validClientId, resolved)
+            override fun getString(id: Int): String {
+                return if (id == 12345) validClientId else super.getString(id)
+            }
         }
+        val testContext = object : android.content.ContextWrapper(context) {
+            override fun getResources(): android.content.res.Resources = mockResources
+        }
+        val resolved = GoogleSignInConfigProvider.getWebClientId(testContext)
+        assertEquals(validClientId, resolved)
     }
 
     @Test
     fun testBlankWebClientIdReturnsNull() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-        if (resId != 0) {
-            val testContext = object : android.content.ContextWrapper(context) {
-                override fun getString(id: Int): String {
-                    return if (id == resId) "   " else super.getString(id)
-                }
+        val mockResources = object : android.content.res.Resources(
+            context.resources.assets,
+            context.resources.displayMetrics,
+            context.resources.configuration
+        ) {
+            override fun getIdentifier(name: String?, defType: String?, defPackage: String?): Int {
+                return if (name == "default_web_client_id") 12345 else super.getIdentifier(name, defType, defPackage)
             }
-            val resolved = GoogleSignInConfigProvider.getWebClientId(testContext)
-            assertNull("Blank web client ID must return null", resolved)
+            override fun getString(id: Int): String {
+                return if (id == 12345) "   " else super.getString(id)
+            }
         }
+        val testContext = object : android.content.ContextWrapper(context) {
+            override fun getResources(): android.content.res.Resources = mockResources
+        }
+        val resolved = GoogleSignInConfigProvider.getWebClientId(testContext)
+        assertNull("Blank web client ID must return null", resolved)
     }
 }
+

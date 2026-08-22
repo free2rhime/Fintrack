@@ -2,23 +2,33 @@
 .gradle
 .kotlin
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+local.properties
 .DS_Store
 /build
+app/build/
+.build-outputs/
 /captures
 .externalNativeBuild
 .cxx
-local.properties
+
+# IDE & Editor
+/.idea/
+.idea/
+
+# Environment, Secrets & Keystores
 .env
 debug.keystore
+debug.keystore.base64
 google-services.json
 app/google-services.json
 
-# Android Studio local configuration
-.idea/
-gradle/gradle-daemon-jvm.properties
+# Backups & Archives
+backups/
+*.tar.gz
+*.zip
+.git.corrupted-backup/
+.git.corrupted-backup
+
+# Node
+node_modules/
+

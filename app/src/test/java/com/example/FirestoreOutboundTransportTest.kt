@@ -7,7 +7,6 @@ import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionDto
 import com.example.data.model.TransactionEntity
 import com.example.data.model.toFirestoreMap
-import com.example.data.model.toMap
 import com.example.data.repository.FirestoreSnapshotSource
 import com.example.data.repository.HouseholdResolutionResult
 import com.example.data.repository.ListenerRegistrationHandle
@@ -241,6 +240,7 @@ class FirestoreOutboundTransportTest {
             type = "Expense",
             account = "Card",
             category = "Utilities",
+            subCategory = "",
             createdAt = 1700000000000L,
             updatedAt = 1700001000000L
         )

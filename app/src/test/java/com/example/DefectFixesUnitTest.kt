@@ -234,9 +234,13 @@ class FakeExchangeRateDao : ExchangeRateDao {
 class FakeTransactionDao : com.example.data.dao.TransactionDao {
     private val list = mutableListOf<TransactionEntity>()
 
-    override fun getAllTransactions() = flowOf(list.toList())
+    override fun getAllTransactions(householdId: String?) = flowOf(list.filter { (householdId == null && it.householdId == null) || it.householdId == householdId })
 
-    override fun getTransactionsInRange(startDate: String, endDate: String) = flowOf(list.toList())
+    override fun getTransactionsInRange(startDate: String, endDate: String, householdId: String?) = flowOf(
+        list.filter {
+            it.date in startDate..endDate && ((householdId == null && it.householdId == null) || it.householdId == householdId)
+        }
+    )
 
     override suspend fun getTransactionById(id: String): TransactionEntity? = list.find { it.id == id }
 
@@ -257,8 +261,16 @@ class FakeTransactionDao : com.example.data.dao.TransactionDao {
         list.removeAll { it.id == id }
     }
 
-    override suspend fun deleteAllTransactions() {
-        list.clear()
+    override suspend fun deleteAllTransactions(householdId: String?) {
+        if (householdId == null) {
+            list.removeAll { it.householdId == null }
+        } else {
+            list.removeAll { it.householdId == householdId }
+        }
+    }
+
+    override suspend fun deleteTransactionsByHousehold(householdId: String?) {
+        deleteAllTransactions(householdId)
     }
 
     override suspend fun getUnverifiedTransactions(): List<TransactionEntity> {
@@ -280,11 +292,15 @@ class FakeTransactionDao : com.example.data.dao.TransactionDao {
         return getRetryablePendingTransactions()
     }
 
-    override suspend fun getAllTransactionsList(): List<TransactionEntity> {
-        return list.toList()
+    override suspend fun getAllTransactionsList(householdId: String?): List<TransactionEntity> {
+        return list.filter { (householdId == null && it.householdId == null) || it.householdId == householdId }
     }
 
-    override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> {
-        return emptyList()
+    override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> {
+        return list.filter { (householdId == null && it.householdId == null) || it.householdId == householdId }
+            .map { it.description }
+            .filter { it.contains(query, ignoreCase = true) }
+            .distinct()
+            .take(limit)
     }
 }

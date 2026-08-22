@@ -86,7 +86,6 @@ class Stage9ConflictDetectionTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_conf_1",
                 operation = "UPSERT",
-                payload = """{"amountRon": 100.0}""",
                 status = "PENDING",
                 createdAt = 2000L,
                 updatedAt = 2000L
@@ -141,7 +140,6 @@ class Stage9ConflictDetectionTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_del_vs_upd",
                 operation = "DELETE",
-                payload = """{}""",
                 status = "PENDING",
                 createdAt = 2000L,
                 updatedAt = 2000L
@@ -213,7 +211,6 @@ class Stage9ConflictDetectionTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_upd_vs_del",
                 operation = "UPSERT",
-                payload = """{}""",
                 status = "PENDING",
                 createdAt = 2000L,
                 updatedAt = 2000L
@@ -287,7 +284,6 @@ class Stage9ConflictDetectionTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_same",
                 operation = "UPSERT",
-                payload = """{}""",
                 status = "PENDING",
                 createdAt = 2000L,
                 updatedAt = 2000L
@@ -345,7 +341,6 @@ class Stage9ConflictDetectionTest {
                 entityType = "CATEGORY",
                 entityId = "cat_conf_1",
                 operation = "UPSERT",
-                payload = """{}""",
                 status = "PENDING",
                 createdAt = 2000L,
                 updatedAt = 2000L

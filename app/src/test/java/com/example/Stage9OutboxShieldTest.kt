@@ -81,7 +81,6 @@ class Stage9OutboxShieldTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_shield_1",
                 operation = "UPSERT",
-                payload = """{"amountRon": 150.0}""",
                 status = "PENDING",
                 retryCount = 0,
                 createdAt = 2000L,
@@ -126,7 +125,6 @@ class Stage9OutboxShieldTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_shield_del",
                 operation = "DELETE",
-                payload = """{}""",
                 status = "PENDING",
                 retryCount = 0,
                 createdAt = 2000L,
@@ -186,7 +184,6 @@ class Stage9OutboxShieldTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_in_prog",
                 operation = "UPSERT",
-                payload = """{}""",
                 status = "IN_PROGRESS",
                 retryCount = 1,
                 createdAt = 2000L,
@@ -246,7 +243,6 @@ class Stage9OutboxShieldTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_1",
                 operation = "UPSERT",
-                payload = """{}""",
                 status = "PENDING",
                 createdAt = 2000L,
                 updatedAt = 2000L
@@ -300,7 +296,7 @@ class Stage9OutboxShieldTest {
                     "householdId" to "hh_1",
                     "createdByUid" to "user_2",
                     "transactionDate" to "2026-08-10",
-                    "description" to "Brand New Remote tx_2",
+                    "description" to "Brand Brand New Remote tx_2",
                     "amountRon" to 75.0,
                     "amountEur" to 15.0,
                     "exchangeRate" to 5.0,
@@ -341,7 +337,7 @@ class Stage9OutboxShieldTest {
         val resTx2 = db.transactionDao().getTransactionById("tx_2")
         assertNotNull(resTx2)
         assertEquals(75.0, resTx2!!.amountRON, 0.001)
-        assertEquals("Brand New Remote tx_2", resTx2.description)
+        assertEquals("Brand Brand New Remote tx_2", resTx2.description)
 
         // tx_3 deleted
         val resTx3 = db.transactionDao().getTransactionById("tx_3")
@@ -384,7 +380,6 @@ class Stage9OutboxShieldTest {
                 entityType = "TRANSACTION",
                 entityId = "tx_echo",
                 operation = "UPSERT",
-                payload = """{}""",
                 status = "SUCCESS",
                 retryCount = 0,
                 createdAt = 1000L,
@@ -437,7 +432,6 @@ class Stage9OutboxShieldTest {
                 entityType = "CATEGORY",
                 entityId = "cat_1",
                 operation = "UPSERT",
-                payload = """{}""",
                 status = "PENDING",
                 createdAt = 2000L,
                 updatedAt = 2000L

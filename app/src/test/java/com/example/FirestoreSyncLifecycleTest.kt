@@ -59,6 +59,10 @@ class FakeAuthRepositoryForSync : AuthRepository {
             _authState.value = AuthState.SignedOut
         }
     }
+
+    override fun setAuthError(message: String) {
+        _authState.value = AuthState.AuthError(message)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

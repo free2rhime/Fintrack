@@ -338,6 +338,7 @@ class FakeTransactionRepository : TransactionRepository {
     private val _flow = MutableStateFlow<List<TransactionEntity>>(emptyList())
 
     override val allTransactions: Flow<List<TransactionEntity>> = _flow
+    override fun getTransactions(householdId: String?): Flow<List<TransactionEntity>> = _flow
 
     override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = _flow
 
@@ -396,6 +397,7 @@ class FakeCategoryRepository : CategoryRepository {
     private val _flow = MutableStateFlow<List<CategoryEntity>>(emptyList())
 
     override val allCategories: Flow<List<CategoryEntity>> = _flow
+    override fun getCategories(householdId: String?): Flow<List<CategoryEntity>> = _flow
 
     override suspend fun getAllCategoriesList(): List<CategoryEntity> = catList.toList()
     override suspend fun ensureDefaultCategoriesSeeded() {}

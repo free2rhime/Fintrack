@@ -14,6 +14,7 @@ import com.example.data.db.FinTrackDatabase
 import com.example.data.model.CategoryEntity
 import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.HouseholdDto
+import com.example.data.model.HouseholdInviteDto
 import com.example.data.model.HouseholdMemberDto
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.AuthRepository
@@ -23,7 +24,10 @@ import com.example.data.repository.FirestoreMigrationPreflightCoordinator
 import com.example.data.repository.FirestoreSnapshotSource
 import com.example.data.repository.FirestoreSyncRepository
 import com.example.data.repository.HouseholdRepository
+import com.example.data.repository.RoomCategoryRepository
+import com.example.data.repository.RoomTransactionRepository
 import com.example.data.repository.TransactionRepository
+import com.example.data.service.ExchangeRateService
 import com.example.ui.MainViewModel
 import com.example.ui.MigrationPreviewState
 import com.example.ui.MigrationUiState
@@ -52,7 +56,17 @@ class FakeHouseholdRepoForPreview : HouseholdRepository {
     override fun observeHousehold(householdId: String): Flow<HouseholdDto?> = householdFlow
     override fun observeHouseholdMembers(householdId: String): Flow<List<HouseholdMemberDto>> = flowOf(emptyList())
     override suspend fun sendInvite(householdId: String, householdName: String, inviteeEmail: String): Result<HouseholdInviteDto> =
-        Result.success(HouseholdInviteDto("inv_1", householdId, householdName, inviteeEmail, "user_test", "PENDING", System.currentTimeMillis()))
+        Result.success(
+            HouseholdInviteDto(
+                inviteId = "inv_1",
+                householdId = householdId,
+                householdName = householdName,
+                inviteeEmail = inviteeEmail,
+                inviterUid = "user_test",
+                status = "PENDING",
+                createdAt = System.currentTimeMillis()
+            )
+        )
     override fun observeIncomingInvites(userEmail: String) = flowOf(emptyList<com.example.data.model.HouseholdInviteDto>())
     override suspend fun acceptInvite(inviteId: String): Result<Unit> = Result.success(Unit)
     override suspend fun declineInvite(inviteId: String): Result<Unit> = Result.success(Unit)
@@ -92,7 +106,7 @@ class Stage7Step4PreviewSafetyTest {
         val rateService = ExchangeRateService(db.exchangeRateDao())
         val txRepo = RoomTransactionRepository(db.transactionDao(), rateService, db.exchangeRateDao(), db)
         val catRepo = RoomCategoryRepository(db.categoryDao(), db.syncOutboxDao(), db)
-        val settingsRepo = org.mockito.Mockito.mock(com.example.data.repository.SettingsRepository::class.java)
+        val settingsRepo = FakeSettingsRepository()
 
         viewModel = MainViewModel(
             application = app,

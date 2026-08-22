@@ -171,12 +171,12 @@ class FakeCategoryDao : CategoryDao {
 
     fun getById(id: String): CategoryEntity? = memory.find { it.id == id }
 
-    override fun getAllCategories(): Flow<List<CategoryEntity>> {
-        return MutableStateFlow(memory.toList())
+    override fun getAllCategories(householdId: String?): Flow<List<CategoryEntity>> {
+        return MutableStateFlow(memory.filter { (householdId == null && it.householdId == null) || it.householdId == householdId })
     }
 
-    override suspend fun getAllCategoriesList(): List<CategoryEntity> {
-        return memory.toList()
+    override suspend fun getAllCategoriesList(householdId: String?): List<CategoryEntity> {
+        return memory.filter { (householdId == null && it.householdId == null) || it.householdId == householdId }
     }
 
     override suspend fun insertCategory(category: CategoryEntity) {
@@ -199,8 +199,8 @@ class FakeCategoryDao : CategoryDao {
         memory.removeAll { it.id == category.id }
     }
 
-    override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String) {
-        val matches = memory.filter { it.name == oldName && it.type == type }
+    override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String, householdId: String?) {
+        val matches = memory.filter { it.name == oldName && it.type == type && ((householdId == null && it.householdId == null) || it.householdId == householdId) }
         matches.forEach { cat ->
             val index = memory.indexOfFirst { it.id == cat.id }
             if (index >= 0) {
@@ -209,8 +209,8 @@ class FakeCategoryDao : CategoryDao {
         }
     }
 
-    override suspend fun deleteCategoryGroup(name: String, type: String) {
-        memory.removeAll { it.name == name && it.type == type }
+    override suspend fun deleteCategoryGroup(name: String, type: String, householdId: String?) {
+        memory.removeAll { it.name == name && it.type == type && ((householdId == null && it.householdId == null) || it.householdId == householdId) }
     }
 
     override suspend fun updateSubcategory(id: String, newSubCategory: String) {
@@ -228,12 +228,20 @@ class FakeCategoryDao : CategoryDao {
         memory.removeAll { it.id == id }
     }
 
-    override suspend fun deleteAllCategories() {
-        memory.clear()
+    override suspend fun deleteAllCategories(householdId: String?) {
+        if (householdId == null) {
+            memory.removeAll { it.householdId == null }
+        } else {
+            memory.removeAll { it.householdId == householdId }
+        }
     }
 
-    override suspend fun getCategoriesGroup(name: String, type: String): List<CategoryEntity> {
-        return memory.filter { it.name == name && it.type == type }
+    override suspend fun deleteCategoriesByHousehold(householdId: String?) {
+        deleteAllCategories(householdId)
+    }
+
+    override suspend fun getCategoriesGroup(name: String, type: String, householdId: String?): List<CategoryEntity> {
+        return memory.filter { it.name == name && it.type == type && ((householdId == null && it.householdId == null) || it.householdId == householdId) }
     }
 
     override suspend fun getCategoryById(id: String): CategoryEntity? {

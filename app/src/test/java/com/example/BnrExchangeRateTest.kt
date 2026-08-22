@@ -195,8 +195,8 @@ class BnrExchangeRateTest {
         val txStore = mutableMapOf<String, TransactionEntity>()
 
         val mockTxDao = object : TransactionDao {
-            override fun getAllTransactions(): Flow<List<TransactionEntity>> = MutableStateFlow(txStore.values.toList())
-            override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = MutableStateFlow(emptyList())
+            override fun getAllTransactions(householdId: String?): Flow<List<TransactionEntity>> = MutableStateFlow(txStore.values.toList())
+            override fun getTransactionsInRange(startDate: String, endDate: String, householdId: String?): Flow<List<TransactionEntity>> = MutableStateFlow(emptyList())
             override suspend fun getTransactionById(id: String): TransactionEntity? = txStore[id]
             override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
             override suspend fun getRetryablePendingTransactions(): List<TransactionEntity> = getPendingTransactions()
@@ -204,13 +204,14 @@ class BnrExchangeRateTest {
                 it.conversionStatus == "PENDING" || it.conversionStatus?.startsWith("PENDING_") == true ||
                 it.conversionStatus == "FAILED" || it.conversionStatus?.startsWith("FAILED_") == true
             }
-            override suspend fun getAllTransactionsList(): List<TransactionEntity> = txStore.values.toList()
-            override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
+            override suspend fun getAllTransactionsList(householdId: String?): List<TransactionEntity> = txStore.values.toList()
+            override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> = emptyList()
             override suspend fun insertTransaction(transaction: TransactionEntity) { txStore[transaction.id] = transaction }
             override suspend fun insertAllTransactions(transactions: List<TransactionEntity>) { transactions.forEach { txStore[it.id] = it } }
             override suspend fun deleteTransaction(transaction: TransactionEntity) { txStore.remove(transaction.id) }
             override suspend fun deleteTransactionById(id: String) { txStore.remove(id) }
-            override suspend fun deleteAllTransactions() { txStore.clear() }
+            override suspend fun deleteAllTransactions(householdId: String?) { txStore.clear() }
+            override suspend fun deleteTransactionsByHousehold(householdId: String?) { txStore.clear() }
         }
 
         val pendingTx = TransactionEntity(
@@ -274,8 +275,8 @@ class BnrExchangeRateTest {
         val txStore = mutableMapOf<String, TransactionEntity>()
 
         val mockTxDao = object : TransactionDao {
-            override fun getAllTransactions(): Flow<List<TransactionEntity>> = MutableStateFlow(txStore.values.toList())
-            override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = MutableStateFlow(emptyList())
+            override fun getAllTransactions(householdId: String?): Flow<List<TransactionEntity>> = MutableStateFlow(txStore.values.toList())
+            override fun getTransactionsInRange(startDate: String, endDate: String, householdId: String?): Flow<List<TransactionEntity>> = MutableStateFlow(emptyList())
             override suspend fun getTransactionById(id: String): TransactionEntity? = txStore[id]
             override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
             override suspend fun getRetryablePendingTransactions(): List<TransactionEntity> = getPendingTransactions()
@@ -283,13 +284,14 @@ class BnrExchangeRateTest {
                 it.conversionStatus == "PENDING" || it.conversionStatus?.startsWith("PENDING_") == true ||
                 it.conversionStatus == "FAILED" || it.conversionStatus?.startsWith("FAILED_") == true
             }
-            override suspend fun getAllTransactionsList(): List<TransactionEntity> = txStore.values.toList()
-            override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
+            override suspend fun getAllTransactionsList(householdId: String?): List<TransactionEntity> = txStore.values.toList()
+            override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> = emptyList()
             override suspend fun insertTransaction(transaction: TransactionEntity) { txStore[transaction.id] = transaction }
             override suspend fun insertAllTransactions(transactions: List<TransactionEntity>) { transactions.forEach { txStore[it.id] = it } }
             override suspend fun deleteTransaction(transaction: TransactionEntity) { txStore.remove(transaction.id) }
             override suspend fun deleteTransactionById(id: String) { txStore.remove(id) }
-            override suspend fun deleteAllTransactions() { txStore.clear() }
+            override suspend fun deleteAllTransactions(householdId: String?) { txStore.clear() }
+            override suspend fun deleteTransactionsByHousehold(householdId: String?) { txStore.clear() }
         }
 
         val pendingTx = TransactionEntity(
@@ -626,19 +628,20 @@ class BnrExchangeRateTest {
     fun testTransactionRepositorySaveTransactionSavesRonWhenBnrFails() {
         val mockTxDao = object : TransactionDao {
             val list = mutableListOf<TransactionEntity>()
-            override fun getAllTransactions(): Flow<List<TransactionEntity>> = MutableStateFlow(list)
-            override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = MutableStateFlow(list)
+            override fun getAllTransactions(householdId: String?): Flow<List<TransactionEntity>> = MutableStateFlow(list)
+            override fun getTransactionsInRange(startDate: String, endDate: String, householdId: String?): Flow<List<TransactionEntity>> = MutableStateFlow(list)
             override suspend fun getTransactionById(id: String): TransactionEntity? = list.find { it.id == id }
             override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
             override suspend fun getRetryablePendingTransactions(): List<TransactionEntity> = list.filter { it.conversionStatus == "PENDING" }
             override suspend fun getPendingTransactions(): List<TransactionEntity> = list.filter { it.conversionStatus == "PENDING" }
-            override suspend fun getAllTransactionsList(): List<TransactionEntity> = list
-            override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
+            override suspend fun getAllTransactionsList(householdId: String?): List<TransactionEntity> = list
+            override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> = emptyList()
             override suspend fun insertTransaction(transaction: TransactionEntity) { list.add(transaction) }
             override suspend fun insertAllTransactions(transactions: List<TransactionEntity>) { list.addAll(transactions) }
             override suspend fun deleteTransaction(transaction: TransactionEntity) { list.remove(transaction) }
             override suspend fun deleteTransactionById(id: String) { list.removeAll { it.id == id } }
-            override suspend fun deleteAllTransactions() { list.clear() }
+            override suspend fun deleteAllTransactions(householdId: String?) { list.clear() }
+            override suspend fun deleteTransactionsByHousehold(householdId: String?) { list.clear() }
         }
 
         val crashingService = ExchangeRateService(
