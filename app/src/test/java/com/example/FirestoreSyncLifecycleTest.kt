@@ -97,6 +97,7 @@ class FirestoreSyncLifecycleTest {
 
     @After
     fun tearDown() {
+        syncRepository.stopSync()
         Dispatchers.resetMain()
         db.close()
     }

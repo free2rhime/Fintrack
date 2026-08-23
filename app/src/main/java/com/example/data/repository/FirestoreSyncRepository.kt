@@ -573,6 +573,7 @@ class FirestoreSyncRepository(
 
     private var txListenerHandle: ListenerRegistrationHandle? = null
     private var catListenerHandle: ListenerRegistrationHandle? = null
+    private val syncJobs = mutableListOf<kotlinx.coroutines.Job>()
 
     fun enableSuppression() {
         isSuppressed = true
@@ -676,7 +677,7 @@ class FirestoreSyncRepository(
                 hasReceivedTxSnapshot = true
                 checkHandshakeAndUpdateState()
                 if (!isSuppressed) {
-                    coroutineScope.launch {
+                    syncJobs += coroutineScope.launch {
                         processTransactionSnapshot(docs)
                     }
                 }
@@ -696,7 +697,7 @@ class FirestoreSyncRepository(
                 hasReceivedCatSnapshot = true
                 checkHandshakeAndUpdateState()
                 if (!isSuppressed) {
-                    coroutineScope.launch {
+                    syncJobs += coroutineScope.launch {
                         processCategorySnapshot(docs)
                     }
                 }
@@ -717,6 +718,9 @@ class FirestoreSyncRepository(
     }
 
     fun stopSync() {
+        syncJobs.forEach { it.cancel() }
+        syncJobs.clear()
+
         txListenerHandle?.remove()
         txListenerHandle = null
         catListenerHandle?.remove()

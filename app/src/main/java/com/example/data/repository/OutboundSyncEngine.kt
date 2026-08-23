@@ -9,9 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,8 +29,7 @@ class OutboundSyncEngine(
     }
 
     private val processMutex = Mutex()
-    private val triggerChannel = Channel<Unit>(Channel.CONFLATED)
-    private var observerJob: Job? = null
+    private var lifecycleJob: Job? = null
     private var isStarted = false
 
     @Synchronized
@@ -40,34 +37,31 @@ class OutboundSyncEngine(
         if (isStarted) return
         isStarted = true
 
-        coroutineScope.launch {
+        lifecycleJob = coroutineScope.launch {
             startupRecovery()
-            notifyPending()
-        }
-
-        syncStatusFlow?.let { flow ->
-            observerJob = coroutineScope.launch {
-                flow.collectLatest { status ->
-                    Log.d(TAG, "SyncStatus observed: $status")
-                    if (status is SyncStatus.Synced) {
-                        notifyPending()
-                    }
-                }
+            if (isStarted) {
+                processPendingQueue()
             }
         }
     }
 
     fun stop() {
-        observerJob?.cancel()
-        observerJob = null
         isStarted = false
+
+        lifecycleJob?.cancel()
+        lifecycleJob = null
+
         Log.d(TAG, "OutboundSyncEngine stopped")
     }
 
     fun notifyPending() {
-        triggerChannel.trySend(Unit)
-        coroutineScope.launch {
-            processPendingQueue()
+        if (!isStarted) return
+
+        lifecycleJob?.cancel()
+        lifecycleJob = coroutineScope.launch {
+            if (isStarted) {
+                processPendingQueue()
+            }
         }
     }
 

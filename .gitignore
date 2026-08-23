@@ -32,3 +32,5 @@ backups/
 # Node
 node_modules/
 
+
+gradle/gradle-daemon-jvm.properties

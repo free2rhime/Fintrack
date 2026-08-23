@@ -246,6 +246,7 @@ class FirestoreSyncTest {
 
     @After
     fun tearDown() {
+        syncRepository.stopSync()
         db.close()
     }
 
