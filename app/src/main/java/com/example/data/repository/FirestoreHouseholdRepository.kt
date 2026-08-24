@@ -90,10 +90,8 @@ class FirestoreHouseholdRepository(
                 invitedByUid = null
             )
 
-            val batch = firestore.batch()
-            batch.set(householdDocRef, householdDto.toMap())
-            batch.set(memberDocRef, memberDto.toMap())
-            batch.commit().await()
+            householdDocRef.set(householdDto.toMap()).await()
+            memberDocRef.set(memberDto.toMap()).await()
 
             Result.success(householdDto)
         } catch (e: Exception) {
