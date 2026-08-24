@@ -23,44 +23,52 @@ class RoomCategoryRepository(
 
     override suspend fun getAllCategoriesList(): List<CategoryEntity> = allCategories.first()
 
-    override suspend fun ensureDefaultCategoriesSeeded() {
-        val existing = allCategories.first()
+    override suspend fun ensureDefaultCategoriesSeeded(householdId: String?) {
+        val existing = categoryDao.getAllCategories(householdId).first()
         if (existing.isEmpty()) {
             val defaults = listOf(
                 // Income Categories & Subcategories with Emojis
-                CategoryEntity(name = "💼 Salary", type = "Income", subCategory = "🏢 Main Job"),
-                CategoryEntity(name = "💼 Salary", type = "Income", subCategory = "🎁 Bonus"),
-                CategoryEntity(name = "💻 Freelance", type = "Income", subCategory = "⚙️ Software & Consulting"),
-                CategoryEntity(name = "📈 Investments", type = "Income", subCategory = "📊 Stocks & Dividends"),
-                CategoryEntity(name = "💵 Other Income", type = "Income", subCategory = "🎉 Gifts & Side Jobs"),
+                CategoryEntity(name = "💼 Salary", type = "Income", subCategory = "🏢 Main Job", householdId = householdId),
+                CategoryEntity(name = "💼 Salary", type = "Income", subCategory = "🎁 Bonus", householdId = householdId),
+                CategoryEntity(name = "💻 Freelance", type = "Income", subCategory = "⚙️ Software & Consulting", householdId = householdId),
+                CategoryEntity(name = "📈 Investments", type = "Income", subCategory = "📊 Stocks & Dividends", householdId = householdId),
+                CategoryEntity(name = "💵 Other Income", type = "Income", subCategory = "🎉 Gifts & Side Jobs", householdId = householdId),
 
                 // Expense Categories & Subcategories with Emojis
-                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "🛒 Groceries"),
-                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "🍔 Restaurants & Cafes"),
-                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "💳 Meal Tickets"),
-                CategoryEntity(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "🔑 Rent / Mortgage"),
-                CategoryEntity(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "⚡ Utilities & Internet"),
-                CategoryEntity(name = "🚗 Transportation", type = "Expense", subCategory = "⛽ Fuel"),
-                CategoryEntity(name = "🚗 Transportation", type = "Expense", subCategory = "🚌 Public Transit & Rides"),
-                CategoryEntity(name = "🛍️ Shopping & Personal", type = "Expense", subCategory = "👕 Apparel & Shoes"),
-                CategoryEntity(name = "🛍️ Shopping & Personal", type = "Expense", subCategory = "📱 Electronics"),
-                CategoryEntity(name = "🏥 Health & Wellness", type = "Expense", subCategory = "💊 Pharmacy & Medical"),
-                CategoryEntity(name = "🏥 Health & Wellness", type = "Expense", subCategory = "🏋️ Gym & Fitness"),
-                CategoryEntity(name = "🎬 Entertainment", type = "Expense", subCategory = "🍿 Subscriptions & Media"),
-                CategoryEntity(name = "🎬 Entertainment", type = "Expense", subCategory = "✈️ Travel & Vacations"),
-                CategoryEntity(name = "🏦 Financial & Taxes", type = "Expense", subCategory = "💳 Bank Fees & Insurance")
+                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "🛒 Groceries", householdId = householdId),
+                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "🍔 Restaurants & Cafes", householdId = householdId),
+                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "💳 Meal Tickets", householdId = householdId),
+                CategoryEntity(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "🔑 Rent / Mortgage", householdId = householdId),
+                CategoryEntity(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "⚡ Utilities & Internet", householdId = householdId),
+                CategoryEntity(name = "🚗 Transportation", type = "Expense", subCategory = "⛽ Fuel", householdId = householdId),
+                CategoryEntity(name = "🚗 Transportation", type = "Expense", subCategory = "🚌 Public Transit & Rides", householdId = householdId),
+                CategoryEntity(name = "🛍️ Shopping & Personal", type = "Expense", subCategory = "👕 Apparel & Shoes", householdId = householdId),
+                CategoryEntity(name = "🛍️ Shopping & Personal", type = "Expense", subCategory = "📱 Electronics", householdId = householdId),
+                CategoryEntity(name = "🏥 Health & Wellness", type = "Expense", subCategory = "💊 Pharmacy & Medical", householdId = householdId),
+                CategoryEntity(name = "🏥 Health & Wellness", type = "Expense", subCategory = "🏋️ Gym & Fitness", householdId = householdId),
+                CategoryEntity(name = "🎬 Entertainment", type = "Expense", subCategory = "🍿 Subscriptions & Media", householdId = householdId),
+                CategoryEntity(name = "🎬 Entertainment", type = "Expense", subCategory = "✈️ Travel & Vacations", householdId = householdId),
+                CategoryEntity(name = "🏦 Financial & Taxes", type = "Expense", subCategory = "💳 Bank Fees & Insurance", householdId = householdId)
             )
             executeWithTransaction {
                 categoryDao.insertAllCategories(defaults)
-                for (cat in defaults) {
-                    enqueueOutboxInternal(cat.id, "UPSERT")
+                if (householdId != null) {
+                    for (cat in defaults) {
+                        enqueueOutboxInternal(cat.id, "UPSERT")
+                    }
                 }
             }
         }
     }
 
-    override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String) {
-        val category = CategoryEntity(name = name.trim(), type = type, subCategory = subCategory.trim(), userId = userId)
+    override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String, householdId: String?) {
+        val category = CategoryEntity(
+            name = name.trim(),
+            type = type,
+            subCategory = subCategory.trim(),
+            userId = userId,
+            householdId = householdId
+        )
         executeWithTransaction {
             categoryDao.insertCategory(category)
             enqueueOutboxInternal(category.id, "UPSERT")
@@ -81,23 +89,23 @@ class RoomCategoryRepository(
         }
     }
 
-    override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String) {
+    override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String, householdId: String?) {
         executeWithTransaction {
-            val matching = categoryDao.getCategoriesGroup(oldName.trim(), type)
-            categoryDao.updateCategoryGroup(oldName.trim(), newName.trim(), type)
+            val matching = categoryDao.getCategoriesGroup(oldName.trim(), type, householdId)
+            categoryDao.updateCategoryGroup(oldName.trim(), newName.trim(), type, householdId)
             for (cat in matching) {
                 enqueueOutboxInternal(cat.id, "UPSERT")
             }
         }
     }
 
-    override suspend fun deleteCategoryGroup(name: String, type: String) {
+    override suspend fun deleteCategoryGroup(name: String, type: String, householdId: String?) {
         executeWithTransaction {
-            val matching = categoryDao.getCategoriesGroup(name.trim(), type)
+            val matching = categoryDao.getCategoriesGroup(name.trim(), type, householdId)
             for (cat in matching) {
                 enqueueOutboxInternal(cat.id, "DELETE")
             }
-            categoryDao.deleteCategoryGroup(name.trim(), type)
+            categoryDao.deleteCategoryGroup(name.trim(), type, householdId)
         }
     }
 

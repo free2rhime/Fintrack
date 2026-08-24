@@ -484,7 +484,8 @@ fun CategoryDto.toEntity(documentId: String? = null): CategoryEntity? {
         createdAt = createdAt ?: System.currentTimeMillis(),
         updatedAt = updatedAt ?: System.currentTimeMillis(),
         isDeleted = isDeleted == true,
-        syncStatus = "SYNCED"
+        syncStatus = "SYNCED",
+        householdId = householdId
     )
 }
 

@@ -172,8 +172,13 @@ class OutboundSyncEngine(
                     "UPSERT" -> {
                         val cat = database.categoryDao().getCategoryById(item.entityId)
                         if (cat != null) {
-                            val payload = cat.toFirestoreMap(householdId)
-                            snapshotSource.upsertCategory(householdId, cat.id, payload)
+                            if (cat.householdId != null && cat.householdId != householdId) {
+                                Log.w(TAG, "Skipping outbound CATEGORY ${cat.id}: entity householdId (${cat.householdId}) does not match active householdId ($householdId)")
+                                return
+                            }
+                            val targetHouseholdId = cat.householdId ?: householdId
+                            val payload = cat.toFirestoreMap(targetHouseholdId)
+                            snapshotSource.upsertCategory(targetHouseholdId, cat.id, payload)
                         } else {
                             // If local category was deleted before sync ran, issue soft delete
                             snapshotSource.deleteCategory(householdId, item.entityId)

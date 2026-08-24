@@ -400,15 +400,15 @@ class FakeCategoryRepository : CategoryRepository {
     override fun getCategories(householdId: String?): Flow<List<CategoryEntity>> = _flow
 
     override suspend fun getAllCategoriesList(): List<CategoryEntity> = catList.toList()
-    override suspend fun ensureDefaultCategoriesSeeded() {}
-    override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String) {
-        catList.add(CategoryEntity(id = "cat_${catList.size + 1}", name = name, type = type, subCategory = subCategory, userId = userId))
+    override suspend fun ensureDefaultCategoriesSeeded(householdId: String?) {}
+    override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String, householdId: String?) {
+        catList.add(CategoryEntity(id = "cat_${catList.size + 1}", name = name, type = type, subCategory = subCategory, userId = userId, householdId = householdId))
         _flow.value = catList.toList()
     }
     override suspend fun updateCategory(category: CategoryEntity) {}
     override suspend fun deleteCategory(category: CategoryEntity) {}
-    override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String) {}
-    override suspend fun deleteCategoryGroup(name: String, type: String) {}
+    override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String, householdId: String?) {}
+    override suspend fun deleteCategoryGroup(name: String, type: String, householdId: String?) {}
     override suspend fun updateSubcategory(id: String, newSubCategory: String) {}
     override suspend fun deleteSubcategory(id: String) {}
 }

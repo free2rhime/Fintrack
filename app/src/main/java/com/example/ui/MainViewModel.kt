@@ -410,7 +410,14 @@ class MainViewModel(
 
     init {
         viewModelScope.launch {
-            categoryRepository.ensureDefaultCategoriesSeeded()
+            categoryRepository.ensureDefaultCategoriesSeeded(null)
+        }
+        viewModelScope.launch {
+            activeHouseholdId.collect { hhId ->
+                if (!hhId.isNullOrBlank()) {
+                    categoryRepository.ensureDefaultCategoriesSeeded(hhId)
+                }
+            }
         }
         viewModelScope.launch {
             authRepository.authState.collect { state ->
@@ -658,7 +665,7 @@ class MainViewModel(
     fun addCategory(name: String, type: String, subCategory: String) {
         viewModelScope.launch {
             val currentUid = activeUserUid.value ?: "local_user"
-            categoryRepository.addCategory(name, type, subCategory, userId = currentUid)
+            categoryRepository.addCategory(name, type, subCategory, userId = currentUid, householdId = activeHouseholdId.value)
             showNotification("Category added")
         }
     }
@@ -679,14 +686,14 @@ class MainViewModel(
 
     fun updateCategoryGroup(oldName: String, newName: String, type: String) {
         viewModelScope.launch {
-            categoryRepository.updateCategoryGroup(oldName, newName, type)
+            categoryRepository.updateCategoryGroup(oldName, newName, type, householdId = activeHouseholdId.value)
             showNotification("Category group updated")
         }
     }
 
     fun deleteCategoryGroup(name: String, type: String) {
         viewModelScope.launch {
-            categoryRepository.deleteCategoryGroup(name, type)
+            categoryRepository.deleteCategoryGroup(name, type, householdId = activeHouseholdId.value)
             showNotification("Category group deleted")
         }
     }
@@ -1205,6 +1212,9 @@ class MainViewModel(
             result.onSuccess { household ->
                 val householdId = household.householdId.orEmpty()
                 _householdCreationUiState.value = HouseholdCreationUiState.Success(householdId)
+                if (householdId.isNotBlank()) {
+                    categoryRepository.ensureDefaultCategoriesSeeded(householdId)
+                }
                 syncRepository?.startSync(signedInUser.userUid, householdId)
             }.onFailure { error ->
                 _householdCreationUiState.value = HouseholdCreationUiState.Error(error.message ?: "Failed to create household")
