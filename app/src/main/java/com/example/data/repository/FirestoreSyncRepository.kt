@@ -258,6 +258,7 @@ class DefaultFirestoreSnapshotSource(
     }
 
     override suspend fun resolveHouseholdId(userUid: String): HouseholdResolutionResult {
+        Log.d("SyncDiag", "Resolving household for UID: $userUid")
         val firestore = firestoreSupplier()
             ?: return HouseholdResolutionResult.Failure("Firestore instance is not available")
         return try {
@@ -270,11 +271,19 @@ class DefaultFirestoreSnapshotSource(
             val firstDoc = querySnapshot.documents.firstOrNull()
             val householdId = firstDoc?.reference?.parent?.parent?.id
             if (householdId != null) {
+                Log.i("SyncDiag", "resolveHouseholdId success: householdId=$householdId")
                 HouseholdResolutionResult.Success(householdId)
             } else {
+                Log.d("SyncDiag", "resolveHouseholdId: No active household membership document found")
                 HouseholdResolutionResult.NoHousehold
             }
         } catch (e: Exception) {
+            SyncDiagnosticsHolder.recordError(
+                userUid = userUid,
+                operation = "resolveHouseholdId",
+                throwable = e
+            )
+            Log.e("SyncDiag", "resolveHouseholdId failed for UID: $userUid", e)
             val msg = e.message ?: ""
             if (msg.contains("PERMISSION_DENIED", ignoreCase = true) ||
                 msg.contains("permission-denied", ignoreCase = true) ||
@@ -683,6 +692,13 @@ class FirestoreSyncRepository(
                 }
             },
             onError = { ex ->
+                SyncDiagnosticsHolder.recordError(
+                    userUid = activeUserUid,
+                    operation = "listenToTransactions",
+                    householdId = resolvedHouseholdId,
+                    throwable = ex
+                )
+                Log.e("SyncDiag", "listenToTransactions failed for household: $resolvedHouseholdId", ex)
                 if (isPermissionDenied(ex)) {
                     _syncStatusState.value = SyncStatus.PermissionDenied
                 } else {
@@ -703,6 +719,13 @@ class FirestoreSyncRepository(
                 }
             },
             onError = { ex ->
+                SyncDiagnosticsHolder.recordError(
+                    userUid = activeUserUid,
+                    operation = "listenToCategories",
+                    householdId = resolvedHouseholdId,
+                    throwable = ex
+                )
+                Log.e("SyncDiag", "listenToCategories failed for household: $resolvedHouseholdId", ex)
                 if (isPermissionDenied(ex)) {
                     _syncStatusState.value = SyncStatus.PermissionDenied
                 } else {

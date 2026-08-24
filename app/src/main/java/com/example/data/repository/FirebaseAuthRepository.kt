@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ class FirebaseAuthRepository(
             try {
                 val currentUser = auth.currentUser
                 if (currentUser != null) {
+                    Log.i("SyncDiag", "FirebaseAuth state changed: uid=${currentUser.uid}, isAnonymous=${currentUser.isAnonymous}")
                     _authState.value = AuthState.SignedIn(
                         userUid = currentUser.uid,
                         email = currentUser.email,
@@ -38,19 +40,22 @@ class FirebaseAuthRepository(
                 authStateListener = FirebaseAuth.AuthStateListener { firebase ->
                     val user = firebase.currentUser
                     if (user != null) {
+                        Log.i("SyncDiag", "FirebaseAuth state changed: uid=${user.uid}, isAnonymous=${user.isAnonymous}")
                         _authState.value = AuthState.SignedIn(
                             userUid = user.uid,
                             email = user.email,
                             displayName = user.displayName
                         )
                     } else {
+                        Log.i("SyncDiag", "FirebaseAuth state changed: user is null (SignedOut)")
                         if (_authState.value !is AuthState.AuthError && _authState.value !is AuthState.SigningIn) {
                             _authState.value = AuthState.SignedOut
                         }
                     }
                 }
                 auth.addAuthStateListener(authStateListener!!)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("SyncDiag", "FirebaseAuth init error", e)
                 _authState.value = AuthState.SignedOut
             }
         } else {

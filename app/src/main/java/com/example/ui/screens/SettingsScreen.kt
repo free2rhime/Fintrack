@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDone
@@ -41,6 +42,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +58,8 @@ import com.example.data.model.HouseholdInviteDto
 import com.example.data.model.HouseholdMemberDto
 import com.example.data.repository.PendingRetryResult
 import com.example.data.service.BnrDiagnosticResult
+import com.example.ui.HouseholdCreationUiState
+import com.example.ui.components.CreateHouseholdDialog
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.HouseholdOverviewCard
 import com.example.ui.components.InviteMemberDialog
@@ -64,6 +68,10 @@ import com.example.ui.theme.ExpenseRed
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.repository.SyncDiagnosticsHolder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -99,9 +107,35 @@ fun SettingsScreen(
     onDismissDebugDiagnostic: () -> Unit = {},
     isRetryingPending: Boolean = false,
     onStartMigration: () -> Unit = {},
+    householdCreationUiState: HouseholdCreationUiState = HouseholdCreationUiState.Idle,
+    onCreateHousehold: (String) -> Unit = {},
+    onResetHouseholdCreationState: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showInviteDialog by remember { mutableStateOf(false) }
+    var showCreateHouseholdDialog by remember { mutableStateOf(false) }
+    var showSyncDiagnosticDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(householdCreationUiState) {
+        if (householdCreationUiState is HouseholdCreationUiState.Success) {
+            showCreateHouseholdDialog = false
+            onResetHouseholdCreationState()
+        }
+    }
+
+    if (showCreateHouseholdDialog) {
+        CreateHouseholdDialog(
+            isCreating = householdCreationUiState is HouseholdCreationUiState.Creating,
+            errorMessage = (householdCreationUiState as? HouseholdCreationUiState.Error)?.message,
+            onCreateHousehold = { name ->
+                onCreateHousehold(name)
+            },
+            onDismiss = {
+                showCreateHouseholdDialog = false
+                onResetHouseholdCreationState()
+            }
+        )
+    }
 
     if (showInviteDialog) {
         InviteMemberDialog(
@@ -336,6 +370,59 @@ fun SettingsScreen(
                 currentUid = currentUid,
                 onInviteMemberClick = { showInviteDialog = true }
             )
+        } else {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("household_setup_card"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Household Setup",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Create a household to enable cloud synchronization of your financial data.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = { showCreateHouseholdDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .testTag("create_household_button"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Create Household", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -606,6 +693,19 @@ fun SettingsScreen(
                     ) {
                         Text("Run BNR Endpoint Diagnostic (Debug)", fontWeight = FontWeight.SemiBold)
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedButton(
+                        onClick = { showSyncDiagnosticDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("view_sync_diagnostic_button"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("View Sync Diagnostics (Debug)", fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -811,6 +911,94 @@ fun SettingsScreen(
                 confirmButton = {
                     Button(onClick = onDismissDebugDiagnostic) {
                         Text("OK")
+                    }
+                }
+            )
+        }
+
+        if (showSyncDiagnosticDialog) {
+            val diagnosticRecord by SyncDiagnosticsHolder.lastError.collectAsStateWithLifecycle()
+            val clipboardManager = LocalClipboardManager.current
+            var copiedToast by remember { mutableStateOf(false) }
+
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {
+                    showSyncDiagnosticDialog = false
+                    copiedToast = false
+                },
+                title = { Text("Sync Diagnostics (Debug)", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (diagnosticRecord == null) {
+                            Text("No sync errors currently recorded in this session.")
+                        } else {
+                            val record = diagnosticRecord!!
+                            Text("• Timestamp: ${record.formattedTime}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            Text("• Operation: ${record.operation}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            Text("• Exception Code: ${record.exceptionCode ?: "N/A"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            Text("• User UID: ${record.userUid ?: "None"}", style = MaterialTheme.typography.bodySmall)
+                            Text("• Household ID: ${record.householdId ?: "None"}", style = MaterialTheme.typography.bodySmall)
+                            Text("• Message: ${record.exceptionMessage ?: "None"}", style = MaterialTheme.typography.bodySmall)
+                            if (!record.stackTraceSnippet.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("• Stack Trace Snippet:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = record.stackTraceSnippet,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
+                            }
+                            if (copiedToast) {
+                                Text(
+                                    text = "Copied to clipboard!",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (diagnosticRecord != null) {
+                            val fullText = buildString {
+                                val r = diagnosticRecord!!
+                                appendLine("--- FinTrack Sync Diagnostics ---")
+                                appendLine("Timestamp: ${r.formattedTime}")
+                                appendLine("Operation: ${r.operation}")
+                                appendLine("Exception Code: ${r.exceptionCode}")
+                                appendLine("User UID: ${r.userUid}")
+                                appendLine("Household ID: ${r.householdId}")
+                                appendLine("Message: ${r.exceptionMessage}")
+                                appendLine("Stack Trace:\n${r.stackTraceSnippet}")
+                            }
+                            Button(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(fullText))
+                                    copiedToast = true
+                                }
+                            ) {
+                                Text("Copy")
+                            }
+                        }
+                        OutlinedButton(onClick = {
+                            showSyncDiagnosticDialog = false
+                            copiedToast = false
+                        }) {
+                            Text("Close")
+                        }
                     }
                 }
             )

@@ -189,6 +189,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         val incomingInvites by viewModel.incomingInvites.collectAsStateWithLifecycle()
                         val isInvitationProcessing by viewModel.isInvitationProcessing.collectAsStateWithLifecycle()
                         val invitationError by viewModel.invitationError.collectAsStateWithLifecycle()
+                        val householdCreationUiState by viewModel.householdCreationUiState.collectAsStateWithLifecycle()
                         SettingsScreen(
                             filterSettings = filterSettings,
                             themeMode = themeMode,
@@ -218,7 +219,10 @@ fun FinTrackApp(viewModel: MainViewModel) {
                             debugDiagnosticResult = uiState.debugDiagnosticResult,
                             onDismissDebugDiagnostic = { viewModel.dismissDebugDiagnostic() },
                             isRetryingPending = uiState.isRetryingPending,
-                            onStartMigration = { viewModel.startMigrationPreflight() }
+                            onStartMigration = { viewModel.startMigrationPreflight() },
+                            householdCreationUiState = householdCreationUiState,
+                            onCreateHousehold = { name -> viewModel.createHousehold(name) },
+                            onResetHouseholdCreationState = { viewModel.resetHouseholdCreationState() }
                         )
                     }
                 }
