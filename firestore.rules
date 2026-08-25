@@ -98,16 +98,19 @@ service cloud.firestore {
 
     function isValidConversionMetadata(meta, transactionDate) {
       return meta == null || (
-        meta.source == 'BNR_OFFICIAL' &&
-        meta.status == 'OFFICIAL' &&
-        meta.rate is number && meta.rate > 0 &&
-        meta.effectiveDate is string &&
-        meta.effectiveDate <= transactionDate
-      ) || (
-        meta.status in ['PENDING', 'FAILED', 'UNVERIFIED'] &&
-        meta.status != 'OFFICIAL' &&
-        meta.rate is number && meta.rate > 0 &&
-        meta.effectiveDate is string
+        meta is map &&
+        ((
+          meta.source == 'BNR_OFFICIAL' &&
+          meta.status == 'OFFICIAL' &&
+          meta.rate is number && meta.rate > 0 &&
+          meta.effectiveDate is string &&
+          meta.effectiveDate <= transactionDate
+        ) || (
+          meta.status in ['PENDING', 'FAILED', 'UNVERIFIED'] &&
+          meta.status != 'OFFICIAL' &&
+          meta.rate is number && meta.rate > 0 &&
+          meta.effectiveDate is string
+        ))
       );
     }
 
@@ -119,7 +122,7 @@ service cloud.firestore {
              isValidAccount(data.account) &&
              isValidDestination(data.type, data.destination) &&
              isValidConversionMetadata(
-               'exchangeRateMetadata' in data ? data.exchangeRateMetadata : null,
+               data.get('exchangeRateMetadata', null),
                data.transactionDate
              );
     }
