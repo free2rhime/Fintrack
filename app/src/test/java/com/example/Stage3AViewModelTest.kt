@@ -167,6 +167,7 @@ class Stage3AViewModelTest {
 
     @After
     fun tearDown() {
+        syncRepository.stopSync()
         Dispatchers.resetMain()
         db.close()
         tempBackupDir.deleteRecursively()

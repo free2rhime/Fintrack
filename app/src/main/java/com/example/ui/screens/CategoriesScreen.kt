@@ -66,6 +66,7 @@ fun CategoriesScreen(
     onDeleteCategoryGroup: (name: String, type: String) -> Unit,
     onUpdateSubcategory: (id: String, newSubCategory: String) -> Unit,
     onDeleteSubcategory: (id: String) -> Unit,
+    canManageCategories: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var selectedType by remember { mutableStateOf("Expense") }
@@ -89,16 +90,18 @@ fun CategoriesScreen(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    addDialogPreFilledCategory = ""
-                    showAddDialog = true
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.testTag("fab_add_category")
-            ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Add Category")
+            if (canManageCategories) {
+                FloatingActionButton(
+                    onClick = {
+                        addDialogPreFilledCategory = ""
+                        showAddDialog = true
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.testTag("fab_add_category")
+                ) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = "Add Category")
+                }
             }
         },
         modifier = modifier.fillMaxSize()
@@ -196,60 +199,62 @@ fun CategoriesScreen(
                                     )
                                 }
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    // Add Subcategory Quick Action Button
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .clickable {
-                                                addDialogPreFilledCategory = catName
-                                                showAddDialog = true
+                                if (canManageCategories) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // Add Subcategory Quick Action Button
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .clickable {
+                                                    addDialogPreFilledCategory = catName
+                                                    showAddDialog = true
+                                                }
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Add,
+                                                    contentDescription = "Add Subcategory",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "+ Sub",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
                                             }
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        }
+
+                                        Spacer(modifier = Modifier.width(4.dp))
+
+                                        IconButton(
+                                            onClick = { categoryGroupToEdit = catName },
+                                            modifier = Modifier.size(32.dp).testTag("edit_category_group_${catName}")
+                                        ) {
                                             Icon(
-                                                imageVector = Icons.Default.Add,
-                                                contentDescription = "Add Subcategory",
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Edit Category Group",
                                                 tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = "+ Sub",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         }
-                                    }
 
-                                    Spacer(modifier = Modifier.width(4.dp))
-
-                                    IconButton(
-                                        onClick = { categoryGroupToEdit = catName },
-                                        modifier = Modifier.size(32.dp).testTag("edit_category_group_${catName}")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Edit,
-                                            contentDescription = "Edit Category Group",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-
-                                    IconButton(
-                                        onClick = { categoryGroupToDelete = catName },
-                                        modifier = Modifier.size(32.dp).testTag("delete_category_group_${catName}")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = "Delete Category Group",
-                                            tint = ExpenseRed,
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                        IconButton(
+                                            onClick = { categoryGroupToDelete = catName },
+                                            modifier = Modifier.size(32.dp).testTag("delete_category_group_${catName}")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Delete Category Group",
+                                                tint = ExpenseRed,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -298,29 +303,31 @@ fun CategoriesScreen(
                                                     )
                                                 }
 
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    IconButton(
-                                                        onClick = { subcategoryToEdit = subEntity },
-                                                        modifier = Modifier.size(28.dp).testTag("edit_subcategory_${subEntity.id}")
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Edit,
-                                                            contentDescription = "Edit Subcategory",
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
-                                                    }
+                                                if (canManageCategories) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        IconButton(
+                                                            onClick = { subcategoryToEdit = subEntity },
+                                                            modifier = Modifier.size(28.dp).testTag("edit_subcategory_${subEntity.id}")
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Edit,
+                                                                contentDescription = "Edit Subcategory",
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
 
-                                                    IconButton(
-                                                        onClick = { onDeleteSubcategory(subEntity.id) },
-                                                        modifier = Modifier.size(28.dp).testTag("delete_subcategory_${subEntity.id}")
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Delete,
-                                                            contentDescription = "Delete Subcategory",
-                                                            tint = ExpenseRed,
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
+                                                        IconButton(
+                                                            onClick = { onDeleteSubcategory(subEntity.id) },
+                                                            modifier = Modifier.size(28.dp).testTag("delete_subcategory_${subEntity.id}")
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Delete,
+                                                                contentDescription = "Delete Subcategory",
+                                                                tint = ExpenseRed,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
@@ -330,7 +337,7 @@ fun CategoriesScreen(
                             } else {
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "No subcategories yet. Tap '+ Sub' to add one.",
+                                    text = if (canManageCategories) "No subcategories yet. Tap '+ Sub' to add one." else "No subcategories.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )

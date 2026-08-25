@@ -50,6 +50,7 @@ class Stage9OutboxShieldTest {
 
     @After
     fun tearDown() {
+        syncRepository.stopSync()
         db.close()
     }
 

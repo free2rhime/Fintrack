@@ -95,6 +95,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val migrationUiState by viewModel.migrationUiState.collectAsStateWithLifecycle()
+    val canManageCategories by viewModel.canManageCategories.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -173,6 +174,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
 
                     3 -> CategoriesScreen(
                         categories = categories,
+                        canManageCategories = canManageCategories,
                         onAddCategory = { name, type, sub -> viewModel.addCategory(name, type, sub) },
                         onUpdateCategoryGroup = { oldName, newName, type -> viewModel.updateCategoryGroup(oldName, newName, type) },
                         onDeleteCategoryGroup = { name, type -> viewModel.deleteCategoryGroup(name, type) },

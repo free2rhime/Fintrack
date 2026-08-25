@@ -264,6 +264,23 @@ class MainViewModel(
         initialValue = null
     )
 
+    val canManageCategories: StateFlow<Boolean> = combine(
+        activeHouseholdId,
+        currentUserMembership
+    ) { householdId, membership ->
+        if (householdId.isNullOrBlank()) {
+            true
+        } else {
+            val role = membership?.role?.trim()?.lowercase()
+            role == "owner" || role == "admin"
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = activeHouseholdId.value.isNullOrBlank() ||
+            (currentUserMembership.value?.role?.trim()?.lowercase().let { it == "owner" || it == "admin" })
+    )
+
     val isHouseholdLoading: StateFlow<Boolean> = combine(
         activeHouseholdId,
         currentHousehold
@@ -664,6 +681,10 @@ class MainViewModel(
 
     fun addCategory(name: String, type: String, subCategory: String) {
         viewModelScope.launch {
+            if (!canManageCategories.value) {
+                showNotification("Only household owner or admin can modify categories.")
+                return@launch
+            }
             val currentUid = activeUserUid.value ?: "local_user"
             categoryRepository.addCategory(name, type, subCategory, userId = currentUid, householdId = activeHouseholdId.value)
             showNotification("Category added")
@@ -672,6 +693,10 @@ class MainViewModel(
 
     fun updateCategory(category: CategoryEntity) {
         viewModelScope.launch {
+            if (!canManageCategories.value) {
+                showNotification("Only household owner or admin can modify categories.")
+                return@launch
+            }
             categoryRepository.updateCategory(category)
             showNotification("Category updated")
         }
@@ -679,6 +704,10 @@ class MainViewModel(
 
     fun deleteCategory(category: CategoryEntity) {
         viewModelScope.launch {
+            if (!canManageCategories.value) {
+                showNotification("Only household owner or admin can modify categories.")
+                return@launch
+            }
             categoryRepository.deleteCategory(category)
             showNotification("Category removed")
         }
@@ -686,6 +715,10 @@ class MainViewModel(
 
     fun updateCategoryGroup(oldName: String, newName: String, type: String) {
         viewModelScope.launch {
+            if (!canManageCategories.value) {
+                showNotification("Only household owner or admin can modify categories.")
+                return@launch
+            }
             categoryRepository.updateCategoryGroup(oldName, newName, type, householdId = activeHouseholdId.value)
             showNotification("Category group updated")
         }
@@ -693,6 +726,10 @@ class MainViewModel(
 
     fun deleteCategoryGroup(name: String, type: String) {
         viewModelScope.launch {
+            if (!canManageCategories.value) {
+                showNotification("Only household owner or admin can modify categories.")
+                return@launch
+            }
             categoryRepository.deleteCategoryGroup(name, type, householdId = activeHouseholdId.value)
             showNotification("Category group deleted")
         }
@@ -700,6 +737,10 @@ class MainViewModel(
 
     fun updateSubcategory(id: String, newSubCategory: String) {
         viewModelScope.launch {
+            if (!canManageCategories.value) {
+                showNotification("Only household owner or admin can modify categories.")
+                return@launch
+            }
             categoryRepository.updateSubcategory(id, newSubCategory)
             showNotification("Subcategory updated")
         }
@@ -707,6 +748,10 @@ class MainViewModel(
 
     fun deleteSubcategory(id: String) {
         viewModelScope.launch {
+            if (!canManageCategories.value) {
+                showNotification("Only household owner or admin can modify categories.")
+                return@launch
+            }
             categoryRepository.deleteSubcategory(id)
             showNotification("Subcategory deleted")
         }

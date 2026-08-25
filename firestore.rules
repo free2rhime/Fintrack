@@ -227,7 +227,7 @@ service cloud.firestore {
         allow read: if isHouseholdMember(householdId);
         allow create: if (
                           !('migrationId' in request.resource.data) &&
-                          isHouseholdMember(householdId) &&
+                          isHouseholdAdminOrOwner(householdId) &&
                           request.resource.data.householdId == householdId &&
                           isValidTransactionType(request.resource.data.type)
                         ) || (
@@ -238,7 +238,10 @@ service cloud.firestore {
                           isValidTransactionType(request.resource.data.type)
                         );
         allow update: if !('migrationId' in request.resource.data) &&
-                         isHouseholdMember(householdId);
+                         isHouseholdAdminOrOwner(householdId) &&
+                         request.resource.data.householdId == resource.data.householdId &&
+                         request.resource.data.householdId == householdId &&
+                         isValidTransactionType(request.resource.data.type);
         allow delete: if isHouseholdAdminOrOwner(householdId);
       }
 

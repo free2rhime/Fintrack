@@ -483,10 +483,64 @@ describe('FinTrack Firestore Security Rules', () => {
   // 6. Categories & Exchange Rates Subcollections
   // --------------------------------------------------------------------------
   describe('Categories & Exchange Rates Subcollections', () => {
-    it('allows active member to create category with valid type', async () => {
+    const CAT_EXISTING_ID = 'cat_existing_food';
+
+    beforeEach(async () => {
+      // Seed a pre-existing category in household_100
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`), {
+          categoryId: CAT_EXISTING_ID,
+          householdId: HOUSEHOLD_ID,
+          name: 'Food & Dining',
+          type: 'Expense',
+          subCategory: 'Restaurants'
+        });
+
+        // Seed a category in a different household for isolation tests
+        await setDoc(doc(db, 'households/household_other/categories/cat_other_hh'), {
+          categoryId: 'cat_other_hh',
+          householdId: 'household_other',
+          name: 'Other HH Category',
+          type: 'Expense'
+        });
+      });
+    });
+
+    // A. UNAUTHENTICATED
+    it('denies unauthenticated read, create, update, delete on categories', async () => {
+      const unauthDb = testEnv.unauthenticatedContext().firestore();
+
+      // Read
+      await assertFails(getDoc(doc(unauthDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`)));
+
+      // Create
+      await assertFails(setDoc(doc(unauthDb, `households/${HOUSEHOLD_ID}/categories/cat_unauth`), {
+        categoryId: 'cat_unauth',
+        householdId: HOUSEHOLD_ID,
+        name: 'Unauth Category',
+        type: 'Expense'
+      }));
+
+      // Update
+      await assertFails(updateDoc(doc(unauthDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`), {
+        name: 'Hacked Name'
+      }));
+
+      // Delete
+      await assertFails(deleteDoc(doc(unauthDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`)));
+    });
+
+    // B. MEMBER (Read ALLOW, Create/Update/Delete DENY)
+    it('allows active member to read categories', async () => {
       const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
-      await assertSucceeds(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/categories/cat_groceries`), {
-        categoryId: 'cat_groceries',
+      await assertSucceeds(getDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`)));
+    });
+
+    it('denies active member from creating a category', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/categories/cat_member_new`), {
+        categoryId: 'cat_member_new',
         householdId: HOUSEHOLD_ID,
         name: 'Groceries',
         type: 'Expense',
@@ -494,16 +548,196 @@ describe('FinTrack Firestore Security Rules', () => {
       }));
     });
 
-    it('denies category creation with invalid type', async () => {
+    it('denies active member from updating a category', async () => {
       const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
-      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/categories/cat_bad`), {
-        categoryId: 'cat_bad',
+      await assertFails(updateDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`), {
+        name: 'Food & Groceries',
+        type: 'Expense',
+        householdId: HOUSEHOLD_ID
+      }));
+    });
+
+    it('denies active member from deleting a category', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(deleteDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`)));
+    });
+
+    // C. ADMIN (Full CRUD ALLOW)
+    it('allows admin to read, create, update, and delete categories', async () => {
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+
+      // Read
+      await assertSucceeds(getDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`)));
+
+      // Create
+      const newCatId = 'cat_admin_created';
+      await assertSucceeds(setDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/categories/${newCatId}`), {
+        categoryId: newCatId,
+        householdId: HOUSEHOLD_ID,
+        name: 'Utilities',
+        type: 'Expense'
+      }));
+
+      // Update
+      await assertSucceeds(updateDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/categories/${newCatId}`), {
+        name: 'Utilities & Bills',
+        type: 'Expense',
+        householdId: HOUSEHOLD_ID
+      }));
+
+      // Delete
+      await assertSucceeds(deleteDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/categories/${newCatId}`)));
+    });
+
+    // D. OWNER (Full CRUD ALLOW)
+    it('allows owner full CRUD permissions on categories', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+
+      // Read
+      await assertSucceeds(getDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`)));
+
+      // Create
+      const ownerCatId = 'cat_owner_created';
+      await assertSucceeds(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/categories/${ownerCatId}`), {
+        categoryId: ownerCatId,
+        householdId: HOUSEHOLD_ID,
+        name: 'Salary',
+        type: 'Income'
+      }));
+
+      // Update
+      await assertSucceeds(updateDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/categories/${ownerCatId}`), {
+        name: 'Primary Salary',
+        type: 'Income',
+        householdId: HOUSEHOLD_ID
+      }));
+
+      // Delete
+      await assertSucceeds(deleteDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/categories/${ownerCatId}`)));
+    });
+
+    // E. CROSS-HOUSEHOLD ISOLATION
+    it('denies cross-household category read and write', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+
+      // Read other household category
+      await assertFails(getDoc(doc(memberDb, 'households/household_other/categories/cat_other_hh')));
+
+      // Create in other household
+      await assertFails(setDoc(doc(adminDb, 'households/household_other/categories/cat_cross_write'), {
+        categoryId: 'cat_cross_write',
+        householdId: 'household_other',
+        name: 'Cross Write',
+        type: 'Expense'
+      }));
+    });
+
+    // F. householdId INTEGRITY
+    it('denies category creation when householdId does not match path', async () => {
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+      await assertFails(setDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/categories/cat_mismatched`), {
+        categoryId: 'cat_mismatched',
+        householdId: 'different_household_id',
+        name: 'Mismatched HH',
+        type: 'Expense'
+      }));
+    });
+
+    it('denies category update attempting to mutate householdId', async () => {
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+      await assertFails(updateDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`), {
+        householdId: 'tampered_household_id'
+      }));
+    });
+
+    // G. TYPE VALIDATION
+    it('denies category creation and update with invalid transaction type', async () => {
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+
+      // Invalid type on create
+      await assertFails(setDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/categories/cat_bad_type`), {
+        categoryId: 'cat_bad_type',
         householdId: HOUSEHOLD_ID,
         name: 'Bad Category',
         type: 'InvalidType'
       }));
+
+      // Invalid type on update
+      await assertFails(updateDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/categories/${CAT_EXISTING_ID}`), {
+        type: 'BadType',
+        householdId: HOUSEHOLD_ID
+      }));
     });
 
+    // H. MIGRATION SESSION CATEGORY WRITE
+    it('allows category creation during active migration session in valid stage', async () => {
+      const MIGRATION_ID = 'mig_cat_test_001';
+
+      // Seed active migration session
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, `households/${HOUSEHOLD_ID}/migrationState/${MIGRATION_ID}`), {
+          migrationId: MIGRATION_ID,
+          householdId: HOUSEHOLD_ID,
+          initiatedByUid: OWNER_UID,
+          stage: 'CATEGORIES_UPLOADING',
+          totalTransactions: 0,
+          uploadedTransactions: 0,
+          totalCategories: 5,
+          uploadedCategories: 0,
+          totalRates: 0,
+          uploadedRates: 0,
+          startedAt: '2026-08-10T12:00:00Z',
+          completedAt: null,
+          failureReason: null
+        });
+      });
+
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertSucceeds(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/categories/cat_migrated`), {
+        categoryId: 'cat_migrated',
+        householdId: HOUSEHOLD_ID,
+        name: 'Migrated Category',
+        type: 'Expense',
+        migrationId: MIGRATION_ID
+      }));
+    });
+
+    it('denies category creation when migrationId references completed or failed session', async () => {
+      const MIGRATION_ID_COMPLETED = 'mig_cat_completed';
+
+      // Seed completed migration session
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, `households/${HOUSEHOLD_ID}/migrationState/${MIGRATION_ID_COMPLETED}`), {
+          migrationId: MIGRATION_ID_COMPLETED,
+          householdId: HOUSEHOLD_ID,
+          initiatedByUid: OWNER_UID,
+          stage: 'COMPLETED',
+          totalTransactions: 0,
+          uploadedTransactions: 0,
+          totalCategories: 0,
+          uploadedCategories: 0,
+          totalRates: 0,
+          uploadedRates: 0,
+          startedAt: '2026-08-10T12:00:00Z',
+          completedAt: '2026-08-10T12:05:00Z',
+          failureReason: null
+        });
+      });
+
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertFails(setDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/categories/cat_mig_failed`), {
+        categoryId: 'cat_mig_failed',
+        householdId: HOUSEHOLD_ID,
+        name: 'Late Migrated Category',
+        type: 'Expense',
+        migrationId: MIGRATION_ID_COMPLETED
+      }));
+    });
+
+    // Exchange Rates Subcollection Tests
     it('allows active member to create official BNR exchangeRate document', async () => {
       const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
       await assertSucceeds(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/exchangeRates/2026-08-10`), {
