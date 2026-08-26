@@ -505,6 +505,7 @@ class MainViewModel(
         viewModelScope.launch {
             try {
                 val currentUid = activeUserUid.value ?: "local_user"
+                val effectiveHouseholdId = activeHouseholdId.value ?: _uiState.value.activeTransactionForEdit?.householdId
                 val savedTx = transactionRepository.saveTransaction(
                     id = id,
                     date = date,
@@ -515,7 +516,8 @@ class MainViewModel(
                     category = category,
                     subCategory = subCategory,
                     destination = destination,
-                    userId = currentUid
+                    userId = currentUid,
+                    householdId = effectiveHouseholdId
                 )
                 dismissTransactionDialog()
                 if (savedTx.conversionStatus == "OFFICIAL") {

@@ -61,6 +61,8 @@ class FirestoreDtoTest {
         assertEquals("OFFICIAL", entity.conversionStatus)
         assertEquals("SYNCED", entity.syncStatus)
         assertEquals(false, entity.isDeleted)
+        assertEquals("hh_alpha", entity.householdId)
+        assertEquals("user_bubu", entity.createdByUid)
     }
 
     @Test

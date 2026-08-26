@@ -8,17 +8,14 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.example.data.dao.CategoryDao
-import com.example.data.dao.SyncOutboxDao
+import com.example.data.db.FinTrackDatabase
 import com.example.data.model.CategoryEntity
 import com.example.data.model.FilterSettings
 import com.example.data.model.HouseholdDto
 import com.example.data.model.HouseholdInviteDto
 import com.example.data.model.HouseholdMemberDto
-import com.example.data.model.SyncOutboxEntity
-import com.example.data.model.SyncStatus
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.AuthState
@@ -29,6 +26,7 @@ import com.example.data.repository.PendingRetryResult
 import com.example.data.repository.PreparedRepairItem
 import com.example.data.repository.RoomCategoryRepository
 import com.example.data.repository.SettingsRepository
+import com.example.data.repository.SyncStatus
 import com.example.data.repository.TransactionRepository
 import com.example.data.service.BnrDiagnosticResult
 import com.example.data.service.BnrRateResult
@@ -37,14 +35,18 @@ import com.example.data.util.CsvPreviewData
 import com.example.ui.MainViewModel
 import com.example.ui.components.TransactionFormDialog
 import com.example.ui.screens.CategoriesScreen
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -69,7 +71,12 @@ class CategoryPermissionsTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private val testDispatcher = StandardTestDispatcher()
+    private val testDispatcher = kotlinx.coroutines.test.UnconfinedTestDispatcher()
+
+    private lateinit var app: Application
+    private lateinit var db: FinTrackDatabase
+    private lateinit var fakeSnapshotSource: FakeSnapshotSource
+    private lateinit var syncRepo: FirestoreSyncRepository
 
     // ----------------------------------------------------
     // Fakes for MainViewModel test harness
@@ -77,7 +84,7 @@ class CategoryPermissionsTest {
 
     private class FakeAuthRepo(initialUid: String? = null) : AuthRepository {
         private val _authState = MutableStateFlow<AuthState>(
-            if (initialUid != null) AuthState.SignedIn(initialUid, "test@example.com") else AuthState.SignedOut
+            if (initialUid != null) AuthState.SignedIn(initialUid, "$initialUid@example.com") else AuthState.SignedOut
         )
         override val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
@@ -106,36 +113,13 @@ class CategoryPermissionsTest {
 
         override fun observeHousehold(householdId: String): Flow<HouseholdDto?> = householdFlow
         override fun observeHouseholdMembers(householdId: String): Flow<List<HouseholdMemberDto>> = membersFlow
-        override fun observeIncomingInvites(email: String): Flow<List<HouseholdInviteDto>> = flowOf(emptyList())
-        override suspend fun getHousehold(householdId: String): HouseholdDto? = householdFlow.value
-        override suspend fun getHouseholdMembers(householdId: String): List<HouseholdMemberDto> = membersFlow.value
-        override suspend fun createHousehold(name: String, creatorDisplayName: String?): Result<HouseholdDto> =
+        override fun observeIncomingInvites(userEmail: String): Flow<List<HouseholdInviteDto>> = flowOf(emptyList())
+        override suspend fun createHousehold(name: String): Result<HouseholdDto> =
             Result.failure(NotImplementedError())
-        override suspend fun sendInvite(householdId: String, email: String, role: String): Result<HouseholdInviteDto> =
+        override suspend fun sendInvite(householdId: String, householdName: String, inviteeEmail: String): Result<HouseholdInviteDto> =
             Result.failure(NotImplementedError())
         override suspend fun acceptInvite(inviteId: String): Result<Unit> = Result.success(Unit)
         override suspend fun declineInvite(inviteId: String): Result<Unit> = Result.success(Unit)
-        override suspend fun removeMember(householdId: String, memberUid: String): Result<Unit> = Result.success(Unit)
-        override suspend fun updateMemberRole(householdId: String, memberUid: String, newRole: String): Result<Unit> =
-            Result.success(Unit)
-    }
-
-    private class FakeSyncRepo : FirestoreSyncRepository {
-        val syncStatusFlow = MutableStateFlow<SyncStatus>(SyncStatus.SignedOut)
-        override val syncStatusState: StateFlow<SyncStatus> = syncStatusFlow.asStateFlow()
-        override val activeHouseholdId: String?
-            get() = (syncStatusState.value as? SyncStatus.Synced)?.householdId
-
-        override fun startSync(userUid: String, requestedHouseholdId: String?) {}
-        override fun stopSync() {}
-        override suspend fun forceSyncNow() {}
-        override suspend fun switchHousehold(householdId: String?) {
-            if (householdId == null) {
-                syncStatusFlow.value = SyncStatus.Offline
-            } else {
-                syncStatusFlow.value = SyncStatus.Synced(householdId = householdId)
-            }
-        }
     }
 
     private class FakeTestSettingsRepo : SettingsRepository {
@@ -164,12 +148,16 @@ class CategoryPermissionsTest {
             category: String,
             subCategory: String,
             destination: String?,
-            userId: String
+            userId: String,
+            householdId: String?
         ): TransactionEntity = TransactionEntity(
             id = id ?: "tx_1",
             date = date,
             description = description,
             amountRON = amountRON,
+            amountEUR = amountRON / 5.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = date,
             type = type,
             account = account,
             category = category,
@@ -189,192 +177,53 @@ class CategoryPermissionsTest {
         override suspend fun deleteTransactionById(id: String) {}
         override suspend fun deleteAllTransactions() {}
         override suspend fun insertBatch(transactions: List<TransactionEntity>) {}
-        override suspend fun getOfficialRate(date: String): BnrRateResult = BnrRateResult.Error("Not implemented")
-        override suspend fun runBnrDiagnostic(): BnrDiagnosticResult = BnrDiagnosticResult(0, 0, 0, 0, emptyList(), 0)
+        override suspend fun getOfficialRate(date: String): BnrRateResult = BnrRateResult(
+            requestedDate = date,
+            effectiveDate = date,
+            rate = 5.0,
+            source = "BNR_OFFICIAL",
+            status = "OFFICIAL"
+        )
+        override suspend fun runBnrDiagnostic(): BnrDiagnosticResult = BnrDiagnosticResult(
+            isReachable = true,
+            httpStatus = "200"
+        )
         override suspend fun executeAtomicCsvImport(previewData: CsvPreviewData, backupFile: File, allExistingTransactions: List<TransactionEntity>): CsvImportFinalResult =
             throw NotImplementedError()
-    }
-
-    private class FakeCategoryDao : CategoryDao {
-        val categories = mutableListOf<CategoryEntity>()
-        private val _flow = MutableStateFlow<List<CategoryEntity>>(emptyList())
-
-        private fun notifyChange() {
-            _flow.value = categories.toList()
-        }
-
-        override fun getAllCategories(householdId: String?): Flow<List<CategoryEntity>> {
-            return MutableStateFlow(
-                categories.filter { (householdId == null && it.householdId == null) || it.householdId == householdId }
-            )
-        }
-
-        override suspend fun getAllCategoriesList(householdId: String?): List<CategoryEntity> {
-            return categories.filter { (householdId == null && it.householdId == null) || it.householdId == householdId }
-        }
-
-        override suspend fun insertCategory(category: CategoryEntity) {
-            categories.removeAll { it.id == category.id }
-            categories.add(category)
-            notifyChange()
-        }
-
-        override suspend fun updateCategory(category: CategoryEntity) {
-            val index = categories.indexOfFirst { it.id == category.id }
-            if (index >= 0) {
-                categories[index] = category
-                notifyChange()
-            }
-        }
-
-        override suspend fun insertAllCategories(categories: List<CategoryEntity>) {
-            categories.forEach { insertCategory(it) }
-        }
-
-        override suspend fun deleteCategory(category: CategoryEntity) {
-            categories.removeAll { it.id == category.id }
-            notifyChange()
-        }
-
-        override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String, householdId: String?) {
-            val toUpdate = categories.filter {
-                it.name == oldName && it.type == type &&
-                        ((householdId == null && it.householdId == null) || it.householdId == householdId)
-            }
-            toUpdate.forEach {
-                val index = categories.indexOf(it)
-                if (index >= 0) {
-                    categories[index] = it.copy(name = newName)
-                }
-            }
-            notifyChange()
-        }
-
-        override suspend fun deleteCategoryGroup(name: String, type: String, householdId: String?) {
-            categories.removeAll {
-                it.name == name && it.type == type &&
-                        ((householdId == null && it.householdId == null) || it.householdId == householdId)
-            }
-            notifyChange()
-        }
-
-        override suspend fun updateSubcategory(id: String, newSubCategory: String) {
-            val index = categories.indexOfFirst { it.id == id }
-            if (index >= 0) {
-                categories[index] = categories[index].copy(subCategory = newSubCategory)
-                notifyChange()
-            }
-        }
-
-        override suspend fun deleteSubcategory(id: String) {
-            categories.removeAll { it.id == id }
-            notifyChange()
-        }
-
-        override suspend fun deleteCategoryById(id: String) {
-            categories.removeAll { it.id == id }
-            notifyChange()
-        }
-
-        override suspend fun getCategoriesGroup(name: String, type: String, householdId: String?): List<CategoryEntity> {
-            return categories.filter {
-                it.name == name && it.type == type &&
-                        ((householdId == null && it.householdId == null) || it.householdId == householdId)
-            }
-        }
-
-        override suspend fun getCategoryById(id: String): CategoryEntity? = categories.find { it.id == id }
-
-        override suspend fun deleteCategoriesByHousehold(householdId: String?) {
-            if (householdId == null) {
-                categories.removeAll { it.householdId == null }
-            } else {
-                categories.removeAll { it.householdId == householdId }
-            }
-            notifyChange()
-        }
-
-        override suspend fun deleteAllCategories(householdId: String?) {
-            deleteCategoriesByHousehold(householdId)
-        }
-    }
-
-    private class FakeSyncOutboxDao : SyncOutboxDao {
-        val outbox = mutableListOf<SyncOutboxEntity>()
-
-        override fun getAllOutboxEntries(): Flow<List<SyncOutboxEntity>> = flowOf(outbox.toList())
-        override suspend fun getPendingEntries(): List<SyncOutboxEntity> = outbox.filter { it.status == "PENDING" }
-        override suspend fun getPendingBatch(limit: Int): List<SyncOutboxEntity> = outbox.filter { it.status == "PENDING" }.take(limit)
-        override suspend fun getPendingCount(): Int = outbox.count { it.status == "PENDING" }
-        override fun getPendingCountFlow(): Flow<Int> = flowOf(outbox.count { it.status == "PENDING" })
-        override suspend fun getPendingEntryForEntity(entityId: String): SyncOutboxEntity? =
-            outbox.lastOrNull { it.entityId == entityId && it.status == "PENDING" }
-        override suspend fun getEntryById(id: String): SyncOutboxEntity? = outbox.find { it.id == id }
-        override suspend fun markInProgress(id: String, lastAttemptAt: Long, updatedAt: Long): Int = 1
-        override suspend fun markPending(id: String, updatedAt: Long): Int = 1
-        override suspend fun markAcknowledged(id: String, updatedAt: Long): Int = 1
-        override suspend fun markSuccess(id: String, updatedAt: Long): Int = 1
-        override suspend fun markFailed(id: String, errorCode: String?, errorMessage: String?, retryCount: Int, lastAttemptAt: Long, updatedAt: Long): Int = 1
-        override suspend fun resetInProgressToPending(updatedAt: Long): Int = 0
-        override suspend fun incrementRetryCount(id: String, lastAttemptAt: Long, errorCode: String?, errorMessage: String?, updatedAt: Long): Int = 1
-        override suspend fun recordRetryFailure(id: String, errorCode: String?, errorMessage: String?, lastAttemptAt: Long, updatedAt: Long): Int = 1
-        override suspend fun clearAcknowledgedEntries() {}
-        override suspend fun deleteAcknowledgedEntries(): Int = 0
-        override suspend fun deleteSuccessEntries(): Int = 0
-        override suspend fun deleteOldCompletedEntries(cutoffTime: Long): Int = 0
-        override suspend fun deleteOldFailedEntries(cutoffTime: Long): Int = 0
-        override suspend fun deleteOutboxEntryById(id: String) { outbox.removeAll { it.id == id } }
-        override suspend fun deleteOutboxEntriesForEntity(entityId: String) { outbox.removeAll { it.entityId == entityId } }
-        override suspend fun deleteAllOutboxEntries() { outbox.clear() }
-        override suspend fun getPendingEntry(entityType: String, entityId: String): SyncOutboxEntity? =
-            outbox.lastOrNull { it.entityType == entityType && it.entityId == entityId && it.status == "PENDING" }
-        override suspend fun getActiveEntry(entityType: String, entityId: String): SyncOutboxEntity? =
-            outbox.lastOrNull { it.entityType == entityType && it.entityId == entityId && it.status in listOf("PENDING", "IN_PROGRESS") }
-        override suspend fun getActiveEntityIdsByType(entityType: String): List<String> =
-            outbox.filter { it.entityType == entityType && it.status in listOf("PENDING", "IN_PROGRESS") }.map { it.entityId }
-        override suspend fun deleteEntriesForEntity(entityType: String, entityId: String): Int {
-            val count = outbox.count { it.entityType == entityType && it.entityId == entityId }
-            outbox.removeAll { it.entityType == entityType && it.entityId == entityId }
-            return count
-        }
-        override suspend fun insertOutboxEntry(entry: SyncOutboxEntity) {
-            outbox.removeAll { it.id == entry.id }
-            outbox.add(entry)
-        }
-        override suspend fun insertAllOutboxEntries(entries: List<SyncOutboxEntity>) {
-            entries.forEach { insertOutboxEntry(it) }
-        }
-        override suspend fun updateOutboxEntry(entry: SyncOutboxEntity) {
-            val index = outbox.indexOfFirst { it.id == entry.id }
-            if (index >= 0) outbox[index] = entry
-        }
     }
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        app = ApplicationProvider.getApplicationContext<Application>()
+        db = Room.inMemoryDatabaseBuilder(app, FinTrackDatabase::class.java)
+            .allowMainThreadQueries()
+            .setQueryExecutor(Runnable::run)
+            .setTransactionExecutor(Runnable::run)
+            .build()
+        fakeSnapshotSource = FakeSnapshotSource().apply {
+            autoEmitInitialSnapshot = true
+        }
+        syncRepo = FirestoreSyncRepository(
+            database = db,
+            snapshotSource = fakeSnapshotSource,
+            coroutineScope = TestScope(testDispatcher)
+        )
     }
 
     @After
     fun tearDown() {
+        syncRepo.stopSync()
+        db.close()
         Dispatchers.resetMain()
     }
 
-    // =========================================================================
-    // 1. PERMISSION STATE TESTS (OWNER, ADMIN, MEMBER, OFFLINE)
-    // =========================================================================
-
-    @Test
-    fun testOfflineOrNullHouseholdAllowsCategoryManagement() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
-        val authRepo = FakeAuthRepo(initialUid = "user_1")
-        val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Offline
-
-        val categoryDao = FakeCategoryDao()
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
+    private fun createViewModel(
+        authRepo: FakeAuthRepo,
+        householdRepo: FakeHouseholdRepo,
+        scope: kotlinx.coroutines.CoroutineScope
+    ): MainViewModel {
+        val categoryRepo = RoomCategoryRepository(db.categoryDao(), db.syncOutboxDao(), db)
         val transactionRepo = FakeTransactionRepo()
         val settingsRepo = FakeTestSettingsRepo()
 
@@ -385,9 +234,32 @@ class CategoryPermissionsTest {
             authRepository = authRepo,
             householdRepository = householdRepo,
             syncRepository = syncRepo,
+            database = db,
             ioDispatcher = testDispatcher,
             application = app
         )
+
+        scope.launch(testDispatcher) { vm.activeHouseholdId.collect() }
+        scope.launch(testDispatcher) { vm.householdMembers.collect() }
+        scope.launch(testDispatcher) { vm.currentUserMembership.collect() }
+        scope.launch(testDispatcher) { vm.canManageCategories.collect() }
+        scope.launch(testDispatcher) { vm.uiState.collect() }
+
+        return vm
+    }
+
+    // =========================================================================
+    // 1. PERMISSION STATE TESTS (OWNER, ADMIN, MEMBER, OFFLINE)
+    // =========================================================================
+
+    @Test
+    fun testOfflineOrNullHouseholdAllowsCategoryManagement() = runTest(testDispatcher) {
+        val authRepo = FakeAuthRepo(initialUid = "user_1")
+        val householdRepo = FakeHouseholdRepo()
+        syncRepo.stopSync()
+        advanceUntilIdle()
+
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
 
         assertTrue(
@@ -397,33 +269,18 @@ class CategoryPermissionsTest {
     }
 
     @Test
-    fun testOwnerRoleAllowsCategoryManagement() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
+    fun testOwnerRoleAllowsCategoryManagement() = runTest(testDispatcher) {
         val authRepo = FakeAuthRepo(initialUid = "user_owner")
         val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Synced(householdId = "hh_123")
+        fakeSnapshotSource.setMember("hh_123", "user_owner", "OWNER", "ACTIVE")
+        syncRepo.startSync("user_owner", "hh_123")
+        advanceUntilIdle()
 
         householdRepo.membersFlow.value = listOf(
             HouseholdMemberDto(uid = "user_owner", email = "owner@example.com", role = "owner")
         )
 
-        val categoryDao = FakeCategoryDao()
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
-        val transactionRepo = FakeTransactionRepo()
-        val settingsRepo = FakeTestSettingsRepo()
-
-        val vm = MainViewModel(
-            transactionRepository = transactionRepo,
-            categoryRepository = categoryRepo,
-            settingsRepository = settingsRepo,
-            authRepository = authRepo,
-            householdRepository = householdRepo,
-            syncRepository = syncRepo,
-            ioDispatcher = testDispatcher,
-            application = app
-        )
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
 
         assertTrue(
@@ -433,33 +290,18 @@ class CategoryPermissionsTest {
     }
 
     @Test
-    fun testAdminRoleAllowsCategoryManagement() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
+    fun testAdminRoleAllowsCategoryManagement() = runTest(testDispatcher) {
         val authRepo = FakeAuthRepo(initialUid = "user_admin")
         val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Synced(householdId = "hh_123")
+        fakeSnapshotSource.setMember("hh_123", "user_admin", "ADMIN", "ACTIVE")
+        syncRepo.startSync("user_admin", "hh_123")
+        advanceUntilIdle()
 
         householdRepo.membersFlow.value = listOf(
             HouseholdMemberDto(uid = "user_admin", email = "admin@example.com", role = "admin")
         )
 
-        val categoryDao = FakeCategoryDao()
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
-        val transactionRepo = FakeTransactionRepo()
-        val settingsRepo = FakeTestSettingsRepo()
-
-        val vm = MainViewModel(
-            transactionRepository = transactionRepo,
-            categoryRepository = categoryRepo,
-            settingsRepository = settingsRepo,
-            authRepository = authRepo,
-            householdRepository = householdRepo,
-            syncRepository = syncRepo,
-            ioDispatcher = testDispatcher,
-            application = app
-        )
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
 
         assertTrue(
@@ -469,33 +311,18 @@ class CategoryPermissionsTest {
     }
 
     @Test
-    fun testMemberRoleDeniesCategoryManagement() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
+    fun testMemberRoleDeniesCategoryManagement() = runTest(testDispatcher) {
         val authRepo = FakeAuthRepo(initialUid = "user_member")
         val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Synced(householdId = "hh_123")
+        fakeSnapshotSource.setMember("hh_123", "user_member", "MEMBER", "ACTIVE")
+        syncRepo.startSync("user_member", "hh_123")
+        advanceUntilIdle()
 
         householdRepo.membersFlow.value = listOf(
             HouseholdMemberDto(uid = "user_member", email = "member@example.com", role = "member")
         )
 
-        val categoryDao = FakeCategoryDao()
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
-        val transactionRepo = FakeTransactionRepo()
-        val settingsRepo = FakeTestSettingsRepo()
-
-        val vm = MainViewModel(
-            transactionRepository = transactionRepo,
-            categoryRepository = categoryRepo,
-            settingsRepository = settingsRepo,
-            authRepository = authRepo,
-            householdRepository = householdRepo,
-            syncRepository = syncRepo,
-            ioDispatcher = testDispatcher,
-            application = app
-        )
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
 
         assertFalse(
@@ -509,192 +336,147 @@ class CategoryPermissionsTest {
     // =========================================================================
 
     @Test
-    fun testMemberCannotAddCategoryViaViewModel() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
+    fun testMemberCannotAddCategoryViaViewModel() = runTest(testDispatcher) {
+        db.categoryDao().deleteAllCategories("hh_123")
         val authRepo = FakeAuthRepo(initialUid = "user_member")
         val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Synced(householdId = "hh_123")
+        fakeSnapshotSource.setMember("hh_123", "user_member", "MEMBER", "ACTIVE")
+        syncRepo.startSync("user_member", "hh_123")
+        advanceUntilIdle()
+
         householdRepo.membersFlow.value = listOf(
             HouseholdMemberDto(uid = "user_member", email = "member@example.com", role = "member")
         )
 
-        val categoryDao = FakeCategoryDao()
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
-        val transactionRepo = FakeTransactionRepo()
-        val settingsRepo = FakeTestSettingsRepo()
-
-        val vm = MainViewModel(
-            transactionRepository = transactionRepo,
-            categoryRepository = categoryRepo,
-            settingsRepository = settingsRepo,
-            authRepository = authRepo,
-            householdRepository = householdRepo,
-            syncRepository = syncRepo,
-            ioDispatcher = testDispatcher,
-            application = app
-        )
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
+
+        db.syncOutboxDao().deleteAllOutboxEntries()
 
         // Attempt add category as member
         vm.addCategory(name = "Secret", type = "Expense", subCategory = "Hacks")
         advanceUntilIdle()
 
-        assertEquals(0, categoryDao.categories.size)
-        assertEquals(0, outboxDao.outbox.size)
+        val stored = db.categoryDao().getAllCategoriesList("hh_123").filter { it.name == "Secret" }
+        val pendingOutbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals(0, stored.size)
+        assertEquals(0, pendingOutbox.size)
         assertEquals("Only household owner or admin can modify categories.", vm.uiState.value.userNotification)
     }
 
     @Test
-    fun testMemberCannotUpdateCategoryGroupViaViewModel() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
+    fun testMemberCannotUpdateCategoryGroupViaViewModel() = runTest(testDispatcher) {
         val authRepo = FakeAuthRepo(initialUid = "user_member")
         val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Synced(householdId = "hh_123")
+        fakeSnapshotSource.setMember("hh_123", "user_member", "MEMBER", "ACTIVE")
+        syncRepo.startSync("user_member", "hh_123")
+        advanceUntilIdle()
+
         householdRepo.membersFlow.value = listOf(
             HouseholdMemberDto(uid = "user_member", email = "member@example.com", role = "member")
         )
 
-        val categoryDao = FakeCategoryDao()
-        categoryDao.categories.add(CategoryEntity(id = "cat_1", name = "Food", type = "Expense", subCategory = "Groceries", householdId = "hh_123"))
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
-        val transactionRepo = FakeTransactionRepo()
-        val settingsRepo = FakeTestSettingsRepo()
-
-        val vm = MainViewModel(
-            transactionRepository = transactionRepo,
-            categoryRepository = categoryRepo,
-            settingsRepository = settingsRepo,
-            authRepository = authRepo,
-            householdRepository = householdRepo,
-            syncRepository = syncRepo,
-            ioDispatcher = testDispatcher,
-            application = app
+        db.categoryDao().insertCategory(
+            CategoryEntity(id = "cat_1", name = "Food", type = "Expense", subCategory = "Groceries", householdId = "hh_123")
         )
+
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
 
         vm.updateCategoryGroup(oldName = "Food", newName = "Groceries & Dine", type = "Expense")
         advanceUntilIdle()
 
-        assertEquals("Food", categoryDao.categories.first().name)
-        assertEquals(0, outboxDao.outbox.size)
+        val stored = db.categoryDao().getCategoryById("cat_1")
+        val pendingOutbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals("Food", stored?.name)
+        assertEquals(0, pendingOutbox.size)
         assertEquals("Only household owner or admin can modify categories.", vm.uiState.value.userNotification)
     }
 
     @Test
-    fun testMemberCannotDeleteCategoryGroupViaViewModel() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
+    fun testMemberCannotDeleteCategoryGroupViaViewModel() = runTest(testDispatcher) {
         val authRepo = FakeAuthRepo(initialUid = "user_member")
         val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Synced(householdId = "hh_123")
+        fakeSnapshotSource.setMember("hh_123", "user_member", "MEMBER", "ACTIVE")
+        syncRepo.startSync("user_member", "hh_123")
+        advanceUntilIdle()
+
         householdRepo.membersFlow.value = listOf(
             HouseholdMemberDto(uid = "user_member", email = "member@example.com", role = "member")
         )
 
-        val categoryDao = FakeCategoryDao()
-        categoryDao.categories.add(CategoryEntity(id = "cat_1", name = "Food", type = "Expense", subCategory = "Groceries", householdId = "hh_123"))
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
-        val transactionRepo = FakeTransactionRepo()
-        val settingsRepo = FakeTestSettingsRepo()
-
-        val vm = MainViewModel(
-            transactionRepository = transactionRepo,
-            categoryRepository = categoryRepo,
-            settingsRepository = settingsRepo,
-            authRepository = authRepo,
-            householdRepository = householdRepo,
-            syncRepository = syncRepo,
-            ioDispatcher = testDispatcher,
-            application = app
+        db.categoryDao().insertCategory(
+            CategoryEntity(id = "cat_1", name = "Food", type = "Expense", subCategory = "Groceries", householdId = "hh_123")
         )
+
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
 
         vm.deleteCategoryGroup(name = "Food", type = "Expense")
         advanceUntilIdle()
 
-        assertEquals(1, categoryDao.categories.size)
-        assertEquals(0, outboxDao.outbox.size)
+        val stored = db.categoryDao().getCategoryById("cat_1")
+        val pendingOutbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals("Food", stored?.name)
+        assertEquals(0, pendingOutbox.size)
         assertEquals("Only household owner or admin can modify categories.", vm.uiState.value.userNotification)
     }
 
     @Test
-    fun testMemberCannotUpdateSubcategoryViaViewModel() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
+    fun testMemberCannotUpdateSubcategoryViaViewModel() = runTest(testDispatcher) {
         val authRepo = FakeAuthRepo(initialUid = "user_member")
         val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Synced(householdId = "hh_123")
+        fakeSnapshotSource.setMember("hh_123", "user_member", "MEMBER", "ACTIVE")
+        syncRepo.startSync("user_member", "hh_123")
+        advanceUntilIdle()
+
         householdRepo.membersFlow.value = listOf(
             HouseholdMemberDto(uid = "user_member", email = "member@example.com", role = "member")
         )
 
-        val categoryDao = FakeCategoryDao()
-        categoryDao.categories.add(CategoryEntity(id = "cat_1", name = "Food", type = "Expense", subCategory = "Groceries", householdId = "hh_123"))
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
-        val transactionRepo = FakeTransactionRepo()
-        val settingsRepo = FakeTestSettingsRepo()
-
-        val vm = MainViewModel(
-            transactionRepository = transactionRepo,
-            categoryRepository = categoryRepo,
-            settingsRepository = settingsRepo,
-            authRepository = authRepo,
-            householdRepository = householdRepo,
-            syncRepository = syncRepo,
-            ioDispatcher = testDispatcher,
-            application = app
+        db.categoryDao().insertCategory(
+            CategoryEntity(id = "cat_1", name = "Food", type = "Expense", subCategory = "Groceries", householdId = "hh_123")
         )
+
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
 
         vm.updateSubcategory(id = "cat_1", newSubCategory = "Supermarket")
         advanceUntilIdle()
 
-        assertEquals("Groceries", categoryDao.categories.first().subCategory)
-        assertEquals(0, outboxDao.outbox.size)
+        val stored = db.categoryDao().getCategoryById("cat_1")
+        val pendingOutbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals("Groceries", stored?.subCategory)
+        assertEquals(0, pendingOutbox.size)
         assertEquals("Only household owner or admin can modify categories.", vm.uiState.value.userNotification)
     }
 
     @Test
-    fun testMemberCannotDeleteSubcategoryViaViewModel() = runTest {
-        val app = ApplicationProvider.getApplicationContext<Application>()
+    fun testMemberCannotDeleteSubcategoryViaViewModel() = runTest(testDispatcher) {
         val authRepo = FakeAuthRepo(initialUid = "user_member")
         val householdRepo = FakeHouseholdRepo()
-        val syncRepo = FakeSyncRepo()
-        syncRepo.syncStatusFlow.value = SyncStatus.Synced(householdId = "hh_123")
+        fakeSnapshotSource.setMember("hh_123", "user_member", "MEMBER", "ACTIVE")
+        syncRepo.startSync("user_member", "hh_123")
+        advanceUntilIdle()
+
         householdRepo.membersFlow.value = listOf(
             HouseholdMemberDto(uid = "user_member", email = "member@example.com", role = "member")
         )
 
-        val categoryDao = FakeCategoryDao()
-        categoryDao.categories.add(CategoryEntity(id = "cat_1", name = "Food", type = "Expense", subCategory = "Groceries", householdId = "hh_123"))
-        val outboxDao = FakeSyncOutboxDao()
-        val categoryRepo = RoomCategoryRepository(categoryDao, outboxDao)
-        val transactionRepo = FakeTransactionRepo()
-        val settingsRepo = FakeTestSettingsRepo()
-
-        val vm = MainViewModel(
-            transactionRepository = transactionRepo,
-            categoryRepository = categoryRepo,
-            settingsRepository = settingsRepo,
-            authRepository = authRepo,
-            householdRepository = householdRepo,
-            syncRepository = syncRepo,
-            ioDispatcher = testDispatcher,
-            application = app
+        db.categoryDao().insertCategory(
+            CategoryEntity(id = "cat_1", name = "Food", type = "Expense", subCategory = "Groceries", householdId = "hh_123")
         )
+
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
         advanceUntilIdle()
 
         vm.deleteSubcategory(id = "cat_1")
         advanceUntilIdle()
 
-        assertEquals(1, categoryDao.categories.size)
-        assertEquals(0, outboxDao.outbox.size)
+        val stored = db.categoryDao().getCategoryById("cat_1")
+        val pendingOutbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals("Food", stored?.name)
+        assertEquals(0, pendingOutbox.size)
         assertEquals("Only household owner or admin can modify categories.", vm.uiState.value.userNotification)
     }
 
@@ -802,6 +584,8 @@ class CategoryPermissionsTest {
 
         // Form dialog displays category selector and allows choosing the common categories
         composeTestRule.onNodeWithText("Add Transaction").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Food").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("tx_input_amount").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("tx_input_desc").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("save_transaction_button").assertExists()
     }
 }

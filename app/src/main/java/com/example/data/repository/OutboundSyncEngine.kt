@@ -154,8 +154,13 @@ class OutboundSyncEngine(
                     "UPSERT" -> {
                         val tx = database.transactionDao().getTransactionById(item.entityId)
                         if (tx != null) {
-                            val payload = tx.toFirestoreMap(householdId)
-                            snapshotSource.upsertTransaction(householdId, tx.id, payload)
+                            if (tx.householdId != null && tx.householdId != householdId) {
+                                Log.w(TAG, "Skipping outbound TRANSACTION ${tx.id}: entity householdId (${tx.householdId}) does not match active householdId ($householdId)")
+                                return
+                            }
+                            val targetHouseholdId = tx.householdId ?: householdId
+                            val payload = tx.toFirestoreMap(targetHouseholdId)
+                            snapshotSource.upsertTransaction(targetHouseholdId, tx.id, payload)
                         } else {
                             // If local transaction was deleted before sync ran, issue soft delete
                             snapshotSource.deleteTransaction(householdId, item.entityId)

@@ -68,7 +68,8 @@ class RoomTransactionRepository(
         category: String,
         subCategory: String,
         destination: String?,
-        userId: String
+        userId: String,
+        householdId: String?
     ): TransactionEntity {
         val bnrResult = try {
             exchangeRateService.getOfficialRate(date)
@@ -106,7 +107,9 @@ class RoomTransactionRepository(
             subCategory = subCategory,
             destination = if (type == "Income") destination else null,
             createdAt = existingTx?.createdAt ?: now,
-            updatedAt = now
+            updatedAt = now,
+            householdId = householdId ?: existingTx?.householdId,
+            createdByUid = existingTx?.createdByUid ?: if (userId != "local_user") userId else null
         )
 
         executeWithTransaction {

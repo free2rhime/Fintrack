@@ -347,7 +347,7 @@ class FakeTransactionRepository : TransactionRepository {
     override suspend fun saveTransaction(
         id: String?, date: String, description: String, amountRON: Double,
         type: String, account: String, category: String, subCategory: String, destination: String?,
-        userId: String
+        userId: String, householdId: String?
     ): TransactionEntity {
         val tx = TransactionEntity(
             id = id ?: "tx_${txList.size + 1}",

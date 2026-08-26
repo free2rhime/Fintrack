@@ -466,7 +466,9 @@ fun TransactionDto.toEntity(documentId: String? = null): TransactionEntity? {
         subCategoryId = subCategoryId,
         syncStatus = "SYNCED",
         lastSyncedAt = System.currentTimeMillis(),
-        isDeleted = isDeleted == true
+        isDeleted = isDeleted == true,
+        householdId = householdId,
+        createdByUid = createdByUid
     )
 }
 
