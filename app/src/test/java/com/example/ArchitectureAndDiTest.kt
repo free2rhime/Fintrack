@@ -21,30 +21,51 @@ import com.example.data.util.CsvImportFinalResult
 import com.example.data.util.CsvPreviewData
 import com.example.di.DefaultAppContainer
 import com.example.ui.MainViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(manifest = Config.NONE)
 class ArchitectureAndDiTest {
 
+    private val testDispatcher = UnconfinedTestDispatcher()
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(testDispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
     @Test
-    fun testMainViewModelConstructedWithFakeRepositories() = runBlocking {
-        val fakeTxRepo = FakeTransactionRepository()
-        val fakeCatRepo = FakeCategoryRepository()
-        val fakeSettingsRepo = FakeSettingsRepository()
+    fun testMainViewModelConstructedWithFakeRepositories() = runTest {
         val fakeAuthRepo = FakeAuthRepository()
+        val fakeTxRepo = FakeTransactionRepository(fakeAuthRepo)
+        val fakeCatRepo = FakeCategoryRepository(fakeAuthRepo)
+        val fakeSettingsRepo = FakeSettingsRepository()
         val app = ApplicationProvider.getApplicationContext<Application>()
 
         fakeAuthRepo.signInWithTestUid("test_user_1")
@@ -73,11 +94,11 @@ class ArchitectureAndDiTest {
         fakeCatRepo.addCategory("Food", "Expense", "Groceries", userId = "test_user_1")
 
         // Verify MainViewModel flows collect from fake repositories
-        val txs = viewModel.allTransactions.first()
+        val txs = viewModel.allTransactions.first { it.isNotEmpty() }
         assertEquals(1, txs.size)
         assertEquals("Fake Test Transaction", txs[0].description)
 
-        val cats = viewModel.categories.first()
+        val cats = viewModel.categories.first { it.isNotEmpty() }
         assertEquals(1, cats.size)
         assertEquals("Food", cats[0].name)
 
@@ -89,11 +110,11 @@ class ArchitectureAndDiTest {
     }
 
     @Test
-    fun testSignedOutStateExposesNoFinancialRecords() = runBlocking {
-        val fakeTxRepo = FakeTransactionRepository()
-        val fakeCatRepo = FakeCategoryRepository()
-        val fakeSettingsRepo = FakeSettingsRepository()
+    fun testSignedOutStateExposesNoFinancialRecords() = runTest {
         val fakeAuthRepo = FakeAuthRepository(AuthState.SignedOut)
+        val fakeTxRepo = FakeTransactionRepository(fakeAuthRepo)
+        val fakeCatRepo = FakeCategoryRepository(fakeAuthRepo)
+        val fakeSettingsRepo = FakeSettingsRepository()
         val app = ApplicationProvider.getApplicationContext<Application>()
 
         val viewModel = MainViewModel(
@@ -116,11 +137,11 @@ class ArchitectureAndDiTest {
     }
 
     @Test
-    fun testSuccessfulSignInExposesActiveUidAndData() = runBlocking {
-        val fakeTxRepo = FakeTransactionRepository()
-        val fakeCatRepo = FakeCategoryRepository()
-        val fakeSettingsRepo = FakeSettingsRepository()
+    fun testSuccessfulSignInExposesActiveUidAndData() = runTest {
         val fakeAuthRepo = FakeAuthRepository()
+        val fakeTxRepo = FakeTransactionRepository(fakeAuthRepo)
+        val fakeCatRepo = FakeCategoryRepository(fakeAuthRepo)
+        val fakeSettingsRepo = FakeSettingsRepository()
         val app = ApplicationProvider.getApplicationContext<Application>()
 
         fakeAuthRepo.signInWithTestUid("user_alpha")
@@ -149,22 +170,22 @@ class ArchitectureAndDiTest {
 
         assertEquals("user_alpha", viewModel.activeUserUid.first())
 
-        val txs = viewModel.allTransactions.first()
+        val txs = viewModel.allTransactions.first { it.isNotEmpty() }
         assertEquals(1, txs.size)
         assertEquals("Alpha Dinner", txs[0].description)
 
-        val cats = viewModel.categories.first()
+        val cats = viewModel.categories.first { it.isNotEmpty() }
         assertEquals(2, cats.size)
         assertTrue(cats.any { it.name == "Alpha Category" })
         assertTrue(cats.any { it.name == "Default Shared" })
     }
 
     @Test
-    fun testSignOutClearsFinancialStateFlows() = runBlocking {
-        val fakeTxRepo = FakeTransactionRepository()
-        val fakeCatRepo = FakeCategoryRepository()
-        val fakeSettingsRepo = FakeSettingsRepository()
+    fun testSignOutClearsFinancialStateFlows() = runTest {
         val fakeAuthRepo = FakeAuthRepository()
+        val fakeTxRepo = FakeTransactionRepository(fakeAuthRepo)
+        val fakeCatRepo = FakeCategoryRepository(fakeAuthRepo)
+        val fakeSettingsRepo = FakeSettingsRepository()
         val app = ApplicationProvider.getApplicationContext<Application>()
 
         fakeAuthRepo.signInWithTestUid("user_alpha")
@@ -200,11 +221,11 @@ class ArchitectureAndDiTest {
     }
 
     @Test
-    fun testSwitchingUidHidesPreviousUserRecords() = runBlocking {
-        val fakeTxRepo = FakeTransactionRepository()
-        val fakeCatRepo = FakeCategoryRepository()
-        val fakeSettingsRepo = FakeSettingsRepository()
+    fun testSwitchingUidHidesPreviousUserRecords() = runTest {
         val fakeAuthRepo = FakeAuthRepository()
+        val fakeTxRepo = FakeTransactionRepository(fakeAuthRepo)
+        val fakeCatRepo = FakeCategoryRepository(fakeAuthRepo)
+        val fakeSettingsRepo = FakeSettingsRepository()
         val app = ApplicationProvider.getApplicationContext<Application>()
 
         fakeAuthRepo.signInWithTestUid("uid_alpha")
@@ -252,11 +273,11 @@ class ArchitectureAndDiTest {
     }
 
     @Test
-    fun testAuthErrorExposesNoFinancialRecords() = runBlocking {
-        val fakeTxRepo = FakeTransactionRepository()
-        val fakeCatRepo = FakeCategoryRepository()
-        val fakeSettingsRepo = FakeSettingsRepository()
+    fun testAuthErrorExposesNoFinancialRecords() = runTest {
         val fakeAuthRepo = FakeAuthRepository(AuthState.AuthError("Sign-in failed"))
+        val fakeTxRepo = FakeTransactionRepository(fakeAuthRepo)
+        val fakeCatRepo = FakeCategoryRepository(fakeAuthRepo)
+        val fakeSettingsRepo = FakeSettingsRepository()
         val app = ApplicationProvider.getApplicationContext<Application>()
 
         val viewModel = MainViewModel(
@@ -333,14 +354,23 @@ class FakeAuthRepository(
     }
 }
 
-class FakeTransactionRepository : TransactionRepository {
+class FakeTransactionRepository(private val authRepo: AuthRepository? = null) : TransactionRepository {
     private val txList = mutableListOf<TransactionEntity>()
-    private val _flow = MutableStateFlow<List<TransactionEntity>>(emptyList())
+    private val _txListFlow = MutableStateFlow<List<TransactionEntity>>(emptyList())
 
-    override val allTransactions: Flow<List<TransactionEntity>> = _flow
-    override fun getTransactions(householdId: String?): Flow<List<TransactionEntity>> = _flow
+    override val allTransactions: Flow<List<TransactionEntity>>
+        get() = if (authRepo != null) {
+            combine(_txListFlow, authRepo.authState) { list, state ->
+                val uid = (state as? AuthState.SignedIn)?.userUid
+                if (uid != null) list.filter { it.userId == uid } else emptyList()
+            }
+        } else {
+            _txListFlow
+        }
 
-    override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = _flow
+    override fun getTransactions(householdId: String?): Flow<List<TransactionEntity>> = allTransactions
+
+    override fun getTransactionsInRange(startDate: String, endDate: String): Flow<List<TransactionEntity>> = allTransactions
 
     override suspend fun getTransactionById(id: String): TransactionEntity? = txList.find { it.id == id }
 
@@ -364,27 +394,28 @@ class FakeTransactionRepository : TransactionRepository {
             account = account,
             category = category,
             subCategory = subCategory,
-            destination = destination
+            destination = destination,
+            householdId = householdId
         )
         txList.removeAll { it.id == tx.id }
         txList.add(tx)
-        _flow.value = txList.toList()
+        _txListFlow.value = txList.toList()
         return tx
     }
 
     override suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity = source.copy(id = "dup_${System.currentTimeMillis()}")
     override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
-    override suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) { txList.addAll(transactions); _flow.value = txList.toList() }
+    override suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) { txList.addAll(transactions); _txListFlow.value = txList.toList() }
     override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
     override suspend fun getAllTransactionsList(): List<TransactionEntity> = txList.toList()
     override suspend fun syncPendingConversions(): PendingRetryResult = PendingRetryResult(0, 0, 0, 0, null)
     override suspend fun applyRepairBatch(repairs: List<PreparedRepairItem>): Int = repairs.size
     override suspend fun applyRepairToTransactionAndCache(transaction: TransactionEntity, officialRate: Double, effectiveBnrDate: String) {}
-    override suspend fun insertTransaction(transaction: TransactionEntity) { txList.add(transaction); _flow.value = txList.toList() }
-    override suspend fun deleteTransaction(transaction: TransactionEntity) { txList.remove(transaction); _flow.value = txList.toList() }
-    override suspend fun deleteTransactionById(id: String) { txList.removeAll { it.id == id }; _flow.value = txList.toList() }
-    override suspend fun deleteAllTransactions() { txList.clear(); _flow.value = emptyList() }
-    override suspend fun insertBatch(transactions: List<TransactionEntity>) { txList.addAll(transactions); _flow.value = txList.toList() }
+    override suspend fun insertTransaction(transaction: TransactionEntity) { txList.add(transaction); _txListFlow.value = txList.toList() }
+    override suspend fun deleteTransaction(transaction: TransactionEntity) { txList.remove(transaction); _txListFlow.value = txList.toList() }
+    override suspend fun deleteTransactionById(id: String) { txList.removeAll { it.id == id }; _txListFlow.value = txList.toList() }
+    override suspend fun deleteAllTransactions() { txList.clear(); _txListFlow.value = emptyList() }
+    override suspend fun insertBatch(transactions: List<TransactionEntity>) { txList.addAll(transactions); _txListFlow.value = txList.toList() }
     override suspend fun getOfficialRate(date: String): BnrRateResult = BnrRateResult(date, date, 5.0, "BNR_OFFICIAL", "OFFICIAL", "OK")
     override suspend fun runBnrDiagnostic(): BnrDiagnosticResult = BnrDiagnosticResult(isReachable = true, httpStatus = "200")
     override suspend fun executeAtomicCsvImport(previewData: CsvPreviewData, backupFile: File, allExistingTransactions: List<TransactionEntity>): CsvImportFinalResult {
@@ -392,18 +423,27 @@ class FakeTransactionRepository : TransactionRepository {
     }
 }
 
-class FakeCategoryRepository : CategoryRepository {
+class FakeCategoryRepository(private val authRepo: AuthRepository? = null) : CategoryRepository {
     private val catList = mutableListOf<CategoryEntity>()
-    private val _flow = MutableStateFlow<List<CategoryEntity>>(emptyList())
+    private val _catListFlow = MutableStateFlow<List<CategoryEntity>>(emptyList())
 
-    override val allCategories: Flow<List<CategoryEntity>> = _flow
-    override fun getCategories(householdId: String?): Flow<List<CategoryEntity>> = _flow
+    override val allCategories: Flow<List<CategoryEntity>>
+        get() = if (authRepo != null) {
+            combine(_catListFlow, authRepo.authState) { list, state ->
+                val uid = (state as? AuthState.SignedIn)?.userUid
+                if (uid != null) list.filter { it.userId == uid || it.userId == "local_user" } else emptyList()
+            }
+        } else {
+            _catListFlow
+        }
+
+    override fun getCategories(householdId: String?): Flow<List<CategoryEntity>> = allCategories
 
     override suspend fun getAllCategoriesList(): List<CategoryEntity> = catList.toList()
-    override suspend fun ensureDefaultCategoriesSeeded(householdId: String?) {}
+    override suspend fun ensureDefaultCategoriesSeeded(householdId: String?, enqueueOutbox: Boolean) {}
     override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String, householdId: String?) {
         catList.add(CategoryEntity(id = "cat_${catList.size + 1}", name = name, type = type, subCategory = subCategory, userId = userId, householdId = householdId))
-        _flow.value = catList.toList()
+        _catListFlow.value = catList.toList()
     }
     override suspend fun updateCategory(category: CategoryEntity) {}
     override suspend fun deleteCategory(category: CategoryEntity) {}

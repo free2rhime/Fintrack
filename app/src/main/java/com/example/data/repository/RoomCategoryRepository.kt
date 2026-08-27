@@ -9,6 +9,7 @@ import com.example.data.model.CategoryEntity
 import com.example.data.model.SyncOutboxEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import java.util.UUID
 
 class RoomCategoryRepository(
     private val categoryDao: CategoryDao,
@@ -23,36 +24,13 @@ class RoomCategoryRepository(
 
     override suspend fun getAllCategoriesList(): List<CategoryEntity> = allCategories.first()
 
-    override suspend fun ensureDefaultCategoriesSeeded(householdId: String?) {
+    override suspend fun ensureDefaultCategoriesSeeded(householdId: String?, enqueueOutbox: Boolean) {
         val existing = categoryDao.getAllCategories(householdId).first()
         if (existing.isEmpty()) {
-            val defaults = listOf(
-                // Income Categories & Subcategories with Emojis
-                CategoryEntity(name = "💼 Salary", type = "Income", subCategory = "🏢 Main Job", householdId = householdId),
-                CategoryEntity(name = "💼 Salary", type = "Income", subCategory = "🎁 Bonus", householdId = householdId),
-                CategoryEntity(name = "💻 Freelance", type = "Income", subCategory = "⚙️ Software & Consulting", householdId = householdId),
-                CategoryEntity(name = "📈 Investments", type = "Income", subCategory = "📊 Stocks & Dividends", householdId = householdId),
-                CategoryEntity(name = "💵 Other Income", type = "Income", subCategory = "🎉 Gifts & Side Jobs", householdId = householdId),
-
-                // Expense Categories & Subcategories with Emojis
-                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "🛒 Groceries", householdId = householdId),
-                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "🍔 Restaurants & Cafes", householdId = householdId),
-                CategoryEntity(name = "🍉 Food & Dining", type = "Expense", subCategory = "💳 Meal Tickets", householdId = householdId),
-                CategoryEntity(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "🔑 Rent / Mortgage", householdId = householdId),
-                CategoryEntity(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "⚡ Utilities & Internet", householdId = householdId),
-                CategoryEntity(name = "🚗 Transportation", type = "Expense", subCategory = "⛽ Fuel", householdId = householdId),
-                CategoryEntity(name = "🚗 Transportation", type = "Expense", subCategory = "🚌 Public Transit & Rides", householdId = householdId),
-                CategoryEntity(name = "🛍️ Shopping & Personal", type = "Expense", subCategory = "👕 Apparel & Shoes", householdId = householdId),
-                CategoryEntity(name = "🛍️ Shopping & Personal", type = "Expense", subCategory = "📱 Electronics", householdId = householdId),
-                CategoryEntity(name = "🏥 Health & Wellness", type = "Expense", subCategory = "💊 Pharmacy & Medical", householdId = householdId),
-                CategoryEntity(name = "🏥 Health & Wellness", type = "Expense", subCategory = "🏋️ Gym & Fitness", householdId = householdId),
-                CategoryEntity(name = "🎬 Entertainment", type = "Expense", subCategory = "🍿 Subscriptions & Media", householdId = householdId),
-                CategoryEntity(name = "🎬 Entertainment", type = "Expense", subCategory = "✈️ Travel & Vacations", householdId = householdId),
-                CategoryEntity(name = "🏦 Financial & Taxes", type = "Expense", subCategory = "💳 Bank Fees & Insurance", householdId = householdId)
-            )
+            val defaults = createDefaultCategories(householdId)
             executeWithTransaction {
                 categoryDao.insertAllCategories(defaults)
-                if (householdId != null) {
+                if (enqueueOutbox && householdId != null) {
                     for (cat in defaults) {
                         enqueueOutboxInternal(cat.id, "UPSERT")
                     }
@@ -149,6 +127,51 @@ class RoomCategoryRepository(
                     createdAt = now,
                     updatedAt = now
                 )
+            )
+        }
+    }
+
+    companion object {
+        fun generateDefaultCategoryId(householdId: String?, type: String, name: String, subCategory: String): String {
+            val rawKey = "${householdId ?: "global"}_${type.trim()}_${name.trim()}_${subCategory.trim()}"
+            return UUID.nameUUIDFromBytes(rawKey.toByteArray(Charsets.UTF_8)).toString()
+        }
+
+        fun createDefaultCategories(householdId: String?): List<CategoryEntity> {
+            fun createCat(name: String, type: String, subCategory: String): CategoryEntity {
+                val id = generateDefaultCategoryId(householdId, type, name, subCategory)
+                return CategoryEntity(
+                    id = id,
+                    name = name,
+                    type = type,
+                    subCategory = subCategory,
+                    householdId = householdId
+                )
+            }
+
+            return listOf(
+                // Income Categories & Subcategories with Emojis
+                createCat(name = "💼 Salary", type = "Income", subCategory = "🏢 Main Job"),
+                createCat(name = "💼 Salary", type = "Income", subCategory = "🎁 Bonus"),
+                createCat(name = "💻 Freelance", type = "Income", subCategory = "⚙️ Software & Consulting"),
+                createCat(name = "📈 Investments", type = "Income", subCategory = "📊 Stocks & Dividends"),
+                createCat(name = "💵 Other Income", type = "Income", subCategory = "🎉 Gifts & Side Jobs"),
+
+                // Expense Categories & Subcategories with Emojis
+                createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "🛒 Groceries"),
+                createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "🍔 Restaurants & Cafes"),
+                createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "💳 Meal Tickets"),
+                createCat(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "🔑 Rent / Mortgage"),
+                createCat(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "⚡ Utilities & Internet"),
+                createCat(name = "🚗 Transportation", type = "Expense", subCategory = "⛽ Fuel"),
+                createCat(name = "🚗 Transportation", type = "Expense", subCategory = "🚌 Public Transit & Rides"),
+                createCat(name = "🛍️ Shopping & Personal", type = "Expense", subCategory = "👕 Apparel & Shoes"),
+                createCat(name = "🛍️ Shopping & Personal", type = "Expense", subCategory = "📱 Electronics"),
+                createCat(name = "🏥 Health & Wellness", type = "Expense", subCategory = "💊 Pharmacy & Medical"),
+                createCat(name = "🏥 Health & Wellness", type = "Expense", subCategory = "🏋️ Gym & Fitness"),
+                createCat(name = "🎬 Entertainment", type = "Expense", subCategory = "🍿 Subscriptions & Media"),
+                createCat(name = "🎬 Entertainment", type = "Expense", subCategory = "✈️ Travel & Vacations"),
+                createCat(name = "🏦 Financial & Taxes", type = "Expense", subCategory = "💳 Bank Fees & Insurance")
             )
         }
     }

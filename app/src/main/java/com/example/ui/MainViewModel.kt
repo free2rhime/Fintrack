@@ -427,12 +427,12 @@ class MainViewModel(
 
     init {
         viewModelScope.launch {
-            categoryRepository.ensureDefaultCategoriesSeeded(null)
+            categoryRepository.ensureDefaultCategoriesSeeded(null, enqueueOutbox = false)
         }
         viewModelScope.launch {
             activeHouseholdId.collect { hhId ->
                 if (!hhId.isNullOrBlank()) {
-                    categoryRepository.ensureDefaultCategoriesSeeded(hhId)
+                    categoryRepository.ensureDefaultCategoriesSeeded(hhId, enqueueOutbox = false)
                 }
             }
         }
@@ -1260,7 +1260,7 @@ class MainViewModel(
                 val householdId = household.householdId.orEmpty()
                 _householdCreationUiState.value = HouseholdCreationUiState.Success(householdId)
                 if (householdId.isNotBlank()) {
-                    categoryRepository.ensureDefaultCategoriesSeeded(householdId)
+                    categoryRepository.ensureDefaultCategoriesSeeded(householdId, enqueueOutbox = true)
                 }
                 syncRepository?.startSync(signedInUser.userUid, householdId)
             }.onFailure { error ->

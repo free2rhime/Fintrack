@@ -12,7 +12,7 @@ interface CategoryRepository {
 
     suspend fun getAllCategoriesList(): List<CategoryEntity>
 
-    suspend fun ensureDefaultCategoriesSeeded(householdId: String? = null)
+    suspend fun ensureDefaultCategoriesSeeded(householdId: String? = null, enqueueOutbox: Boolean = true)
 
     suspend fun addCategory(name: String, type: String, subCategory: String, userId: String = "local_user", householdId: String? = null)
 

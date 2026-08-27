@@ -5,9 +5,11 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.data.dao.CategoryDao
+import com.example.data.dao.SyncOutboxDao
 import com.example.data.model.CategoryDto
 import com.example.data.model.CategoryEntity
 import com.example.data.model.FirestoreDtoValidator
+import com.example.data.model.SyncOutboxEntity
 import com.example.data.model.toEntity
 import com.example.data.repository.RoomCategoryRepository
 import com.example.ui.components.TransactionFormDialog
@@ -134,6 +136,202 @@ class InMemoryCategoryDao : CategoryDao {
 
     override suspend fun getCategoryById(id: String): CategoryEntity? {
         return memory.find { it.id == id }
+    }
+}
+
+class InMemorySyncOutboxDao : SyncOutboxDao {
+    private val entries = mutableListOf<SyncOutboxEntity>()
+
+    override fun getAllOutboxEntries(): Flow<List<SyncOutboxEntity>> = MutableStateFlow(entries.toList())
+
+    override suspend fun getPendingEntries(): List<SyncOutboxEntity> {
+        return entries.filter { it.status == "PENDING" }.sortedBy { it.createdAt }
+    }
+
+    override suspend fun getPendingBatch(limit: Int): List<SyncOutboxEntity> {
+        return entries.filter { it.status == "PENDING" }.sortedBy { it.createdAt }.take(limit)
+    }
+
+    override suspend fun getPendingCount(): Int = entries.count { it.status == "PENDING" }
+
+    override fun getPendingCountFlow(): Flow<Int> = MutableStateFlow(entries.count { it.status == "PENDING" })
+
+    override suspend fun getPendingEntryForEntity(entityId: String): SyncOutboxEntity? {
+        return entries.filter { it.entityId == entityId && it.status == "PENDING" }.maxByOrNull { it.createdAt }
+    }
+
+    override suspend fun getEntryById(id: String): SyncOutboxEntity? {
+        return entries.find { it.id == id }
+    }
+
+    override suspend fun markInProgress(id: String, lastAttemptAt: Long, updatedAt: Long): Int {
+        val index = entries.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            entries[index] = entries[index].copy(status = "IN_PROGRESS", lastAttemptAt = lastAttemptAt, updatedAt = updatedAt)
+            return 1
+        }
+        return 0
+    }
+
+    override suspend fun markPending(id: String, updatedAt: Long): Int {
+        val index = entries.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            entries[index] = entries[index].copy(status = "PENDING", updatedAt = updatedAt)
+            return 1
+        }
+        return 0
+    }
+
+    override suspend fun markAcknowledged(id: String, updatedAt: Long): Int {
+        val index = entries.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            entries[index] = entries[index].copy(status = "ACKNOWLEDGED", updatedAt = updatedAt)
+            return 1
+        }
+        return 0
+    }
+
+    override suspend fun markSuccess(id: String, updatedAt: Long): Int {
+        val index = entries.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            entries[index] = entries[index].copy(status = "SUCCESS", updatedAt = updatedAt)
+            return 1
+        }
+        return 0
+    }
+
+    override suspend fun markFailed(id: String, errorCode: String?, errorMessage: String?, retryCount: Int, lastAttemptAt: Long, updatedAt: Long): Int {
+        val index = entries.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            entries[index] = entries[index].copy(
+                status = "FAILED",
+                errorCode = errorCode,
+                errorMessage = errorMessage,
+                retryCount = retryCount,
+                lastAttemptAt = lastAttemptAt,
+                updatedAt = updatedAt
+            )
+            return 1
+        }
+        return 0
+    }
+
+    override suspend fun resetInProgressToPending(updatedAt: Long): Int {
+        var count = 0
+        entries.indices.forEach { i ->
+            if (entries[i].status == "IN_PROGRESS") {
+                entries[i] = entries[i].copy(status = "PENDING", updatedAt = updatedAt)
+                count++
+            }
+        }
+        return count
+    }
+
+    override suspend fun incrementRetryCount(id: String, lastAttemptAt: Long, errorCode: String?, errorMessage: String?, updatedAt: Long): Int {
+        val index = entries.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            val curr = entries[index]
+            entries[index] = curr.copy(
+                retryCount = curr.retryCount + 1,
+                lastAttemptAt = lastAttemptAt,
+                errorCode = errorCode,
+                errorMessage = errorMessage,
+                updatedAt = updatedAt
+            )
+            return 1
+        }
+        return 0
+    }
+
+    override suspend fun recordRetryFailure(id: String, errorCode: String?, errorMessage: String?, lastAttemptAt: Long, updatedAt: Long): Int {
+        val index = entries.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            val curr = entries[index]
+            entries[index] = curr.copy(
+                status = "PENDING",
+                retryCount = curr.retryCount + 1,
+                lastAttemptAt = lastAttemptAt,
+                errorCode = errorCode,
+                errorMessage = errorMessage,
+                updatedAt = updatedAt
+            )
+            return 1
+        }
+        return 0
+    }
+
+    override suspend fun clearAcknowledgedEntries() {
+        entries.removeAll { it.status == "ACKNOWLEDGED" }
+    }
+
+    override suspend fun deleteAcknowledgedEntries(): Int {
+        val initial = entries.size
+        entries.removeAll { it.status == "ACKNOWLEDGED" }
+        return initial - entries.size
+    }
+
+    override suspend fun deleteSuccessEntries(): Int {
+        val initial = entries.size
+        entries.removeAll { it.status == "SUCCESS" }
+        return initial - entries.size
+    }
+
+    override suspend fun deleteOldCompletedEntries(cutoffTime: Long): Int {
+        val initial = entries.size
+        entries.removeAll { it.status in listOf("ACKNOWLEDGED", "SUCCESS") && it.updatedAt < cutoffTime }
+        return initial - entries.size
+    }
+
+    override suspend fun deleteOldFailedEntries(cutoffTime: Long): Int {
+        val initial = entries.size
+        entries.removeAll { it.status == "FAILED" && it.updatedAt < cutoffTime }
+        return initial - entries.size
+    }
+
+    override suspend fun deleteOutboxEntryById(id: String) {
+        entries.removeAll { it.id == id }
+    }
+
+    override suspend fun deleteOutboxEntriesForEntity(entityId: String) {
+        entries.removeAll { it.entityId == entityId }
+    }
+
+    override suspend fun deleteAllOutboxEntries() {
+        entries.clear()
+    }
+
+    override suspend fun getPendingEntry(entityType: String, entityId: String): SyncOutboxEntity? {
+        return entries.filter { it.entityType == entityType && it.entityId == entityId && it.status == "PENDING" }.maxByOrNull { it.createdAt }
+    }
+
+    override suspend fun getActiveEntry(entityType: String, entityId: String): SyncOutboxEntity? {
+        return entries.filter { it.entityType == entityType && it.entityId == entityId && it.status in listOf("PENDING", "IN_PROGRESS") }.maxByOrNull { it.createdAt }
+    }
+
+    override suspend fun getActiveEntityIdsByType(entityType: String): List<String> {
+        return entries.filter { it.entityType == entityType && it.status in listOf("PENDING", "IN_PROGRESS") }.map { it.entityId }
+    }
+
+    override suspend fun deleteEntriesForEntity(entityType: String, entityId: String): Int {
+        val initial = entries.size
+        entries.removeAll { it.entityType == entityType && it.entityId == entityId }
+        return initial - entries.size
+    }
+
+    override suspend fun insertOutboxEntry(entry: SyncOutboxEntity) {
+        entries.removeAll { it.id == entry.id }
+        entries.add(entry)
+    }
+
+    override suspend fun insertAllOutboxEntries(entriesToInsert: List<SyncOutboxEntity>) {
+        entriesToInsert.forEach { insertOutboxEntry(it) }
+    }
+
+    override suspend fun updateOutboxEntry(entry: SyncOutboxEntity) {
+        val index = entries.indexOfFirst { it.id == entry.id }
+        if (index >= 0) {
+            entries[index] = entry
+        }
     }
 }
 
@@ -329,5 +527,98 @@ class CategoryHouseholdScopeTest {
 
         // Verify Category field is auto-assigned to "🍉 Food & Dining"
         composeTestRule.onNodeWithText("🍉 Food & Dining").assertExists()
+    }
+
+    @Test
+    fun test12_regression_independentSeedingForSameHousehold_mustGenerateDeterministicIds() = runTest {
+        // Instance A: Seeds HH_A into local database A
+        val daoA = InMemoryCategoryDao()
+        val repoA = RoomCategoryRepository(categoryDao = daoA)
+        repoA.ensureDefaultCategoriesSeeded("HH_A")
+        val catsA = daoA.getAllCategoriesList("HH_A")
+        assertEquals(19, catsA.size)
+
+        // Instance B: Fresh local database on second device/session for SAME household
+        val daoB = InMemoryCategoryDao()
+        val repoB = RoomCategoryRepository(categoryDao = daoB)
+        repoB.ensureDefaultCategoriesSeeded("HH_A")
+        val catsB = daoB.getAllCategoriesList("HH_A")
+        assertEquals(19, catsB.size)
+
+        // Map logical category -> categoryId for both instances
+        val idMapA = catsA.associate { Triple(it.type, it.name, it.subCategory) to it.id }
+        val idMapB = catsB.associate { Triple(it.type, it.name, it.subCategory) to it.id }
+
+        // Assert deterministic IDs for every logical default category across independent seeds
+        for ((logicalKey, idA) in idMapA) {
+            val idB = idMapB[logicalKey]
+            assertNotNull("Category for $logicalKey should exist in instance B", idB)
+            assertEquals("Default category ID for $logicalKey must be deterministic across independent seeds for the same household", idA, idB)
+        }
+    }
+
+    @Test
+    fun test13_regression_independentSeedingForSameHousehold_mustNotDuplicateOutboxEntityIds() = runTest {
+        // Instance A: Seeds HH_A with its outbox
+        val daoA = InMemoryCategoryDao()
+        val outboxDaoA = InMemorySyncOutboxDao()
+        val repoA = RoomCategoryRepository(categoryDao = daoA, syncOutboxDao = outboxDaoA)
+        repoA.ensureDefaultCategoriesSeeded("HH_A")
+        val outboxA = outboxDaoA.getPendingEntries()
+        assertEquals(19, outboxA.size)
+        val entityIdsA = outboxA.map { it.entityId }.toSet()
+
+        // Instance B: Fresh local database seeds HH_A with its outbox
+        val daoB = InMemoryCategoryDao()
+        val outboxDaoB = InMemorySyncOutboxDao()
+        val repoB = RoomCategoryRepository(categoryDao = daoB, syncOutboxDao = outboxDaoB)
+        repoB.ensureDefaultCategoriesSeeded("HH_A")
+        val outboxB = outboxDaoB.getPendingEntries()
+        assertEquals(19, outboxB.size)
+        val entityIdsB = outboxB.map { it.entityId }.toSet()
+
+        // Assert outbox entityIds are identical (deterministic) so they do not upload separate documents
+        assertEquals("Outbox CATEGORY UPSERT entityIds must be identical across independent seeds for the same household", entityIdsA, entityIdsB)
+    }
+
+    @Test
+    fun test14_regression_mergingIndependentSeeds_mustNotCreateLogicalDuplicates() = runTest {
+        // Instance A seeds HH_A
+        val daoA = InMemoryCategoryDao()
+        val repoA = RoomCategoryRepository(categoryDao = daoA)
+        repoA.ensureDefaultCategoriesSeeded("HH_A")
+        val catsA = daoA.getAllCategoriesList("HH_A")
+
+        // Instance B seeds HH_A
+        val daoB = InMemoryCategoryDao()
+        val repoB = RoomCategoryRepository(categoryDao = daoB)
+        repoB.ensureDefaultCategoriesSeeded("HH_A")
+        val catsB = daoB.getAllCategoriesList("HH_A")
+
+        // Group the combined records by logical identity: (type, name, subCategory)
+        val mergedList = catsA + catsB
+        val duplicates = mergedList.groupBy { Triple(it.type, it.name, it.subCategory) }
+            .filter { it.value.map { cat -> cat.id }.distinct().size > 1 }
+
+        assertTrue(
+            "Expected 0 logical duplicate IDs when independent seeds for the same household are merged, but found ${duplicates.size} duplicate groups: ${duplicates.keys.take(3)}...",
+            duplicates.isEmpty()
+        )
+    }
+
+    @Test
+    fun test15_joiningMemberSeedingWithEnqueueOutboxFalse_doesNotEnqueueOutboxUpserts() = runTest {
+        val dao = InMemoryCategoryDao()
+        val outboxDao = InMemorySyncOutboxDao()
+        val repo = RoomCategoryRepository(categoryDao = dao, syncOutboxDao = outboxDao)
+
+        // Seeding with enqueueOutbox = false (as called when joining/starting an existing household)
+        repo.ensureDefaultCategoriesSeeded("HH_A", enqueueOutbox = false)
+
+        val localCats = dao.getAllCategoriesList("HH_A")
+        assertEquals(19, localCats.size)
+
+        val outboxEntries = outboxDao.getPendingEntries()
+        assertEquals(0, outboxEntries.size)
     }
 }
