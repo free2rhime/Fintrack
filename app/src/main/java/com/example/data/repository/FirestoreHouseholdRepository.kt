@@ -1,10 +1,10 @@
 package com.example.data.repository
 
+import android.util.Log
 import com.example.data.model.HouseholdDto
 import com.example.data.model.HouseholdInviteDto
 import com.example.data.model.HouseholdMemberDto
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -331,11 +331,20 @@ class FirestoreHouseholdRepository(
             val query = firestore.collection("invitations")
                 .whereEqualTo("inviteeEmail", normalizedEmail)
                 .whereEqualTo("status", "PENDING")
-                .orderBy("createdAt", Query.Direction.DESCENDING)
 
             val registration = query.addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    trySend(emptyList())
+                    Log.e(
+                        "SyncDiag",
+                        "observeIncomingInvites error for email: $normalizedEmail (code=${error.code}): ${error.message}",
+                        error
+                    )
+                    SyncDiagnosticsHolder.recordError(
+                        userUid = authRepository.getCurrentUserUid(),
+                        operation = "observeIncomingInvites",
+                        throwable = error
+                    )
+                    close(error)
                     return@addSnapshotListener
                 }
 
@@ -403,28 +412,26 @@ class FirestoreHouseholdRepository(
                     IllegalStateException("Invitation contains invalid household ID")
                 )
 
-            // Verify target household capacity
-            val membersSnapshot = firestore.collection("households")
-                .document(targetHouseholdId)
-                .collection("members")
-                .whereEqualTo("status", "ACTIVE")
-                .get()
-                .await()
-
-            val activeMembers = membersSnapshot.documents
-            if (activeMembers.size >= 2) {
+            val status = inviteData.status ?: "PENDING"
+            if (status != "PENDING") {
                 return@withContext Result.failure(
-                    IllegalStateException("Household has reached maximum capacity (2 members)")
+                    IllegalStateException("Invitation is no longer pending (status: $status)")
                 )
             }
 
-            val isAlreadyMember = activeMembers.any { doc ->
-                doc.id == signedInUser.userUid ||
-                    doc.getString("email")?.trim()?.lowercase() == signedInUser.email?.trim()?.lowercase()
-            }
-            if (isAlreadyMember) {
+            val now = System.currentTimeMillis()
+            val expiresAt = inviteData.expiresAt ?: 0L
+            if (expiresAt <= now) {
                 return@withContext Result.failure(
-                    IllegalStateException("You are already an active member of this household")
+                    IllegalStateException("Invitation has expired")
+                )
+            }
+
+            val userEmail = signedInUser.email?.trim()?.lowercase()
+            val inviteeEmail = inviteData.inviteeEmail?.trim()?.lowercase()
+            if (userEmail == null || userEmail != inviteeEmail) {
+                return@withContext Result.failure(
+                    IllegalStateException("This invitation was not addressed to your email")
                 )
             }
 
@@ -435,20 +442,18 @@ class FirestoreHouseholdRepository(
                 }
 
                 val invite = HouseholdInviteDto.fromMap(inviteSnapshot.data ?: emptyMap(), inviteSnapshot.id)
-                val status = invite.status ?: "PENDING"
-                if (status != "PENDING") {
-                    throw IllegalStateException("Invitation is no longer pending (status: $status)")
+                val txStatus = invite.status ?: "PENDING"
+                if (txStatus != "PENDING") {
+                    throw IllegalStateException("Invitation is no longer pending (status: $txStatus)")
                 }
 
-                val now = System.currentTimeMillis()
-                val expiresAt = invite.expiresAt ?: 0L
-                if (expiresAt <= now) {
+                val txExpiresAt = invite.expiresAt ?: 0L
+                if (txExpiresAt <= now) {
                     throw IllegalStateException("Invitation has expired")
                 }
 
-                val userEmail = signedInUser.email?.trim()?.lowercase()
-                val inviteeEmail = invite.inviteeEmail?.trim()?.lowercase()
-                if (userEmail == null || userEmail != inviteeEmail) {
+                val txInviteeEmail = invite.inviteeEmail?.trim()?.lowercase()
+                if (userEmail != txInviteeEmail) {
                     throw IllegalStateException("This invitation was not addressed to your email")
                 }
 
@@ -459,11 +464,6 @@ class FirestoreHouseholdRepository(
                     .document(householdId)
                     .collection("members")
                     .document(signedInUser.userUid)
-
-                val existingMemberSnapshot = transaction.get(memberDocRef)
-                if (existingMemberSnapshot.exists() && existingMemberSnapshot.getString("status") == "ACTIVE") {
-                    throw IllegalStateException("You are already an active member of this household")
-                }
 
                 val newMember = HouseholdMemberDto(
                     uid = signedInUser.userUid,

@@ -18,12 +18,27 @@ class GoogleSignInConfigProviderTest {
     @Test
     fun testDefaultPlaceholderReturnsNull() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        // The default string resource is "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
-        val resolved = GoogleSignInConfigProvider.getWebClientId(context)
+        val placeholderClientId = "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+        val mockResources = object : android.content.res.Resources(
+            context.resources.assets,
+            context.resources.displayMetrics,
+            context.resources.configuration
+        ) {
+            override fun getIdentifier(name: String?, defType: String?, defPackage: String?): Int {
+                return if (name == "default_web_client_id") 12345 else super.getIdentifier(name, defType, defPackage)
+            }
+            override fun getString(id: Int): String {
+                return if (id == 12345) placeholderClientId else super.getString(id)
+            }
+        }
+        val testContext = object : android.content.ContextWrapper(context) {
+            override fun getResources(): android.content.res.Resources = mockResources
+        }
+        val resolved = GoogleSignInConfigProvider.getWebClientId(testContext)
         assertNull("Placeholder starting with YOUR_WEB_CLIENT_ID must return null", resolved)
         
         // Also test through FirebaseAuthRepository helper
-        val resolvedFromRepo = FirebaseAuthRepository.getWebClientId(context)
+        val resolvedFromRepo = FirebaseAuthRepository.getWebClientId(testContext)
         assertNull("FirebaseAuthRepository helper must also return null for placeholder", resolvedFromRepo)
     }
 

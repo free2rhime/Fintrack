@@ -525,6 +525,17 @@ fun ExchangeRateDto.toEntity(documentId: String? = null): ExchangeRateEntity? {
 fun TransactionEntity.toFirestoreMap(householdId: String, userUid: String? = null, migrationId: String? = null): Map<String, Any?> {
     val effectiveUid = if (userId.isNotBlank() && userId != "local_user") userId else (userUid ?: "remote_user")
     val effectiveRateDate = exchangeRateDate.ifBlank { date }
+    val isOfficialRate = conversionStatus == "OFFICIAL" && exchangeRate > 0.0 && exchangeRateSource == "BNR_OFFICIAL"
+    val validMetadata = if (isOfficialRate) {
+        mapOf(
+            "source" to exchangeRateSource,
+            "status" to conversionStatus,
+            "rate" to exchangeRate,
+            "effectiveDate" to effectiveRateDate
+        )
+    } else {
+        null
+    }
     val baseMap = mutableMapOf<String, Any?>(
         "transactionId" to id,
         "householdId" to householdId,
@@ -547,12 +558,7 @@ fun TransactionEntity.toFirestoreMap(householdId: String, userUid: String? = nul
         "categoryId" to categoryId,
         "subCategoryId" to subCategoryId,
         "isDeleted" to isDeleted,
-        "exchangeRateMetadata" to mapOf(
-            "source" to exchangeRateSource,
-            "status" to conversionStatus,
-            "rate" to exchangeRate,
-            "effectiveDate" to effectiveRateDate
-        )
+        "exchangeRateMetadata" to validMetadata
     )
     if (migrationId != null) {
         baseMap["migrationId"] = migrationId
@@ -578,7 +584,7 @@ fun CategoryEntity.toFirestoreMap(householdId: String, userUid: String? = null):
 fun ExchangeRateEntity.toFirestoreMap(householdId: String, migrationId: String? = null): Map<String, Any?> {
     val reqDate = requestedDate.ifBlank { date }
     val effDate = effectiveDate.ifBlank { date }
-    return mapOf(
+    val baseMap = mutableMapOf<String, Any?>(
         "requestedDate" to reqDate,
         "effectiveDate" to effDate,
         "rate" to rate,
@@ -586,9 +592,12 @@ fun ExchangeRateEntity.toFirestoreMap(householdId: String, migrationId: String? 
         "fetchedAt" to fetchedAt,
         "status" to status,
         "householdId" to householdId,
-        "migrationId" to migrationId,
         "rates" to mapOf("EUR" to rate)
     )
+    if (migrationId != null) {
+        baseMap["migrationId"] = migrationId
+    }
+    return baseMap
 }
 
 

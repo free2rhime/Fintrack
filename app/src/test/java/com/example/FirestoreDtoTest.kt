@@ -2,6 +2,7 @@ package com.example
 
 import com.example.data.model.CategoryDto
 import com.example.data.model.ExchangeRateMetadataDto
+import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionDto
 import com.example.data.model.TransactionEntity
 import com.example.data.model.toEntity
@@ -276,5 +277,82 @@ class FirestoreDtoTest {
         assertEquals("user_auth_123", payload["createdByUid"])
         assertEquals(50.0, payload["amountRon"])
         assertEquals(10.0, payload["amountEur"])
+    }
+
+    @Test
+    fun testExchangeRateToFirestoreMapOmitsMigrationIdWhenNull() {
+        val rate = ExchangeRateEntity(
+            date = "2026-08-27",
+            requestedDate = "2026-08-27",
+            effectiveDate = "2026-08-27",
+            rate = 4.9765,
+            source = "BNR_OFFICIAL",
+            fetchedAt = 1700000000000L,
+            status = "OFFICIAL"
+        )
+
+        val payload = rate.toFirestoreMap(householdId = "hh_alpha", migrationId = null)
+
+        // Must NOT contain key "migrationId" when migrationId is null
+        assertFalse("Payload must NOT contain migrationId key when null", payload.containsKey("migrationId"))
+        assertNull(payload["migrationId"])
+        assertEquals("2026-08-27", payload["requestedDate"])
+        assertEquals("2026-08-27", payload["effectiveDate"])
+        assertEquals(4.9765, payload["rate"])
+        assertEquals("BNR_OFFICIAL", payload["source"])
+        assertEquals("OFFICIAL", payload["status"])
+        assertEquals("hh_alpha", payload["householdId"])
+    }
+
+    @Test
+    fun testExchangeRateToFirestoreMapIncludesMigrationIdWhenPresent() {
+        val rate = ExchangeRateEntity(
+            date = "2026-08-27",
+            requestedDate = "2026-08-27",
+            effectiveDate = "2026-08-27",
+            rate = 4.9765,
+            source = "BNR_OFFICIAL",
+            fetchedAt = 1700000000000L,
+            status = "OFFICIAL"
+        )
+
+        val payload = rate.toFirestoreMap(householdId = "hh_alpha", migrationId = "mig_session_888")
+
+        // Must contain key "migrationId" and match the provided session ID
+        assertTrue("Payload MUST contain migrationId key when provided", payload.containsKey("migrationId"))
+        assertEquals("mig_session_888", payload["migrationId"])
+        assertEquals("2026-08-27", payload["requestedDate"])
+        assertEquals(4.9765, payload["rate"])
+    }
+
+    @Test
+    fun testTransactionToFirestoreMapSafelyHandlesPendingOrZeroRateMetadata() {
+        val txPending = TransactionEntity(
+            id = "tx_pending_01",
+            userId = "user_auth_123",
+            date = "2026-08-27",
+            description = "Offline Coffee",
+            amountRON = 20.0,
+            amountEUR = 0.0,
+            exchangeRate = 0.0,
+            exchangeRateDate = "2026-08-27",
+            type = "Expense",
+            account = "Card",
+            category = "Food & Dining",
+            subCategory = "Cafes",
+            destination = null,
+            createdAt = 1700000000000L,
+            updatedAt = 1700000000000L,
+            exchangeRateSource = "NONE",
+            conversionStatus = "PENDING"
+        )
+
+        val payload = txPending.toFirestoreMap(householdId = "hh_alpha", migrationId = null)
+
+        // For pending/zero rate transactions, exchangeRateMetadata must be null so that
+        // firestore.rules evaluates meta == null (which is permitted) rather than meta.rate > 0 (which would fail on 0.0)
+        assertNull("exchangeRateMetadata must be null for pending/zero-rate transactions", payload["exchangeRateMetadata"])
+        assertEquals(0.0, payload["exchangeRate"])
+        assertEquals("PENDING", payload["conversionStatus"])
     }
 }

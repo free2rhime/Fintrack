@@ -5,6 +5,7 @@ import com.example.data.dao.SyncOutboxDao
 import com.example.data.db.FinTrackDatabase
 import com.example.data.model.SyncOutboxEntity
 import com.example.data.model.toFirestoreMap
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,40 +30,47 @@ class OutboundSyncEngine(
     }
 
     private val processMutex = Mutex()
-    private var lifecycleJob: Job? = null
+    private val isPendingSignal = AtomicBoolean(false)
+    private var activeJob: Job? = null
     private var isStarted = false
 
     @Synchronized
-    fun start(syncStatusFlow: StateFlow<SyncStatus>? = null) {
-        if (isStarted) return
+    fun start(syncStatusFlow: StateFlow<SyncStatus>? = null): Job? {
+        if (isStarted) return null
         isStarted = true
 
-        lifecycleJob = coroutineScope.launch {
+        val job = coroutineScope.launch {
             startupRecovery()
             if (isStarted) {
                 processPendingQueue()
             }
         }
+        activeJob = job
+        return job
     }
 
     fun stop() {
         isStarted = false
-
-        lifecycleJob?.cancel()
-        lifecycleJob = null
-
+        activeJob?.cancel()
+        activeJob = null
         Log.d(TAG, "OutboundSyncEngine stopped")
     }
 
-    fun notifyPending() {
-        if (!isStarted) return
-
-        lifecycleJob?.cancel()
-        lifecycleJob = coroutineScope.launch {
+    fun notifyPending(): Job? {
+        if (!isStarted) return null
+        isPendingSignal.set(true)
+        val job = coroutineScope.launch {
             if (isStarted) {
                 processPendingQueue()
             }
         }
+        activeJob = job
+        return job
+    }
+
+    suspend fun awaitIdle() {
+        activeJob?.join()
+        processMutex.withLock { }
     }
 
     suspend fun startupRecovery(): Int {
@@ -75,13 +83,15 @@ class OutboundSyncEngine(
 
     suspend fun processPendingQueue(): Int {
         if (!processMutex.tryLock()) {
-            // Already processing in another coroutine, the conflated channel ensures next run
+            // Already processing in another coroutine; isPendingSignal ensures next pass
             return 0
         }
 
         try {
             var processedTotal = 0
             while (true) {
+                isPendingSignal.set(false)
+
                 val currentStatus = syncStatusProvider()
                 val activeHouseholdId = when (currentStatus) {
                     is SyncStatus.Synced -> currentStatus.householdId
@@ -98,6 +108,9 @@ class OutboundSyncEngine(
 
                 val batch = syncOutboxDao.getPendingBatch(BATCH_SIZE)
                 if (batch.isEmpty()) {
+                    if (isPendingSignal.get()) {
+                        continue
+                    }
                     break
                 }
 

@@ -494,7 +494,7 @@ class MainViewModel(
     ) {
         viewModelScope.launch {
             try {
-                val currentUid = activeUserUid.value ?: "local_user"
+                val currentUid = activeUserUid.value ?: authRepository.getCurrentUserUid() ?: "local_user"
                 val effectiveHouseholdId = activeHouseholdId.value ?: _uiState.value.activeTransactionForEdit?.householdId
                 val savedTx = transactionRepository.saveTransaction(
                     id = id,
