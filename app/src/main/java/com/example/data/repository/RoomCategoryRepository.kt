@@ -4,6 +4,7 @@ import androidx.room.RoomDatabase
 import androidx.room.withTransaction
 import com.example.data.dao.CategoryDao
 import com.example.data.dao.SyncOutboxDao
+import com.example.data.dao.TransactionDao
 import com.example.data.db.FinTrackDatabase
 import com.example.data.model.CategoryEntity
 import com.example.data.model.SyncOutboxEntity
@@ -15,6 +16,7 @@ class RoomCategoryRepository(
     private val categoryDao: CategoryDao,
     private val syncOutboxDao: SyncOutboxDao? = null,
     private val database: RoomDatabase? = null,
+    private val transactionDao: TransactionDao? = null,
     private val onOutboxMutated: (() -> Unit)? = null
 ) : CategoryRepository {
 
@@ -32,7 +34,7 @@ class RoomCategoryRepository(
                 categoryDao.insertAllCategories(defaults)
                 if (enqueueOutbox && householdId != null) {
                     for (cat in defaults) {
-                        enqueueOutboxInternal(cat.id, "UPSERT")
+                        enqueueOutboxInternal(cat.id, "UPSERT", "CATEGORY")
                     }
                 }
             }
@@ -40,14 +42,9 @@ class RoomCategoryRepository(
     }
 
     override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String, householdId: String?) {
-        val canonicalId = generateDefaultCategoryId(
-            householdId = householdId,
-            type = type,
-            name = name.trim(),
-            subCategory = subCategory.trim()
-        )
+        val id = UUID.randomUUID().toString()
         val category = CategoryEntity(
-            id = canonicalId,
+            id = id,
             name = name.trim(),
             type = type,
             subCategory = subCategory.trim(),
@@ -56,30 +53,52 @@ class RoomCategoryRepository(
         )
         executeWithTransaction {
             categoryDao.insertCategory(category)
-            enqueueOutboxInternal(category.id, "UPSERT")
+            enqueueOutboxInternal(category.id, "UPSERT", "CATEGORY")
         }
     }
 
     override suspend fun updateCategory(category: CategoryEntity) {
         executeWithTransaction {
             categoryDao.updateCategory(category)
-            enqueueOutboxInternal(category.id, "UPSERT")
+            enqueueOutboxInternal(category.id, "UPSERT", "CATEGORY")
         }
     }
 
     override suspend fun deleteCategory(category: CategoryEntity) {
         executeWithTransaction {
             categoryDao.deleteCategory(category)
-            enqueueOutboxInternal(category.id, "DELETE")
+            enqueueOutboxInternal(category.id, "DELETE", "CATEGORY")
         }
     }
 
     override suspend fun updateCategoryGroup(oldName: String, newName: String, type: String, householdId: String?) {
         executeWithTransaction {
-            val matching = categoryDao.getCategoriesGroup(oldName.trim(), type, householdId)
-            categoryDao.updateCategoryGroup(oldName.trim(), newName.trim(), type, householdId)
+            val cleanOldName = oldName.trim()
+            val cleanNewName = newName.trim()
+            val matching = categoryDao.getCategoriesGroup(cleanOldName, type, householdId)
+            val now = System.currentTimeMillis()
             for (cat in matching) {
-                enqueueOutboxInternal(cat.id, "UPSERT")
+                val updated = cat.copy(name = cleanNewName, updatedAt = now)
+                categoryDao.updateCategory(updated)
+                enqueueOutboxInternal(cat.id, "UPSERT", "CATEGORY")
+            }
+
+            // Atomically propagate rename to historical transactions in the same household & type
+            val txDao = transactionDao ?: (database as? FinTrackDatabase)?.transactionDao()
+            if (txDao != null && cleanOldName != cleanNewName) {
+                val affectedTxs = txDao.getTransactionsByCategory(cleanOldName, type, householdId)
+                if (affectedTxs.isNotEmpty()) {
+                    txDao.updateCategoryName(
+                        oldName = cleanOldName,
+                        newName = cleanNewName,
+                        type = type,
+                        updatedAt = now,
+                        householdId = householdId
+                    )
+                    for (tx in affectedTxs) {
+                        enqueueOutboxInternal(tx.id, "UPSERT", "TRANSACTION")
+                    }
+                }
             }
         }
     }
@@ -87,14 +106,9 @@ class RoomCategoryRepository(
     override suspend fun deleteCategoryGroup(name: String, type: String, householdId: String?) {
         executeWithTransaction {
             val matching = categoryDao.getCategoriesGroup(name.trim(), type, householdId)
-            val allIds = matching.map { it.id }.toMutableSet()
             for (cat in matching) {
-                val canonicalId = generateDefaultCategoryId(cat.householdId, cat.type, cat.name, cat.subCategory)
-                allIds.add(canonicalId)
-            }
-            for (catId in allIds) {
-                enqueueOutboxInternal(catId, "DELETE")
-                categoryDao.deleteCategoryById(catId)
+                enqueueOutboxInternal(cat.id, "DELETE", "CATEGORY")
+                categoryDao.deleteCategoryById(cat.id)
             }
             categoryDao.deleteCategoryGroup(name.trim(), type, householdId)
         }
@@ -102,31 +116,52 @@ class RoomCategoryRepository(
 
     override suspend fun updateSubcategory(id: String, newSubCategory: String) {
         executeWithTransaction {
-            categoryDao.updateSubcategory(id, newSubCategory.trim())
-            enqueueOutboxInternal(id, "UPSERT")
+            val target = categoryDao.getCategoryById(id)
+            if (target != null) {
+                val oldSub = target.subCategory
+                val newSub = newSubCategory.trim()
+                val now = System.currentTimeMillis()
+                val updatedCat = target.copy(
+                    subCategory = newSub,
+                    updatedAt = now
+                )
+                categoryDao.updateCategory(updatedCat)
+                enqueueOutboxInternal(id, "UPSERT", "CATEGORY")
+
+                // Atomically propagate rename to historical transactions in the same household & type
+                val txDao = transactionDao ?: (database as? FinTrackDatabase)?.transactionDao()
+                if (txDao != null && oldSub.isNotBlank() && oldSub != newSub) {
+                    val affectedTxs = txDao.getTransactionsBySubcategory(
+                        categoryName = target.name,
+                        subCategoryName = oldSub,
+                        type = target.type,
+                        householdId = target.householdId
+                    )
+                    if (affectedTxs.isNotEmpty()) {
+                        txDao.updateSubcategoryName(
+                            oldSubCategory = oldSub,
+                            newSubCategory = newSub,
+                            categoryName = target.name,
+                            type = target.type,
+                            updatedAt = now,
+                            householdId = target.householdId
+                        )
+                        for (tx in affectedTxs) {
+                            enqueueOutboxInternal(tx.id, "UPSERT", "TRANSACTION")
+                        }
+                    }
+                }
+            } else {
+                categoryDao.updateSubcategory(id, newSubCategory.trim())
+                enqueueOutboxInternal(id, "UPSERT", "CATEGORY")
+            }
         }
     }
 
     override suspend fun deleteSubcategory(id: String) {
         executeWithTransaction {
-            val target = categoryDao.getCategoryById(id)
-            if (target != null) {
-                val canonicalId = generateDefaultCategoryId(target.householdId, target.type, target.name, target.subCategory)
-                val matching = categoryDao.getCategoriesByLogicalIdentity(
-                    householdId = target.householdId,
-                    type = target.type,
-                    name = target.name,
-                    subCategory = target.subCategory
-                )
-                val allIdsToDelete = (matching.map { it.id } + listOf(id, canonicalId)).distinct()
-                for (catId in allIdsToDelete) {
-                    enqueueOutboxInternal(catId, "DELETE")
-                    categoryDao.deleteCategoryById(catId)
-                }
-            } else {
-                enqueueOutboxInternal(id, "DELETE")
-                categoryDao.deleteSubcategory(id)
-            }
+            categoryDao.deleteSubcategory(id)
+            enqueueOutboxInternal(id, "DELETE", "CATEGORY")
         }
     }
 
@@ -140,16 +175,16 @@ class RoomCategoryRepository(
         return result
     }
 
-    private suspend fun enqueueOutboxInternal(entityId: String, operation: String) {
+    private suspend fun enqueueOutboxInternal(entityId: String, operation: String, entityType: String = "CATEGORY") {
         val dao = syncOutboxDao ?: (database as? FinTrackDatabase)?.syncOutboxDao() ?: return
         val now = System.currentTimeMillis()
-        val existing = dao.getPendingEntryForEntity(entityId)
+        val existing = dao.getPendingEntry(entityType, entityId)
         if (existing != null && existing.operation == operation) {
             dao.updateOutboxEntry(existing.copy(updatedAt = now))
         } else {
             dao.insertOutboxEntry(
                 SyncOutboxEntity(
-                    entityType = "CATEGORY",
+                    entityType = entityType,
                     entityId = entityId,
                     operation = operation,
                     status = "PENDING",
@@ -161,16 +196,10 @@ class RoomCategoryRepository(
     }
 
     companion object {
-        fun generateDefaultCategoryId(householdId: String?, type: String, name: String, subCategory: String): String {
-            val rawKey = "${householdId ?: "global"}_${type.trim()}_${name.trim()}_${subCategory.trim()}"
-            return UUID.nameUUIDFromBytes(rawKey.toByteArray(Charsets.UTF_8)).toString()
-        }
-
         fun createDefaultCategories(householdId: String?): List<CategoryEntity> {
             fun createCat(name: String, type: String, subCategory: String): CategoryEntity {
-                val id = generateDefaultCategoryId(householdId, type, name, subCategory)
                 return CategoryEntity(
-                    id = id,
+                    id = UUID.randomUUID().toString(),
                     name = name,
                     type = type,
                     subCategory = subCategory,

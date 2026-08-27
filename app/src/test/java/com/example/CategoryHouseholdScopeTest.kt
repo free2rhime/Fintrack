@@ -35,6 +35,7 @@ import com.example.data.repository.FirestoreSnapshotSource
 import com.example.data.repository.FirestoreSyncRepository
 import com.example.data.repository.HouseholdResolutionResult
 import com.example.data.repository.ListenerRegistrationHandle
+import java.util.UUID
 
 class TestSnapshotSource : FirestoreSnapshotSource {
     val members = mutableMapOf<Pair<String, String>, Map<String, Any?>>()
@@ -191,6 +192,14 @@ class InMemoryCategoryDao : CategoryDao {
         memory.removeAll {
             ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
                     it.type == type && it.name == name && it.subCategory == subCategory
+        }
+        emit()
+    }
+
+    override suspend fun deleteCategoriesNotInList(activeIds: List<String>, householdId: String?) {
+        memory.removeAll {
+            ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
+                    !activeIds.contains(it.id)
         }
         emit()
     }
@@ -587,80 +596,88 @@ class CategoryHouseholdScopeTest {
     }
 
     @Test
-    fun test12_regression_independentSeedingForSameHousehold_mustGenerateDeterministicIds() = runTest {
-        // Instance A: Seeds HH_A into local database A
-        val daoA = InMemoryCategoryDao()
-        val repoA = RoomCategoryRepository(categoryDao = daoA)
-        repoA.ensureDefaultCategoriesSeeded("HH_A")
-        val catsA = daoA.getAllCategoriesList("HH_A")
+    fun test12_seedingHousehold_generatesUniqueStableUUIDs_andIsIdempotent() = runTest {
+        val dao = InMemoryCategoryDao()
+        val repo = RoomCategoryRepository(categoryDao = dao)
+
+        // First seed
+        repo.ensureDefaultCategoriesSeeded("HH_A")
+        val cats = dao.getAllCategoriesList("HH_A")
+        assertEquals(19, cats.size)
+        val uniqueIds = cats.map { it.id }.toSet()
+        assertEquals(19, uniqueIds.size)
+        assertTrue(uniqueIds.all { it.isNotBlank() })
+
+        // Second call on the same DB must be idempotent (no duplicate rows created)
+        repo.ensureDefaultCategoriesSeeded("HH_A")
+        val catsAfter = dao.getAllCategoriesList("HH_A")
+        assertEquals(19, catsAfter.size)
+    }
+
+    @Test
+    fun test13_seedingHousehold_enqueuesExactOutboxUpsertsForCreatedCategories() = runTest {
+        val dao = InMemoryCategoryDao()
+        val outboxDao = InMemorySyncOutboxDao()
+        val repo = RoomCategoryRepository(categoryDao = dao, syncOutboxDao = outboxDao)
+
+        repo.ensureDefaultCategoriesSeeded("HH_A", enqueueOutbox = true)
+
+        val cats = dao.getAllCategoriesList("HH_A")
+        assertEquals(19, cats.size)
+
+        val outbox = outboxDao.getPendingEntries()
+        assertEquals(19, outbox.size)
+        val outboxEntityIds = outbox.map { it.entityId }.toSet()
+        val catIds = cats.map { it.id }.toSet()
+        assertEquals(catIds, outboxEntityIds)
+        assertTrue(outbox.all { it.operation == "UPSERT" && it.entityType == "CATEGORY" })
+    }
+
+    @Test
+    fun test14_secondDevice_mirrorsFirstDeviceCategoriesViaInboundSync() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val dbA = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val dbB = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val householdId = "HH_A"
+        val userUid = "owner_uid"
+        snapshotSource.members[Pair(householdId, userUid)] = mapOf("role" to "OWNER", "status" to "ACTIVE")
+
+        // Device A: Seeds categories
+        val repoA = RoomCategoryRepository(categoryDao = dbA.categoryDao(), syncOutboxDao = dbA.syncOutboxDao(), database = dbA)
+        repoA.ensureDefaultCategoriesSeeded(householdId, enqueueOutbox = true)
+        val catsA = dbA.categoryDao().getAllCategoriesList(householdId)
         assertEquals(19, catsA.size)
 
-        // Instance B: Fresh local database on second device/session for SAME household
-        val daoB = InMemoryCategoryDao()
-        val repoB = RoomCategoryRepository(categoryDao = daoB)
-        repoB.ensureDefaultCategoriesSeeded("HH_A")
-        val catsB = daoB.getAllCategoriesList("HH_A")
-        assertEquals(19, catsB.size)
-
-        // Map logical category -> categoryId for both instances
-        val idMapA = catsA.associate { Triple(it.type, it.name, it.subCategory) to it.id }
-        val idMapB = catsB.associate { Triple(it.type, it.name, it.subCategory) to it.id }
-
-        // Assert deterministic IDs for every logical default category across independent seeds
-        for ((logicalKey, idA) in idMapA) {
-            val idB = idMapB[logicalKey]
-            assertNotNull("Category for $logicalKey should exist in instance B", idB)
-            assertEquals("Default category ID for $logicalKey must be deterministic across independent seeds for the same household", idA, idB)
+        // Construct remote snapshot from Device A's categories
+        val remoteSnapshot = catsA.map { cat ->
+            Pair(
+                cat.id,
+                mapOf<String, Any?>(
+                    "categoryId" to cat.id,
+                    "householdId" to cat.householdId,
+                    "type" to cat.type,
+                    "name" to cat.name,
+                    "subCategory" to cat.subCategory,
+                    "isDeleted" to false,
+                    "createdAt" to cat.createdAt,
+                    "updatedAt" to cat.updatedAt
+                )
+            )
         }
-    }
 
-    @Test
-    fun test13_regression_independentSeedingForSameHousehold_mustNotDuplicateOutboxEntityIds() = runTest {
-        // Instance A: Seeds HH_A with its outbox
-        val daoA = InMemoryCategoryDao()
-        val outboxDaoA = InMemorySyncOutboxDao()
-        val repoA = RoomCategoryRepository(categoryDao = daoA, syncOutboxDao = outboxDaoA)
-        repoA.ensureDefaultCategoriesSeeded("HH_A")
-        val outboxA = outboxDaoA.getPendingEntries()
-        assertEquals(19, outboxA.size)
-        val entityIdsA = outboxA.map { it.entityId }.toSet()
+        // Device B: Connects and receives remote snapshot via inbound sync
+        val syncRepoB = FirestoreSyncRepository(database = dbB, snapshotSource = snapshotSource)
+        syncRepoB.startSync(userUid = "member_uid", requestedHouseholdId = householdId)
+        syncRepoB.processCategorySnapshot(remoteSnapshot)
 
-        // Instance B: Fresh local database seeds HH_A with its outbox
-        val daoB = InMemoryCategoryDao()
-        val outboxDaoB = InMemorySyncOutboxDao()
-        val repoB = RoomCategoryRepository(categoryDao = daoB, syncOutboxDao = outboxDaoB)
-        repoB.ensureDefaultCategoriesSeeded("HH_A")
-        val outboxB = outboxDaoB.getPendingEntries()
-        assertEquals(19, outboxB.size)
-        val entityIdsB = outboxB.map { it.entityId }.toSet()
+        val catsB = dbB.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(19, catsB.size)
+        assertEquals(catsA.map { it.id }.toSet(), catsB.map { it.id }.toSet())
+        assertEquals(catsA.map { Triple(it.type, it.name, it.subCategory) }.toSet(), catsB.map { Triple(it.type, it.name, it.subCategory) }.toSet())
 
-        // Assert outbox entityIds are identical (deterministic) so they do not upload separate documents
-        assertEquals("Outbox CATEGORY UPSERT entityIds must be identical across independent seeds for the same household", entityIdsA, entityIdsB)
-    }
-
-    @Test
-    fun test14_regression_mergingIndependentSeeds_mustNotCreateLogicalDuplicates() = runTest {
-        // Instance A seeds HH_A
-        val daoA = InMemoryCategoryDao()
-        val repoA = RoomCategoryRepository(categoryDao = daoA)
-        repoA.ensureDefaultCategoriesSeeded("HH_A")
-        val catsA = daoA.getAllCategoriesList("HH_A")
-
-        // Instance B seeds HH_A
-        val daoB = InMemoryCategoryDao()
-        val repoB = RoomCategoryRepository(categoryDao = daoB)
-        repoB.ensureDefaultCategoriesSeeded("HH_A")
-        val catsB = daoB.getAllCategoriesList("HH_A")
-
-        // Group the combined records by logical identity: (type, name, subCategory)
-        val mergedList = catsA + catsB
-        val duplicates = mergedList.groupBy { Triple(it.type, it.name, it.subCategory) }
-            .filter { it.value.map { cat -> cat.id }.distinct().size > 1 }
-
-        assertTrue(
-            "Expected 0 logical duplicate IDs when independent seeds for the same household are merged, but found ${duplicates.size} duplicate groups: ${duplicates.keys.take(3)}...",
-            duplicates.isEmpty()
-        )
+        dbA.close()
+        dbB.close()
     }
 
     @Test
@@ -673,14 +690,12 @@ class CategoryHouseholdScopeTest {
         repo.ensureDefaultCategoriesSeeded("HH_A", enqueueOutbox = false)
 
         val localCats = dao.getAllCategoriesList("HH_A")
-        assertEquals(19, localCats.size)
-
         val outboxEntries = outboxDao.getPendingEntries()
         assertEquals(0, outboxEntries.size)
     }
 
     @Test
-    fun test16_testInboundSync_collapsesLegacyAndDeterministicDuplicates() = runTest {
+    fun test16_testInboundSync_mirrorsSnapshotDirectlyIntoRoom() = runTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
         val snapshotSource = TestSnapshotSource()
@@ -691,19 +706,14 @@ class CategoryHouseholdScopeTest {
         val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
         syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
 
-        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🏥 Health & Wellness",
-            subCategory = "💊 Pharmacy & Medical"
-        )
-        val legacyId = "0b02656d-ae81-4798-9faf-b8e804d6e789"
+        val catId1 = UUID.randomUUID().toString()
+        val catId2 = UUID.randomUUID().toString()
 
         val snapshot = listOf(
             Pair(
-                deterministicId,
+                catId1,
                 mapOf<String, Any?>(
-                    "categoryId" to deterministicId,
+                    "categoryId" to catId1,
                     "householdId" to householdId,
                     "type" to "Expense",
                     "name" to "🏥 Health & Wellness",
@@ -714,13 +724,13 @@ class CategoryHouseholdScopeTest {
                 )
             ),
             Pair(
-                legacyId,
+                catId2,
                 mapOf<String, Any?>(
-                    "categoryId" to legacyId,
+                    "categoryId" to catId2,
                     "householdId" to householdId,
                     "type" to "Expense",
-                    "name" to "🏥 Health & Wellness",
-                    "subCategory" to "💊 Pharmacy & Medical",
+                    "name" to "🍉 Food & Dining",
+                    "subCategory" to "🛒 Groceries",
                     "isDeleted" to false,
                     "createdAt" to 900L,
                     "updatedAt" to 950L
@@ -731,20 +741,13 @@ class CategoryHouseholdScopeTest {
         syncRepo.processCategorySnapshot(snapshot)
 
         val localCats = db.categoryDao().getAllCategoriesList(householdId)
-        assertEquals(1, localCats.size)
-        assertEquals(deterministicId, localCats.first().id)
-        assertEquals("💊 Pharmacy & Medical", localCats.first().subCategory)
-
-        // Outbox must contain DELETE tombstone for the legacy ID
-        val outbox = db.syncOutboxDao().getPendingEntries()
-        assertEquals(1, outbox.size)
-        assertEquals("CATEGORY", outbox.first().entityType)
-        assertEquals(legacyId, outbox.first().entityId)
-        assertEquals("DELETE", outbox.first().operation)
+        assertEquals(2, localCats.size)
+        val localIds = localCats.map { it.id }.toSet()
+        assertEquals(setOf(catId1, catId2), localIds)
     }
 
     @Test
-    fun test17_testInboundSync_multipleLegacyDocuments_collapsedToDeterministic() = runTest {
+    fun test17_testInboundSync_mirrorsAllActiveDocumentsDirectly() = runTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
         val snapshotSource = TestSnapshotSource()
@@ -755,21 +758,15 @@ class CategoryHouseholdScopeTest {
         val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
         syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
 
-        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🏥 Health & Wellness",
-            subCategory = "💊 Pharmacy & Medical"
-        )
-        val legacy1 = "legacy-uuid-1"
-        val legacy2 = "legacy-uuid-2"
-        val legacy3 = "legacy-uuid-3"
+        val id1 = UUID.randomUUID().toString()
+        val id2 = UUID.randomUUID().toString()
+        val id3 = UUID.randomUUID().toString()
 
         val snapshot = listOf(
             Pair(
-                legacy1,
+                id1,
                 mapOf<String, Any?>(
-                    "categoryId" to legacy1,
+                    "categoryId" to id1,
                     "householdId" to householdId,
                     "type" to "Expense",
                     "name" to "🏥 Health & Wellness",
@@ -780,26 +777,26 @@ class CategoryHouseholdScopeTest {
                 )
             ),
             Pair(
-                legacy2,
+                id2,
                 mapOf<String, Any?>(
-                    "categoryId" to legacy2,
+                    "categoryId" to id2,
                     "householdId" to householdId,
                     "type" to "Expense",
                     "name" to "🏥 Health & Wellness",
-                    "subCategory" to "💊 Pharmacy & Medical",
+                    "subCategory" to "🏋️ Gym & Fitness",
                     "isDeleted" to false,
                     "createdAt" to 200L,
                     "updatedAt" to 250L
                 )
             ),
             Pair(
-                legacy3,
+                id3,
                 mapOf<String, Any?>(
-                    "categoryId" to legacy3,
+                    "categoryId" to id3,
                     "householdId" to householdId,
                     "type" to "Expense",
-                    "name" to "🏥 Health & Wellness",
-                    "subCategory" to "💊 Pharmacy & Medical",
+                    "name" to "🎬 Entertainment",
+                    "subCategory" to "🍿 Subscriptions",
                     "isDeleted" to false,
                     "createdAt" to 300L,
                     "updatedAt" to 350L
@@ -810,21 +807,12 @@ class CategoryHouseholdScopeTest {
         syncRepo.processCategorySnapshot(snapshot)
 
         val localCats = db.categoryDao().getAllCategoriesList(householdId)
-        assertEquals(1, localCats.size)
-        assertEquals(deterministicId, localCats.first().id)
-
-        val outbox = db.syncOutboxDao().getPendingEntries()
-        assertEquals(4, outbox.size)
-        val upsertEntry = outbox.firstOrNull { it.operation == "UPSERT" }
-        assertNotNull("Must contain UPSERT for canonical deterministicId", upsertEntry)
-        assertEquals(deterministicId, upsertEntry!!.entityId)
-
-        val deletedIds = outbox.filter { it.operation == "DELETE" }.map { it.entityId }.toSet()
-        assertEquals(setOf(legacy1, legacy2, legacy3), deletedIds)
+        assertEquals(3, localCats.size)
+        assertEquals(setOf(id1, id2, id3), localCats.map { it.id }.toSet())
     }
 
     @Test
-    fun test18_testInboundSync_tombstonesLegacyDocumentWhenDeterministicDeleted() = runTest {
+    fun test18_testInboundSync_missingDocumentInSnapshotDeletesLocalRoomRow() = runTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
         val snapshotSource = TestSnapshotSource()
@@ -835,52 +823,42 @@ class CategoryHouseholdScopeTest {
         val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
         syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
 
-        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🏥 Health & Wellness",
-            subCategory = "💊 Pharmacy & Medical"
-        )
-        val legacyId = "legacy-active-uuid"
+        val activeId = UUID.randomUUID().toString()
+        val deletedId = UUID.randomUUID().toString()
 
+        // Seed both into Room
+        db.categoryDao().insertCategory(
+            CategoryEntity(id = activeId, householdId = householdId, type = "Expense", name = "Food", subCategory = "Groceries")
+        )
+        db.categoryDao().insertCategory(
+            CategoryEntity(id = deletedId, householdId = householdId, type = "Expense", name = "OldCat", subCategory = "OldSub")
+        )
+
+        assertEquals(2, db.categoryDao().getAllCategoriesList(householdId).size)
+
+        // Snapshot contains ONLY activeId (deletedId was physically deleted in Firestore)
         val snapshot = listOf(
             Pair(
-                deterministicId,
+                activeId,
                 mapOf<String, Any?>(
-                    "categoryId" to deterministicId,
+                    "categoryId" to activeId,
                     "householdId" to householdId,
                     "type" to "Expense",
-                    "name" to "🏥 Health & Wellness",
-                    "subCategory" to "💊 Pharmacy & Medical",
-                    "isDeleted" to true,
+                    "name" to "Food",
+                    "subCategory" to "Groceries",
+                    "isDeleted" to false,
                     "createdAt" to 100L,
                     "updatedAt" to 500L
-                )
-            ),
-            Pair(
-                legacyId,
-                mapOf<String, Any?>(
-                    "categoryId" to legacyId,
-                    "householdId" to householdId,
-                    "type" to "Expense",
-                    "name" to "🏥 Health & Wellness",
-                    "subCategory" to "💊 Pharmacy & Medical",
-                    "isDeleted" to false,
-                    "createdAt" to 50L,
-                    "updatedAt" to 200L
                 )
             )
         )
 
         syncRepo.processCategorySnapshot(snapshot)
 
+        // Room now contains ONLY activeId
         val localCats = db.categoryDao().getAllCategoriesList(householdId)
-        assertEquals(0, localCats.size)
-
-        val outbox = db.syncOutboxDao().getPendingEntries()
-        assertEquals(1, outbox.size)
-        assertEquals(legacyId, outbox.first().entityId)
-        assertEquals("DELETE", outbox.first().operation)
+        assertEquals(1, localCats.size)
+        assertEquals(activeId, localCats.first().id)
     }
 
     @Test
@@ -895,19 +873,13 @@ class CategoryHouseholdScopeTest {
         val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
         syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
 
-        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🏥 Health & Wellness",
-            subCategory = "💊 Pharmacy & Medical"
-        )
-        val legacyId = "legacy-dup-1"
+        val id1 = UUID.randomUUID().toString()
 
         val snapshot = listOf(
             Pair(
-                deterministicId,
+                id1,
                 mapOf<String, Any?>(
-                    "categoryId" to deterministicId,
+                    "categoryId" to id1,
                     "householdId" to householdId,
                     "type" to "Expense",
                     "name" to "🏥 Health & Wellness",
@@ -916,62 +888,31 @@ class CategoryHouseholdScopeTest {
                     "createdAt" to 100L,
                     "updatedAt" to 100L
                 )
-            ),
-            Pair(
-                legacyId,
-                mapOf<String, Any?>(
-                    "categoryId" to legacyId,
-                    "householdId" to householdId,
-                    "type" to "Expense",
-                    "name" to "🏥 Health & Wellness",
-                    "subCategory" to "💊 Pharmacy & Medical",
-                    "isDeleted" to false,
-                    "createdAt" to 80L,
-                    "updatedAt" to 80L
-                )
             )
         )
 
         // Run 1
         syncRepo.processCategorySnapshot(snapshot)
-        val outbox1 = db.syncOutboxDao().getPendingEntries()
-        assertEquals(1, outbox1.size)
+        assertEquals(1, db.categoryDao().getAllCategoriesList(householdId).size)
 
         // Run 2 (Repeated snapshot)
         syncRepo.processCategorySnapshot(snapshot)
-        val outbox2 = db.syncOutboxDao().getPendingEntries()
-        assertEquals(1, outbox2.size)
         assertEquals(1, db.categoryDao().getAllCategoriesList(householdId).size)
     }
 
     @Test
-    fun test20_testDeleteSubcategory_deletesAllLogicalDuplicatesAndEnqueuesOutboxDeletes() = runTest {
+    fun test20_testDeleteSubcategory_removesRoomRowAndEnqueuesOutboxDelete() = runTest {
         val dao = InMemoryCategoryDao()
         val outboxDao = InMemorySyncOutboxDao()
         val repo = RoomCategoryRepository(categoryDao = dao, syncOutboxDao = outboxDao)
 
         val householdId = "HH_A"
-        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🏥 Health & Wellness",
-            subCategory = "💊 Pharmacy & Medical"
-        )
-        val legacyId = "legacy-row-uuid"
+        val catId = UUID.randomUUID().toString()
 
-        // Seed both into Room
+        // Seed into Room
         dao.insertCategory(
             CategoryEntity(
-                id = deterministicId,
-                householdId = householdId,
-                type = "Expense",
-                name = "🏥 Health & Wellness",
-                subCategory = "💊 Pharmacy & Medical"
-            )
-        )
-        dao.insertCategory(
-            CategoryEntity(
-                id = legacyId,
+                id = catId,
                 householdId = householdId,
                 type = "Expense",
                 name = "🏥 Health & Wellness",
@@ -979,20 +920,20 @@ class CategoryHouseholdScopeTest {
             )
         )
 
-        assertEquals(2, dao.getAllCategoriesList(householdId).size)
+        assertEquals(1, dao.getAllCategoriesList(householdId).size)
 
-        // Delete using deterministicId
-        repo.deleteSubcategory(deterministicId)
+        // Delete subcategory
+        repo.deleteSubcategory(catId)
 
-        // Both rows must be removed from Room
+        // Row must be removed from Room
         val remaining = dao.getAllCategoriesList(householdId)
         assertEquals(0, remaining.size)
 
-        // Outbox must contain DELETE for both IDs
+        // Outbox must contain DELETE
         val outbox = outboxDao.getPendingEntries()
-        val deletedIds = outbox.map { it.entityId }.toSet()
-        assertEquals(setOf(deterministicId, legacyId), deletedIds)
-        assertTrue(outbox.all { it.operation == "DELETE" })
+        assertEquals(1, outbox.size)
+        assertEquals(catId, outbox.first().entityId)
+        assertEquals("DELETE", outbox.first().operation)
     }
 
     @Test
@@ -1002,11 +943,16 @@ class CategoryHouseholdScopeTest {
         val snapshotSource = TestSnapshotSource()
         val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
 
+        val idAExp = UUID.randomUUID().toString()
+        val idAInc = UUID.randomUUID().toString()
+        val idBExp = UUID.randomUUID().toString()
+        val idBInc = UUID.randomUUID().toString()
+
         val snapshot = listOf(
             Pair(
-                "hhA_exp_legacy",
+                idAExp,
                 mapOf<String, Any?>(
-                    "categoryId" to "hhA_exp_legacy",
+                    "categoryId" to idAExp,
                     "householdId" to "HH_A",
                     "type" to "Expense",
                     "name" to "Freelance",
@@ -1017,9 +963,9 @@ class CategoryHouseholdScopeTest {
                 )
             ),
             Pair(
-                "hhA_inc_legacy",
+                idAInc,
                 mapOf<String, Any?>(
-                    "categoryId" to "hhA_inc_legacy",
+                    "categoryId" to idAInc,
                     "householdId" to "HH_A",
                     "type" to "Income",
                     "name" to "Freelance",
@@ -1030,9 +976,9 @@ class CategoryHouseholdScopeTest {
                 )
             ),
             Pair(
-                "hhB_exp_legacy",
+                idBExp,
                 mapOf<String, Any?>(
-                    "categoryId" to "hhB_exp_legacy",
+                    "categoryId" to idBExp,
                     "householdId" to "HH_B",
                     "type" to "Expense",
                     "name" to "Freelance",
@@ -1043,9 +989,9 @@ class CategoryHouseholdScopeTest {
                 )
             ),
             Pair(
-                "hhB_inc_legacy",
+                idBInc,
                 mapOf<String, Any?>(
-                    "categoryId" to "hhB_inc_legacy",
+                    "categoryId" to idBInc,
                     "householdId" to "HH_B",
                     "type" to "Income",
                     "name" to "Freelance",
@@ -1070,12 +1016,14 @@ class CategoryHouseholdScopeTest {
         val expB = catsB.first { it.type == "Expense" }
         val incB = catsB.first { it.type == "Income" }
 
-        val allIds = setOf(expA.id, incA.id, expB.id, incB.id)
-        assertEquals("All 4 categories must have unique deterministic IDs", 4, allIds.size)
+        assertEquals(idAExp, expA.id)
+        assertEquals(idAInc, incA.id)
+        assertEquals(idBExp, expB.id)
+        assertEquals(idBInc, incB.id)
     }
 
     @Test
-    fun test22_customCategory_creationGeneratesDeterministicIdAndSurvivesInboundSync() = runTest {
+    fun test22_customCategory_creationGeneratesRandomUUIDAndSurvivesInboundSync() = runTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
         val snapshotSource = TestSnapshotSource()
@@ -1101,25 +1049,19 @@ class CategoryHouseholdScopeTest {
             householdId = householdId
         )
 
-        val expectedCanonicalId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🚗 Vehicles",
-            subCategory = "⛽ Fuel"
-        )
-
         val localCats = db.categoryDao().getAllCategoriesList(householdId)
         assertEquals(1, localCats.size)
-        assertEquals(expectedCanonicalId, localCats.first().id)
+        val createdId = localCats.first().id
+        assertTrue("Category ID must be valid UUID", createdId.isNotBlank())
         assertEquals("🚗 Vehicles", localCats.first().name)
         assertEquals("⛽ Fuel", localCats.first().subCategory)
 
-        // 2. Inbound snapshot receives the canonical document from Firestore
+        // 2. Inbound snapshot receives the document with the same ID
         val snapshot = listOf(
             Pair(
-                expectedCanonicalId,
+                createdId,
                 mapOf<String, Any?>(
-                    "categoryId" to expectedCanonicalId,
+                    "categoryId" to createdId,
                     "householdId" to householdId,
                     "type" to "Expense",
                     "name" to "🚗 Vehicles",
@@ -1136,12 +1078,12 @@ class CategoryHouseholdScopeTest {
         // Category survives snapshot and remains active
         val catsAfterSync = db.categoryDao().getAllCategoriesList(householdId)
         assertEquals(1, catsAfterSync.size)
-        assertEquals(expectedCanonicalId, catsAfterSync.first().id)
+        assertEquals(createdId, catsAfterSync.first().id)
         assertFalse(catsAfterSync.first().isDeleted)
     }
 
     @Test
-    fun test23_inboundSync_migratesLegacyCustomCategoryToCanonicalIdInFirestore() = runTest {
+    fun test23_inboundSync_shieldsPendingLocalUpsertFromDeletion() = runTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
         val snapshotSource = TestSnapshotSource()
@@ -1152,57 +1094,29 @@ class CategoryHouseholdScopeTest {
         val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
         syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
 
-        val legacyId = "custom-legacy-uuid-123"
-        val expectedCanonicalId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🚗 Vehicles",
-            subCategory = "⛽ Fuel"
+        val repo = RoomCategoryRepository(
+            categoryDao = db.categoryDao(),
+            syncOutboxDao = db.syncOutboxDao(),
+            database = db
         )
 
-        // Snapshot contains ONLY legacy random-UUID document
-        val snapshot = listOf(
-            Pair(
-                legacyId,
-                mapOf<String, Any?>(
-                    "categoryId" to legacyId,
-                    "householdId" to householdId,
-                    "type" to "Expense",
-                    "name" to "🚗 Vehicles",
-                    "subCategory" to "⛽ Fuel",
-                    "isDeleted" to false,
-                    "createdAt" to 100L,
-                    "updatedAt" to 200L,
-                    "createdByUid" to "creator_user"
-                )
-            )
-        )
-
-        syncRepo.processCategorySnapshot(snapshot)
-
-        // 1. Room contains canonical category
+        // Locally create category (enqueues UPSERT in outbox)
+        repo.addCategory("Food", "Expense", "Groceries", userUid, householdId)
         val localCats = db.categoryDao().getAllCategoriesList(householdId)
-        assertEquals(1, localCats.size)
-        assertEquals(expectedCanonicalId, localCats.first().id)
-        assertEquals("🚗 Vehicles", localCats.first().name)
-        assertEquals("⛽ Fuel", localCats.first().subCategory)
+        val localId = localCats.first().id
 
-        // 2. Outbox contains UPSERT for canonicalId and DELETE for legacyId
-        val outbox = db.syncOutboxDao().getPendingEntries()
-        assertEquals(2, outbox.size)
+        // Empty remote snapshot arrives before outbox uploads localId
+        val emptySnapshot = emptyList<Pair<String, Map<String, Any?>>>()
+        syncRepo.processCategorySnapshot(emptySnapshot)
 
-        val upsertEntry = outbox.firstOrNull { it.operation == "UPSERT" }
-        val deleteEntry = outbox.firstOrNull { it.operation == "DELETE" }
-
-        assertNotNull("Must have UPSERT for canonicalId", upsertEntry)
-        assertEquals(expectedCanonicalId, upsertEntry!!.entityId)
-
-        assertNotNull("Must have DELETE for legacyId", deleteEntry)
-        assertEquals(legacyId, deleteEntry!!.entityId)
+        // Local category is shielded and NOT deleted
+        val catsAfterSnapshot = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(1, catsAfterSnapshot.size)
+        assertEquals(localId, catsAfterSnapshot.first().id)
     }
 
     @Test
-    fun test24_inboundSync_legacyCustomCategory_memberDoesNotEnqueueCloudMutations() = runTest {
+    fun test24_inboundSync_memberRole_doesNotEnqueueCloudMutations() = runTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
         val snapshotSource = TestSnapshotSource()
@@ -1213,20 +1127,13 @@ class CategoryHouseholdScopeTest {
         val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
         syncRepo.startSync(userUid = memberUid, requestedHouseholdId = householdId)
 
-        val legacyId = "custom-legacy-uuid-456"
-        val expectedCanonicalId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🚗 Vehicles",
-            subCategory = "⛽ Fuel"
-        )
+        val catId = UUID.randomUUID().toString()
 
-        // Snapshot contains ONLY legacy random-UUID document
         val snapshot = listOf(
             Pair(
-                legacyId,
+                catId,
                 mapOf<String, Any?>(
-                    "categoryId" to legacyId,
+                    "categoryId" to catId,
                     "householdId" to householdId,
                     "type" to "Expense",
                     "name" to "🚗 Vehicles",
@@ -1240,10 +1147,10 @@ class CategoryHouseholdScopeTest {
 
         syncRepo.processCategorySnapshot(snapshot)
 
-        // 1. Room is cleanly reconciled with canonical category
+        // 1. Room is cleanly mirrored
         val localCats = db.categoryDao().getAllCategoriesList(householdId)
         assertEquals(1, localCats.size)
-        assertEquals(expectedCanonicalId, localCats.first().id)
+        assertEquals(catId, localCats.first().id)
 
         // 2. Member must NOT enqueue any outbox mutations (zero cloud writes)
         val outbox = db.syncOutboxDao().getPendingEntries()

@@ -427,16 +427,6 @@ class MainViewModel(
 
     init {
         viewModelScope.launch {
-            categoryRepository.ensureDefaultCategoriesSeeded(null, enqueueOutbox = false)
-        }
-        viewModelScope.launch {
-            activeHouseholdId.collect { hhId ->
-                if (!hhId.isNullOrBlank()) {
-                    categoryRepository.ensureDefaultCategoriesSeeded(hhId, enqueueOutbox = false)
-                }
-            }
-        }
-        viewModelScope.launch {
             authRepository.authState.collect { state ->
                 if (state is AuthState.SignedIn) {
                     syncRepository?.startSync(state.userUid)

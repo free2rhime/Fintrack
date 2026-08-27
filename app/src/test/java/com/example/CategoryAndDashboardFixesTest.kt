@@ -271,4 +271,11 @@ class FakeCategoryDao : CategoryDao {
                     it.type == type && it.name == name && it.subCategory == subCategory
         }
     }
+
+    override suspend fun deleteCategoriesNotInList(activeIds: List<String>, householdId: String?) {
+        memory.removeAll {
+            ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
+                    !activeIds.contains(it.id)
+        }
+    }
 }

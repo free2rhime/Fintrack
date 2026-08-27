@@ -500,13 +500,7 @@ class DefaultFirestoreSnapshotSource(
             .document(householdId)
             .collection("categories")
             .document(categoryId)
-            .set(
-                mapOf(
-                    "isDeleted" to true,
-                    "updatedAt" to System.currentTimeMillis()
-                ),
-                SetOptions.merge()
-            )
+            .delete()
             .await()
     }
 
@@ -812,44 +806,6 @@ class FirestoreSyncRepository(
         }
     }
 
-    private suspend fun enqueueCategoryOutboxDeleteInternal(entityId: String) {
-        val dao = database.syncOutboxDao()
-        val active = dao.getActiveEntry("CATEGORY", entityId)
-        if (active != null) return
-        val now = System.currentTimeMillis()
-        dao.insertOutboxEntry(
-            SyncOutboxEntity(
-                entityType = "CATEGORY",
-                entityId = entityId,
-                operation = "DELETE",
-                status = "PENDING",
-                createdAt = now,
-                updatedAt = now
-            )
-        )
-    }
-
-    private suspend fun enqueueCategoryOutboxUpsertInternal(entityId: String) {
-        val dao = database.syncOutboxDao()
-        val active = dao.getActiveEntry("CATEGORY", entityId)
-        if (active != null && active.operation == "UPSERT") return
-        val now = System.currentTimeMillis()
-        if (active != null) {
-            dao.updateOutboxEntry(active.copy(operation = "UPSERT", status = "PENDING", updatedAt = now))
-        } else {
-            dao.insertOutboxEntry(
-                SyncOutboxEntity(
-                    entityType = "CATEGORY",
-                    entityId = entityId,
-                    operation = "UPSERT",
-                    status = "PENDING",
-                    createdAt = now,
-                    updatedAt = now
-                )
-            )
-        }
-    }
-
     suspend fun processCategorySnapshot(docs: List<Pair<String, Map<String, Any?>>>) {
         if (isSuppressed) {
             return
@@ -859,28 +815,7 @@ class FirestoreSyncRepository(
             val activeOutboxIds = database.syncOutboxDao().getActiveEntityIdsByType("CATEGORY").toSet()
             val catDao = database.categoryDao()
             val toUpsert = mutableListOf<CategoryEntity>()
-
-            val canCleanupCloud = try {
-                val effHouseholdId = activeHouseholdId
-                val effUid = activeUserUid
-                if (!effHouseholdId.isNullOrBlank() && !effUid.isNullOrBlank()) {
-                    val verification = verificationHelper.verifyHouseholdAdminOrOwner(effHouseholdId, effUid)
-                    verification is HouseholdVerificationResult.Success
-                } else {
-                    false
-                }
-            } catch (_: Exception) {
-                false
-            }
-
-            data class LogicalCategoryKey(
-                val householdId: String,
-                val type: String,
-                val name: String,
-                val subCategory: String
-            )
-
-            val parsedDocs = mutableListOf<Pair<String, CategoryEntity>>()
+            val remoteActiveIds = mutableSetOf<String>()
 
             for ((docId, map) in docs) {
                 if (activeOutboxIds.contains(docId)) {
@@ -906,106 +841,20 @@ class FirestoreSyncRepository(
                 }
                 val dto = CategoryDto.fromMap(map, docId)
                 val entity = dto.toEntity(docId)
-                if (entity != null) {
-                    parsedDocs.add(Pair(docId, entity))
-                }
-            }
-
-            val groupedByKey = parsedDocs.groupBy { (_, entity) ->
-                LogicalCategoryKey(
-                    householdId = (entity.householdId ?: activeHouseholdId ?: "").trim(),
-                    type = entity.type.trim(),
-                    name = entity.name.trim(),
-                    subCategory = entity.subCategory.trim()
-                )
-            }
-
-            for ((key, group) in groupedByKey) {
-                val effHhId = key.householdId.takeIf { it.isNotBlank() }
-                val canonicalId = RoomCategoryRepository.generateDefaultCategoryId(
-                    effHhId,
-                    key.type,
-                    key.name,
-                    key.subCategory
-                )
-
-                val canonicalDoc = group.firstOrNull { it.first == canonicalId }
-                val hasDeletedCanonical = canonicalDoc?.second?.isDeleted == true
-                val allDeleted = group.all { it.second.isDeleted }
-                val newestDoc = group.maxByOrNull { it.second.updatedAt } ?: group.first()
-                val isLogicallyDeleted = hasDeletedCanonical || allDeleted || newestDoc.second.isDeleted
-
-                if (isLogicallyDeleted) {
-                    // 1. Delete canonical and legacy records from Room
-                    catDao.deleteCategoryById(canonicalId)
-                    catDao.deleteCategoriesByLogicalIdentity(effHhId, key.type, key.name, key.subCategory)
-                    for ((docId, _) in group) {
-                        catDao.deleteCategoryById(docId)
-                    }
-
-                    // 2. Schedule cloud tombstone for obsolete active legacy documents if authorized
-                    if (canCleanupCloud) {
-                        for ((docId, entity) in group) {
-                            if (!entity.isDeleted && docId != canonicalId) {
-                                enqueueCategoryOutboxDeleteInternal(docId)
-                            }
-                        }
-                    }
-                } else {
-                    // Active logical category
-                    val activeGroup = group.filter { !it.second.isDeleted }
-                    val activeNewest = activeGroup.maxByOrNull { it.second.updatedAt } ?: newestDoc
-                    val earliestCreatedAt = activeGroup.minOfOrNull { it.second.createdAt } ?: activeNewest.second.createdAt
-                    val activeCanonical = activeGroup.firstOrNull { it.first == canonicalId }
-
-                    val canonicalEntity = CategoryEntity(
-                        id = canonicalId,
-                        name = key.name,
-                        type = key.type,
-                        subCategory = key.subCategory,
-                        userId = activeCanonical?.second?.userId ?: activeNewest.second.userId,
-                        createdAt = activeCanonical?.second?.createdAt ?: earliestCreatedAt,
-                        updatedAt = activeNewest.second.updatedAt,
-                        isDeleted = false,
-                        syncStatus = "SYNCED",
-                        householdId = effHhId,
-                        createdByUid = activeCanonical?.second?.createdByUid ?: activeNewest.second.createdByUid
-                    )
-
-                    // Remove any legacy duplicate records from Room
-                    for ((docId, _) in group) {
-                        if (docId != canonicalId) {
-                            catDao.deleteCategoryById(docId)
-                        }
-                    }
-                    val localMatching = catDao.getCategoriesByLogicalIdentity(effHhId, key.type, key.name, key.subCategory)
-                    for (localCat in localMatching) {
-                        if (localCat.id != canonicalId) {
-                            catDao.deleteCategoryById(localCat.id)
-                        }
-                    }
-
-                    toUpsert.add(canonicalEntity)
-
-                    // Enqueue cloud reconciliation for obsolete active legacy documents if authorized
-                    if (canCleanupCloud) {
-                        // If canonical document was not in remote snapshot, create/upsert canonical document in Firestore
-                        if (canonicalDoc == null) {
-                            enqueueCategoryOutboxUpsertInternal(canonicalId)
-                        }
-                        // Tombstone obsolete active legacy documents in Firestore
-                        for ((docId, entity) in group) {
-                            if (docId != canonicalId && !entity.isDeleted) {
-                                enqueueCategoryOutboxDeleteInternal(docId)
-                            }
-                        }
-                    }
+                if (entity != null && !entity.isDeleted) {
+                    toUpsert.add(entity)
+                    remoteActiveIds.add(docId)
                 }
             }
 
             if (toUpsert.isNotEmpty()) {
                 catDao.insertAllCategories(toUpsert)
             }
+
+            // 1:1 Mirror Sync: Delete local categories not present in remote snapshot
+            // Shield local categories with active outbox mutations from deletion
+            val idsToKeep = remoteActiveIds + activeOutboxIds
+            catDao.deleteCategoriesNotIn(idsToKeep, activeHouseholdId)
         }
     }
 

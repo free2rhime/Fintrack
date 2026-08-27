@@ -73,9 +73,67 @@ interface TransactionDao {
     suspend fun deleteTransactionsByHousehold(householdId: String? = null)
 
     @Query("""
-        DELETE FROM transactions 
+        DELETE FROM transactions
         WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
     """)
     suspend fun deleteAllTransactions(householdId: String? = null)
+
+    @Query("""
+        UPDATE transactions
+        SET category = :newName, updatedAt = :updatedAt
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND type = :type
+        AND category = :oldName
+    """)
+    suspend fun updateCategoryName(
+        oldName: String,
+        newName: String,
+        type: String,
+        updatedAt: Long = System.currentTimeMillis(),
+        householdId: String? = null
+    ): Int
+
+    @Query("""
+        UPDATE transactions
+        SET subCategory = :newSubCategory, updatedAt = :updatedAt
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND type = :type
+        AND category = :categoryName
+        AND subCategory = :oldSubCategory
+    """)
+    suspend fun updateSubcategoryName(
+        oldSubCategory: String,
+        newSubCategory: String,
+        categoryName: String,
+        type: String,
+        updatedAt: Long = System.currentTimeMillis(),
+        householdId: String? = null
+    ): Int
+
+    @Query("""
+        SELECT * FROM transactions
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND type = :type
+        AND category = :categoryName
+    """)
+    suspend fun getTransactionsByCategory(
+        categoryName: String,
+        type: String,
+        householdId: String? = null
+    ): List<TransactionEntity>
+
+    @Query("""
+        SELECT * FROM transactions
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND type = :type
+        AND category = :categoryName
+        AND subCategory = :subCategoryName
+    """)
+    suspend fun getTransactionsBySubcategory(
+        categoryName: String,
+        subCategoryName: String,
+        type: String,
+        householdId: String? = null
+    ): List<TransactionEntity>
 }
 

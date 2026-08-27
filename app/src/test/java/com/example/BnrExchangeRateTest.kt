@@ -212,6 +212,10 @@ class BnrExchangeRateTest {
             override suspend fun deleteTransactionById(id: String) { txStore.remove(id) }
             override suspend fun deleteAllTransactions(householdId: String?) { txStore.clear() }
             override suspend fun deleteTransactionsByHousehold(householdId: String?) { txStore.clear() }
+            override suspend fun updateCategoryName(oldName: String, newName: String, type: String, updatedAt: Long, householdId: String?): Int = 0
+            override suspend fun updateSubcategoryName(oldSubCategory: String, newSubCategory: String, categoryName: String, type: String, updatedAt: Long, householdId: String?): Int = 0
+            override suspend fun getTransactionsByCategory(categoryName: String, type: String, householdId: String?): List<TransactionEntity> = emptyList()
+            override suspend fun getTransactionsBySubcategory(categoryName: String, subCategoryName: String, type: String, householdId: String?): List<TransactionEntity> = emptyList()
         }
 
         val pendingTx = TransactionEntity(
@@ -292,6 +296,10 @@ class BnrExchangeRateTest {
             override suspend fun deleteTransactionById(id: String) { txStore.remove(id) }
             override suspend fun deleteAllTransactions(householdId: String?) { txStore.clear() }
             override suspend fun deleteTransactionsByHousehold(householdId: String?) { txStore.clear() }
+            override suspend fun updateCategoryName(oldName: String, newName: String, type: String, updatedAt: Long, householdId: String?): Int = 0
+            override suspend fun updateSubcategoryName(oldSubCategory: String, newSubCategory: String, categoryName: String, type: String, updatedAt: Long, householdId: String?): Int = 0
+            override suspend fun getTransactionsByCategory(categoryName: String, type: String, householdId: String?): List<TransactionEntity> = emptyList()
+            override suspend fun getTransactionsBySubcategory(categoryName: String, subCategoryName: String, type: String, householdId: String?): List<TransactionEntity> = emptyList()
         }
 
         val pendingTx = TransactionEntity(
@@ -642,6 +650,10 @@ class BnrExchangeRateTest {
             override suspend fun deleteTransactionById(id: String) { list.removeAll { it.id == id } }
             override suspend fun deleteAllTransactions(householdId: String?) { list.clear() }
             override suspend fun deleteTransactionsByHousehold(householdId: String?) { list.clear() }
+            override suspend fun updateCategoryName(oldName: String, newName: String, type: String, updatedAt: Long, householdId: String?): Int = 0
+            override suspend fun updateSubcategoryName(oldSubCategory: String, newSubCategory: String, categoryName: String, type: String, updatedAt: Long, householdId: String?): Int = 0
+            override suspend fun getTransactionsByCategory(categoryName: String, type: String, householdId: String?): List<TransactionEntity> = emptyList()
+            override suspend fun getTransactionsBySubcategory(categoryName: String, subCategoryName: String, type: String, householdId: String?): List<TransactionEntity> = emptyList()
         }
 
         val crashingService = ExchangeRateService(

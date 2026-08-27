@@ -33,6 +33,7 @@ import com.example.data.service.BnrRateResult
 import com.example.data.util.CsvImportFinalResult
 import com.example.data.util.CsvPreviewData
 import com.example.ui.MainViewModel
+import java.util.UUID
 import com.example.ui.components.TransactionFormDialog
 import com.example.ui.screens.CategoriesScreen
 import kotlinx.coroutines.CoroutineScope
@@ -597,19 +598,13 @@ class CategoryPermissionsTest {
 
         syncRepo.startSync(userUid = memberUid, requestedHouseholdId = householdId)
 
-        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
-            householdId = householdId,
-            type = "Expense",
-            name = "🏥 Health & Wellness",
-            subCategory = "💊 Pharmacy & Medical"
-        )
-        val legacyId = "legacy-random-uuid-999"
+        val categoryId = UUID.randomUUID().toString()
 
         val snapshot = listOf(
             Pair(
-                deterministicId,
+                categoryId,
                 mapOf<String, Any?>(
-                    "categoryId" to deterministicId,
+                    "categoryId" to categoryId,
                     "householdId" to householdId,
                     "type" to "Expense",
                     "name" to "🏥 Health & Wellness",
@@ -618,28 +613,15 @@ class CategoryPermissionsTest {
                     "createdAt" to 100L,
                     "updatedAt" to 100L
                 )
-            ),
-            Pair(
-                legacyId,
-                mapOf<String, Any?>(
-                    "categoryId" to legacyId,
-                    "householdId" to householdId,
-                    "type" to "Expense",
-                    "name" to "🏥 Health & Wellness",
-                    "subCategory" to "💊 Pharmacy & Medical",
-                    "isDeleted" to false,
-                    "createdAt" to 50L,
-                    "updatedAt" to 50L
-                )
             )
         )
 
         syncRepo.processCategorySnapshot(snapshot)
 
-        // 1. Room is cleanly reconciled (only 1 deterministic row)
+        // 1. Room is cleanly mirrored (1 row with matching ID)
         val localCats = db.categoryDao().getAllCategoriesList(householdId)
         assertEquals(1, localCats.size)
-        assertEquals(deterministicId, localCats.first().id)
+        assertEquals(categoryId, localCats.first().id)
 
         // 2. Member must NOT enqueue any outbox mutations (zero cloud writes)
         val pendingOutbox = db.syncOutboxDao().getPendingEntries()

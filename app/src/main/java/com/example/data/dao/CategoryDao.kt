@@ -105,5 +105,20 @@ interface CategoryDao {
         name: String,
         subCategory: String
     )
+
+    @Query("""
+        DELETE FROM categories
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND id NOT IN (:activeIds)
+    """)
+    suspend fun deleteCategoriesNotInList(activeIds: List<String>, householdId: String? = null)
+
+    suspend fun deleteCategoriesNotIn(activeIds: Set<String>, householdId: String?) {
+        if (activeIds.isEmpty()) {
+            deleteCategoriesByHousehold(householdId)
+        } else {
+            deleteCategoriesNotInList(activeIds.toList(), householdId)
+        }
+    }
 }
 

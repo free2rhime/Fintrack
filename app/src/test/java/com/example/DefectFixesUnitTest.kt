@@ -303,4 +303,44 @@ class FakeTransactionDao : com.example.data.dao.TransactionDao {
             .distinct()
             .take(limit)
     }
+
+    override suspend fun updateCategoryName(oldName: String, newName: String, type: String, updatedAt: Long, householdId: String?): Int {
+        var count = 0
+        list.forEachIndexed { index, tx ->
+            if (((householdId == null && tx.householdId == null) || tx.householdId == householdId) &&
+                tx.type.equals(type, ignoreCase = true) && tx.category == oldName
+            ) {
+                list[index] = tx.copy(category = newName, updatedAt = updatedAt)
+                count++
+            }
+        }
+        return count
+    }
+
+    override suspend fun updateSubcategoryName(oldSubCategory: String, newSubCategory: String, categoryName: String, type: String, updatedAt: Long, householdId: String?): Int {
+        var count = 0
+        list.forEachIndexed { index, tx ->
+            if (((householdId == null && tx.householdId == null) || tx.householdId == householdId) &&
+                tx.type.equals(type, ignoreCase = true) && tx.category == categoryName && tx.subCategory == oldSubCategory
+            ) {
+                list[index] = tx.copy(subCategory = newSubCategory, updatedAt = updatedAt)
+                count++
+            }
+        }
+        return count
+    }
+
+    override suspend fun getTransactionsByCategory(categoryName: String, type: String, householdId: String?): List<TransactionEntity> {
+        return list.filter {
+            ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
+                it.type.equals(type, ignoreCase = true) && it.category == categoryName
+        }
+    }
+
+    override suspend fun getTransactionsBySubcategory(categoryName: String, subCategoryName: String, type: String, householdId: String?): List<TransactionEntity> {
+        return list.filter {
+            ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
+                it.type.equals(type, ignoreCase = true) && it.category == categoryName && it.subCategory == subCategoryName
+        }
+    }
 }
