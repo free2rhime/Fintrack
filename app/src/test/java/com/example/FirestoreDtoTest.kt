@@ -3,8 +3,11 @@ package com.example
 import com.example.data.model.CategoryDto
 import com.example.data.model.ExchangeRateMetadataDto
 import com.example.data.model.TransactionDto
+import com.example.data.model.TransactionEntity
 import com.example.data.model.toEntity
+import com.example.data.model.toFirestoreMap
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -193,5 +196,85 @@ class FirestoreDtoTest {
 
         val dtoInvalidDest = dtoBubu.copy(destination = "UnknownDest")
         assertNull(dtoInvalidDest.toEntity())
+    }
+
+    @Test
+    fun testToFirestoreMapOmitsMigrationIdWhenNull() {
+        val tx = TransactionEntity(
+            id = "tx_normal_01",
+            userId = "user_auth_123",
+            date = "2026-08-20",
+            description = "Normal Coffee",
+            amountRON = 15.0,
+            amountEUR = 3.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Card",
+            category = "Food & Dining",
+            subCategory = "Cafes",
+            destination = null,
+            createdAt = 1700000000000L,
+            updatedAt = 1700000000000L,
+            exchangeRateSource = "BNR_OFFICIAL",
+            conversionStatus = "OFFICIAL"
+        )
+
+        val payload = tx.toFirestoreMap(householdId = "hh_alpha", migrationId = null)
+
+        // Must NOT contain key "migrationId" when migrationId is null
+        assertFalse("Payload must NOT contain migrationId key when null", payload.containsKey("migrationId"))
+        assertNull(payload["migrationId"])
+
+        // Existing fields must remain intact
+        assertEquals("tx_normal_01", payload["transactionId"])
+        assertEquals("hh_alpha", payload["householdId"])
+        assertEquals("user_auth_123", payload["createdByUid"])
+        assertEquals("2026-08-20", payload["transactionDate"])
+        assertEquals("Normal Coffee", payload["description"])
+        assertEquals(15.0, payload["amountRon"])
+        assertEquals(3.0, payload["amountEur"])
+        assertEquals(5.0, payload["exchangeRate"])
+        assertEquals("Expense", payload["type"])
+        assertEquals("Card", payload["account"])
+        assertEquals("Food & Dining", payload["category"])
+        assertEquals("Cafes", payload["subCategory"])
+        assertEquals(false, payload["isDeleted"])
+    }
+
+    @Test
+    fun testToFirestoreMapIncludesMigrationIdWhenPresent() {
+        val tx = TransactionEntity(
+            id = "tx_mig_01",
+            userId = "user_auth_123",
+            date = "2026-08-20",
+            description = "Migration Item",
+            amountRON = 50.0,
+            amountEUR = 10.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Cash",
+            category = "General",
+            subCategory = "",
+            destination = null,
+            createdAt = 1700000000000L,
+            updatedAt = 1700000000000L,
+            exchangeRateSource = "BNR_OFFICIAL",
+            conversionStatus = "OFFICIAL"
+        )
+
+        val payload = tx.toFirestoreMap(householdId = "hh_alpha", migrationId = "mig_session_999")
+
+        // Must contain key "migrationId" and match the provided session ID
+        assertTrue("Payload MUST contain migrationId key when provided", payload.containsKey("migrationId"))
+        assertEquals("mig_session_999", payload["migrationId"])
+
+        // Existing fields must remain intact
+        assertEquals("tx_mig_01", payload["transactionId"])
+        assertEquals("hh_alpha", payload["householdId"])
+        assertEquals("user_auth_123", payload["createdByUid"])
+        assertEquals(50.0, payload["amountRon"])
+        assertEquals(10.0, payload["amountEur"])
     }
 }

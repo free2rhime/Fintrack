@@ -525,7 +525,7 @@ fun ExchangeRateDto.toEntity(documentId: String? = null): ExchangeRateEntity? {
 fun TransactionEntity.toFirestoreMap(householdId: String, userUid: String? = null, migrationId: String? = null): Map<String, Any?> {
     val effectiveUid = if (userId.isNotBlank() && userId != "local_user") userId else (userUid ?: "remote_user")
     val effectiveRateDate = exchangeRateDate.ifBlank { date }
-    return mapOf(
+    val baseMap = mutableMapOf<String, Any?>(
         "transactionId" to id,
         "householdId" to householdId,
         "createdByUid" to effectiveUid,
@@ -547,7 +547,6 @@ fun TransactionEntity.toFirestoreMap(householdId: String, userUid: String? = nul
         "categoryId" to categoryId,
         "subCategoryId" to subCategoryId,
         "isDeleted" to isDeleted,
-        "migrationId" to migrationId,
         "exchangeRateMetadata" to mapOf(
             "source" to exchangeRateSource,
             "status" to conversionStatus,
@@ -555,6 +554,10 @@ fun TransactionEntity.toFirestoreMap(householdId: String, userUid: String? = nul
             "effectiveDate" to effectiveRateDate
         )
     )
+    if (migrationId != null) {
+        baseMap["migrationId"] = migrationId
+    }
+    return baseMap
 }
 
 fun CategoryEntity.toFirestoreMap(householdId: String, userUid: String? = null): Map<String, Any?> {
