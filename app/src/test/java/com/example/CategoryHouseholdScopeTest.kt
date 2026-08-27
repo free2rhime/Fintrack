@@ -28,6 +28,38 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.example.data.db.FinTrackDatabase
+import com.example.data.repository.FirestoreSnapshotSource
+import com.example.data.repository.FirestoreSyncRepository
+import com.example.data.repository.HouseholdResolutionResult
+import com.example.data.repository.ListenerRegistrationHandle
+
+class TestSnapshotSource : FirestoreSnapshotSource {
+    val members = mutableMapOf<Pair<String, String>, Map<String, Any?>>()
+    override fun listenToTransactions(
+        householdId: String,
+        onSnapshot: (List<Pair<String, Map<String, Any?>>>) -> Unit,
+        onError: (Exception) -> Unit
+    ) = object : ListenerRegistrationHandle { override fun remove() {} }
+
+    override fun listenToCategories(
+        householdId: String,
+        onSnapshot: (List<Pair<String, Map<String, Any?>>>) -> Unit,
+        onError: (Exception) -> Unit
+    ) = object : ListenerRegistrationHandle { override fun remove() {} }
+
+    override suspend fun resolveHouseholdId(userUid: String): HouseholdResolutionResult {
+        val entry = members.entries.firstOrNull { it.key.second == userUid && (it.value["status"] as? String)?.uppercase() == "ACTIVE" }
+        return if (entry != null) HouseholdResolutionResult.Success(entry.key.first) else HouseholdResolutionResult.NoHousehold
+    }
+
+    override suspend fun getHouseholdMembership(householdId: String, userUid: String): Map<String, Any?>? {
+        return members[Pair(householdId, userUid)]
+    }
+}
+
 class InMemoryCategoryDao : CategoryDao {
     private val memory = mutableListOf<CategoryEntity>()
     private val _flow = MutableStateFlow<List<CategoryEntity>>(emptyList())
@@ -136,6 +168,31 @@ class InMemoryCategoryDao : CategoryDao {
 
     override suspend fun getCategoryById(id: String): CategoryEntity? {
         return memory.find { it.id == id }
+    }
+
+    override suspend fun getCategoriesByLogicalIdentity(
+        householdId: String?,
+        type: String,
+        name: String,
+        subCategory: String
+    ): List<CategoryEntity> {
+        return memory.filter {
+            ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
+                    it.type == type && it.name == name && it.subCategory == subCategory
+        }
+    }
+
+    override suspend fun deleteCategoriesByLogicalIdentity(
+        householdId: String?,
+        type: String,
+        name: String,
+        subCategory: String
+    ) {
+        memory.removeAll {
+            ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
+                    it.type == type && it.name == name && it.subCategory == subCategory
+        }
+        emit()
     }
 }
 
@@ -620,5 +677,576 @@ class CategoryHouseholdScopeTest {
 
         val outboxEntries = outboxDao.getPendingEntries()
         assertEquals(0, outboxEntries.size)
+    }
+
+    @Test
+    fun test16_testInboundSync_collapsesLegacyAndDeterministicDuplicates() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val householdId = "FzzoMr4dohrfFFCxuzo"
+        val userUid = "owner_uid"
+        snapshotSource.members[Pair(householdId, userUid)] = mapOf("role" to "OWNER", "status" to "ACTIVE")
+
+        val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
+        syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
+
+        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🏥 Health & Wellness",
+            subCategory = "💊 Pharmacy & Medical"
+        )
+        val legacyId = "0b02656d-ae81-4798-9faf-b8e804d6e789"
+
+        val snapshot = listOf(
+            Pair(
+                deterministicId,
+                mapOf<String, Any?>(
+                    "categoryId" to deterministicId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 1000L,
+                    "updatedAt" to 1000L
+                )
+            ),
+            Pair(
+                legacyId,
+                mapOf<String, Any?>(
+                    "categoryId" to legacyId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 900L,
+                    "updatedAt" to 950L
+                )
+            )
+        )
+
+        syncRepo.processCategorySnapshot(snapshot)
+
+        val localCats = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(1, localCats.size)
+        assertEquals(deterministicId, localCats.first().id)
+        assertEquals("💊 Pharmacy & Medical", localCats.first().subCategory)
+
+        // Outbox must contain DELETE tombstone for the legacy ID
+        val outbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals(1, outbox.size)
+        assertEquals("CATEGORY", outbox.first().entityType)
+        assertEquals(legacyId, outbox.first().entityId)
+        assertEquals("DELETE", outbox.first().operation)
+    }
+
+    @Test
+    fun test17_testInboundSync_multipleLegacyDocuments_collapsedToDeterministic() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val householdId = "HH_ABC"
+        val userUid = "admin_uid"
+        snapshotSource.members[Pair(householdId, userUid)] = mapOf("role" to "ADMIN", "status" to "ACTIVE")
+
+        val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
+        syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
+
+        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🏥 Health & Wellness",
+            subCategory = "💊 Pharmacy & Medical"
+        )
+        val legacy1 = "legacy-uuid-1"
+        val legacy2 = "legacy-uuid-2"
+        val legacy3 = "legacy-uuid-3"
+
+        val snapshot = listOf(
+            Pair(
+                legacy1,
+                mapOf<String, Any?>(
+                    "categoryId" to legacy1,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 150L
+                )
+            ),
+            Pair(
+                legacy2,
+                mapOf<String, Any?>(
+                    "categoryId" to legacy2,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 200L,
+                    "updatedAt" to 250L
+                )
+            ),
+            Pair(
+                legacy3,
+                mapOf<String, Any?>(
+                    "categoryId" to legacy3,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 300L,
+                    "updatedAt" to 350L
+                )
+            )
+        )
+
+        syncRepo.processCategorySnapshot(snapshot)
+
+        val localCats = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(1, localCats.size)
+        assertEquals(deterministicId, localCats.first().id)
+
+        val outbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals(4, outbox.size)
+        val upsertEntry = outbox.firstOrNull { it.operation == "UPSERT" }
+        assertNotNull("Must contain UPSERT for canonical deterministicId", upsertEntry)
+        assertEquals(deterministicId, upsertEntry!!.entityId)
+
+        val deletedIds = outbox.filter { it.operation == "DELETE" }.map { it.entityId }.toSet()
+        assertEquals(setOf(legacy1, legacy2, legacy3), deletedIds)
+    }
+
+    @Test
+    fun test18_testInboundSync_tombstonesLegacyDocumentWhenDeterministicDeleted() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val householdId = "HH_ABC"
+        val userUid = "owner_uid"
+        snapshotSource.members[Pair(householdId, userUid)] = mapOf("role" to "OWNER", "status" to "ACTIVE")
+
+        val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
+        syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
+
+        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🏥 Health & Wellness",
+            subCategory = "💊 Pharmacy & Medical"
+        )
+        val legacyId = "legacy-active-uuid"
+
+        val snapshot = listOf(
+            Pair(
+                deterministicId,
+                mapOf<String, Any?>(
+                    "categoryId" to deterministicId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to true,
+                    "createdAt" to 100L,
+                    "updatedAt" to 500L
+                )
+            ),
+            Pair(
+                legacyId,
+                mapOf<String, Any?>(
+                    "categoryId" to legacyId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 50L,
+                    "updatedAt" to 200L
+                )
+            )
+        )
+
+        syncRepo.processCategorySnapshot(snapshot)
+
+        val localCats = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(0, localCats.size)
+
+        val outbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals(1, outbox.size)
+        assertEquals(legacyId, outbox.first().entityId)
+        assertEquals("DELETE", outbox.first().operation)
+    }
+
+    @Test
+    fun test19_testInboundSync_isIdempotentOnRepeatedSnapshots() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val householdId = "HH_ABC"
+        val userUid = "owner_uid"
+        snapshotSource.members[Pair(householdId, userUid)] = mapOf("role" to "OWNER", "status" to "ACTIVE")
+
+        val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
+        syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
+
+        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🏥 Health & Wellness",
+            subCategory = "💊 Pharmacy & Medical"
+        )
+        val legacyId = "legacy-dup-1"
+
+        val snapshot = listOf(
+            Pair(
+                deterministicId,
+                mapOf<String, Any?>(
+                    "categoryId" to deterministicId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 100L
+                )
+            ),
+            Pair(
+                legacyId,
+                mapOf<String, Any?>(
+                    "categoryId" to legacyId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 80L,
+                    "updatedAt" to 80L
+                )
+            )
+        )
+
+        // Run 1
+        syncRepo.processCategorySnapshot(snapshot)
+        val outbox1 = db.syncOutboxDao().getPendingEntries()
+        assertEquals(1, outbox1.size)
+
+        // Run 2 (Repeated snapshot)
+        syncRepo.processCategorySnapshot(snapshot)
+        val outbox2 = db.syncOutboxDao().getPendingEntries()
+        assertEquals(1, outbox2.size)
+        assertEquals(1, db.categoryDao().getAllCategoriesList(householdId).size)
+    }
+
+    @Test
+    fun test20_testDeleteSubcategory_deletesAllLogicalDuplicatesAndEnqueuesOutboxDeletes() = runTest {
+        val dao = InMemoryCategoryDao()
+        val outboxDao = InMemorySyncOutboxDao()
+        val repo = RoomCategoryRepository(categoryDao = dao, syncOutboxDao = outboxDao)
+
+        val householdId = "HH_A"
+        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🏥 Health & Wellness",
+            subCategory = "💊 Pharmacy & Medical"
+        )
+        val legacyId = "legacy-row-uuid"
+
+        // Seed both into Room
+        dao.insertCategory(
+            CategoryEntity(
+                id = deterministicId,
+                householdId = householdId,
+                type = "Expense",
+                name = "🏥 Health & Wellness",
+                subCategory = "💊 Pharmacy & Medical"
+            )
+        )
+        dao.insertCategory(
+            CategoryEntity(
+                id = legacyId,
+                householdId = householdId,
+                type = "Expense",
+                name = "🏥 Health & Wellness",
+                subCategory = "💊 Pharmacy & Medical"
+            )
+        )
+
+        assertEquals(2, dao.getAllCategoriesList(householdId).size)
+
+        // Delete using deterministicId
+        repo.deleteSubcategory(deterministicId)
+
+        // Both rows must be removed from Room
+        val remaining = dao.getAllCategoriesList(householdId)
+        assertEquals(0, remaining.size)
+
+        // Outbox must contain DELETE for both IDs
+        val outbox = outboxDao.getPendingEntries()
+        val deletedIds = outbox.map { it.entityId }.toSet()
+        assertEquals(setOf(deterministicId, legacyId), deletedIds)
+        assertTrue(outbox.all { it.operation == "DELETE" })
+    }
+
+    @Test
+    fun test21_testReconciliation_preservesHouseholdAndTypeIsolation() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
+
+        val snapshot = listOf(
+            Pair(
+                "hhA_exp_legacy",
+                mapOf<String, Any?>(
+                    "categoryId" to "hhA_exp_legacy",
+                    "householdId" to "HH_A",
+                    "type" to "Expense",
+                    "name" to "Freelance",
+                    "subCategory" to "Consulting",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 100L
+                )
+            ),
+            Pair(
+                "hhA_inc_legacy",
+                mapOf<String, Any?>(
+                    "categoryId" to "hhA_inc_legacy",
+                    "householdId" to "HH_A",
+                    "type" to "Income",
+                    "name" to "Freelance",
+                    "subCategory" to "Consulting",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 100L
+                )
+            ),
+            Pair(
+                "hhB_exp_legacy",
+                mapOf<String, Any?>(
+                    "categoryId" to "hhB_exp_legacy",
+                    "householdId" to "HH_B",
+                    "type" to "Expense",
+                    "name" to "Freelance",
+                    "subCategory" to "Consulting",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 100L
+                )
+            ),
+            Pair(
+                "hhB_inc_legacy",
+                mapOf<String, Any?>(
+                    "categoryId" to "hhB_inc_legacy",
+                    "householdId" to "HH_B",
+                    "type" to "Income",
+                    "name" to "Freelance",
+                    "subCategory" to "Consulting",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 100L
+                )
+            )
+        )
+
+        syncRepo.processCategorySnapshot(snapshot)
+
+        val catsA = db.categoryDao().getAllCategoriesList("HH_A")
+        val catsB = db.categoryDao().getAllCategoriesList("HH_B")
+
+        assertEquals(2, catsA.size)
+        assertEquals(2, catsB.size)
+
+        val expA = catsA.first { it.type == "Expense" }
+        val incA = catsA.first { it.type == "Income" }
+        val expB = catsB.first { it.type == "Expense" }
+        val incB = catsB.first { it.type == "Income" }
+
+        val allIds = setOf(expA.id, incA.id, expB.id, incB.id)
+        assertEquals("All 4 categories must have unique deterministic IDs", 4, allIds.size)
+    }
+
+    @Test
+    fun test22_customCategory_creationGeneratesDeterministicIdAndSurvivesInboundSync() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val householdId = "HH_CUSTOM_1"
+        val userUid = "owner_uid"
+        snapshotSource.members[Pair(householdId, userUid)] = mapOf("role" to "OWNER", "status" to "ACTIVE")
+
+        val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
+        syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
+
+        val repo = RoomCategoryRepository(
+            categoryDao = db.categoryDao(),
+            syncOutboxDao = db.syncOutboxDao(),
+            database = db
+        )
+
+        // 1. Add custom category
+        repo.addCategory(
+            name = "🚗 Vehicles",
+            type = "Expense",
+            subCategory = "⛽ Fuel",
+            userId = userUid,
+            householdId = householdId
+        )
+
+        val expectedCanonicalId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🚗 Vehicles",
+            subCategory = "⛽ Fuel"
+        )
+
+        val localCats = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(1, localCats.size)
+        assertEquals(expectedCanonicalId, localCats.first().id)
+        assertEquals("🚗 Vehicles", localCats.first().name)
+        assertEquals("⛽ Fuel", localCats.first().subCategory)
+
+        // 2. Inbound snapshot receives the canonical document from Firestore
+        val snapshot = listOf(
+            Pair(
+                expectedCanonicalId,
+                mapOf<String, Any?>(
+                    "categoryId" to expectedCanonicalId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🚗 Vehicles",
+                    "subCategory" to "⛽ Fuel",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 100L
+                )
+            )
+        )
+
+        syncRepo.processCategorySnapshot(snapshot)
+
+        // Category survives snapshot and remains active
+        val catsAfterSync = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(1, catsAfterSync.size)
+        assertEquals(expectedCanonicalId, catsAfterSync.first().id)
+        assertFalse(catsAfterSync.first().isDeleted)
+    }
+
+    @Test
+    fun test23_inboundSync_migratesLegacyCustomCategoryToCanonicalIdInFirestore() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val householdId = "HH_CUSTOM_2"
+        val userUid = "owner_uid"
+        snapshotSource.members[Pair(householdId, userUid)] = mapOf("role" to "OWNER", "status" to "ACTIVE")
+
+        val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
+        syncRepo.startSync(userUid = userUid, requestedHouseholdId = householdId)
+
+        val legacyId = "custom-legacy-uuid-123"
+        val expectedCanonicalId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🚗 Vehicles",
+            subCategory = "⛽ Fuel"
+        )
+
+        // Snapshot contains ONLY legacy random-UUID document
+        val snapshot = listOf(
+            Pair(
+                legacyId,
+                mapOf<String, Any?>(
+                    "categoryId" to legacyId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🚗 Vehicles",
+                    "subCategory" to "⛽ Fuel",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 200L,
+                    "createdByUid" to "creator_user"
+                )
+            )
+        )
+
+        syncRepo.processCategorySnapshot(snapshot)
+
+        // 1. Room contains canonical category
+        val localCats = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(1, localCats.size)
+        assertEquals(expectedCanonicalId, localCats.first().id)
+        assertEquals("🚗 Vehicles", localCats.first().name)
+        assertEquals("⛽ Fuel", localCats.first().subCategory)
+
+        // 2. Outbox contains UPSERT for canonicalId and DELETE for legacyId
+        val outbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals(2, outbox.size)
+
+        val upsertEntry = outbox.firstOrNull { it.operation == "UPSERT" }
+        val deleteEntry = outbox.firstOrNull { it.operation == "DELETE" }
+
+        assertNotNull("Must have UPSERT for canonicalId", upsertEntry)
+        assertEquals(expectedCanonicalId, upsertEntry!!.entityId)
+
+        assertNotNull("Must have DELETE for legacyId", deleteEntry)
+        assertEquals(legacyId, deleteEntry!!.entityId)
+    }
+
+    @Test
+    fun test24_inboundSync_legacyCustomCategory_memberDoesNotEnqueueCloudMutations() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FinTrackDatabase::class.java).allowMainThreadQueries().build()
+        val snapshotSource = TestSnapshotSource()
+        val householdId = "HH_CUSTOM_3"
+        val memberUid = "member_uid"
+        snapshotSource.members[Pair(householdId, memberUid)] = mapOf("role" to "MEMBER", "status" to "ACTIVE")
+
+        val syncRepo = FirestoreSyncRepository(database = db, snapshotSource = snapshotSource)
+        syncRepo.startSync(userUid = memberUid, requestedHouseholdId = householdId)
+
+        val legacyId = "custom-legacy-uuid-456"
+        val expectedCanonicalId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🚗 Vehicles",
+            subCategory = "⛽ Fuel"
+        )
+
+        // Snapshot contains ONLY legacy random-UUID document
+        val snapshot = listOf(
+            Pair(
+                legacyId,
+                mapOf<String, Any?>(
+                    "categoryId" to legacyId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🚗 Vehicles",
+                    "subCategory" to "⛽ Fuel",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 200L
+                )
+            )
+        )
+
+        syncRepo.processCategorySnapshot(snapshot)
+
+        // 1. Room is cleanly reconciled with canonical category
+        val localCats = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(1, localCats.size)
+        assertEquals(expectedCanonicalId, localCats.first().id)
+
+        // 2. Member must NOT enqueue any outbox mutations (zero cloud writes)
+        val outbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals(0, outbox.size)
     }
 }

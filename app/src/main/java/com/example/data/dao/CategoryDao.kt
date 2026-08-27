@@ -81,5 +81,29 @@ interface CategoryDao {
         WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
     """)
     suspend fun deleteAllCategories(householdId: String? = null)
+
+    @Query("""
+        SELECT * FROM categories
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND type = :type AND name = :name AND subCategory = :subCategory
+    """)
+    suspend fun getCategoriesByLogicalIdentity(
+        householdId: String?,
+        type: String,
+        name: String,
+        subCategory: String
+    ): List<CategoryEntity>
+
+    @Query("""
+        DELETE FROM categories
+        WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
+        AND type = :type AND name = :name AND subCategory = :subCategory
+    """)
+    suspend fun deleteCategoriesByLogicalIdentity(
+        householdId: String?,
+        type: String,
+        name: String,
+        subCategory: String
+    )
 }
 

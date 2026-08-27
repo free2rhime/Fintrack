@@ -588,4 +588,61 @@ class CategoryPermissionsTest {
         composeTestRule.onNodeWithTag("tx_input_desc").assertIsDisplayed()
         composeTestRule.onNodeWithTag("save_transaction_button").assertExists()
     }
+
+    @Test
+    fun testMemberRole_inboundReconciliation_doesNotEnqueueUnauthorizedOutboxWrites() = runTest {
+        val householdId = "hh_member_test"
+        val memberUid = "user_member"
+        fakeSnapshotSource.members[Pair(householdId, memberUid)] = mapOf("role" to "MEMBER", "status" to "ACTIVE")
+
+        syncRepo.startSync(userUid = memberUid, requestedHouseholdId = householdId)
+
+        val deterministicId = RoomCategoryRepository.generateDefaultCategoryId(
+            householdId = householdId,
+            type = "Expense",
+            name = "🏥 Health & Wellness",
+            subCategory = "💊 Pharmacy & Medical"
+        )
+        val legacyId = "legacy-random-uuid-999"
+
+        val snapshot = listOf(
+            Pair(
+                deterministicId,
+                mapOf<String, Any?>(
+                    "categoryId" to deterministicId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 100L,
+                    "updatedAt" to 100L
+                )
+            ),
+            Pair(
+                legacyId,
+                mapOf<String, Any?>(
+                    "categoryId" to legacyId,
+                    "householdId" to householdId,
+                    "type" to "Expense",
+                    "name" to "🏥 Health & Wellness",
+                    "subCategory" to "💊 Pharmacy & Medical",
+                    "isDeleted" to false,
+                    "createdAt" to 50L,
+                    "updatedAt" to 50L
+                )
+            )
+        )
+
+        syncRepo.processCategorySnapshot(snapshot)
+
+        // 1. Room is cleanly reconciled (only 1 deterministic row)
+        val localCats = db.categoryDao().getAllCategoriesList(householdId)
+        assertEquals(1, localCats.size)
+        assertEquals(deterministicId, localCats.first().id)
+
+        // 2. Member must NOT enqueue any outbox mutations (zero cloud writes)
+        val pendingOutbox = db.syncOutboxDao().getPendingEntries()
+        assertEquals(0, pendingOutbox.size)
+    }
 }

@@ -247,4 +247,28 @@ class FakeCategoryDao : CategoryDao {
     override suspend fun getCategoryById(id: String): CategoryEntity? {
         return memory.find { it.id == id }
     }
+
+    override suspend fun getCategoriesByLogicalIdentity(
+        householdId: String?,
+        type: String,
+        name: String,
+        subCategory: String
+    ): List<CategoryEntity> {
+        return memory.filter {
+            ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
+                    it.type == type && it.name == name && it.subCategory == subCategory
+        }
+    }
+
+    override suspend fun deleteCategoriesByLogicalIdentity(
+        householdId: String?,
+        type: String,
+        name: String,
+        subCategory: String
+    ) {
+        memory.removeAll {
+            ((householdId == null && it.householdId == null) || it.householdId == householdId) &&
+                    it.type == type && it.name == name && it.subCategory == subCategory
+        }
+    }
 }

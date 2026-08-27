@@ -40,7 +40,14 @@ class RoomCategoryRepository(
     }
 
     override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String, householdId: String?) {
+        val canonicalId = generateDefaultCategoryId(
+            householdId = householdId,
+            type = type,
+            name = name.trim(),
+            subCategory = subCategory.trim()
+        )
         val category = CategoryEntity(
+            id = canonicalId,
             name = name.trim(),
             type = type,
             subCategory = subCategory.trim(),
@@ -80,8 +87,14 @@ class RoomCategoryRepository(
     override suspend fun deleteCategoryGroup(name: String, type: String, householdId: String?) {
         executeWithTransaction {
             val matching = categoryDao.getCategoriesGroup(name.trim(), type, householdId)
+            val allIds = matching.map { it.id }.toMutableSet()
             for (cat in matching) {
-                enqueueOutboxInternal(cat.id, "DELETE")
+                val canonicalId = generateDefaultCategoryId(cat.householdId, cat.type, cat.name, cat.subCategory)
+                allIds.add(canonicalId)
+            }
+            for (catId in allIds) {
+                enqueueOutboxInternal(catId, "DELETE")
+                categoryDao.deleteCategoryById(catId)
             }
             categoryDao.deleteCategoryGroup(name.trim(), type, householdId)
         }
@@ -96,8 +109,24 @@ class RoomCategoryRepository(
 
     override suspend fun deleteSubcategory(id: String) {
         executeWithTransaction {
-            enqueueOutboxInternal(id, "DELETE")
-            categoryDao.deleteSubcategory(id)
+            val target = categoryDao.getCategoryById(id)
+            if (target != null) {
+                val canonicalId = generateDefaultCategoryId(target.householdId, target.type, target.name, target.subCategory)
+                val matching = categoryDao.getCategoriesByLogicalIdentity(
+                    householdId = target.householdId,
+                    type = target.type,
+                    name = target.name,
+                    subCategory = target.subCategory
+                )
+                val allIdsToDelete = (matching.map { it.id } + listOf(id, canonicalId)).distinct()
+                for (catId in allIdsToDelete) {
+                    enqueueOutboxInternal(catId, "DELETE")
+                    categoryDao.deleteCategoryById(catId)
+                }
+            } else {
+                enqueueOutboxInternal(id, "DELETE")
+                categoryDao.deleteSubcategory(id)
+            }
         }
     }
 
