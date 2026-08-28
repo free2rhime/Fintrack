@@ -34,6 +34,8 @@ class OutboundSyncEngine(
     private var activeJob: Job? = null
     private var isStarted = false
 
+    var onOutboxStateChanged: (() -> Unit)? = null
+
     @Synchronized
     fun start(syncStatusFlow: StateFlow<SyncStatus>? = null): Job? {
         if (isStarted) return null
@@ -57,6 +59,7 @@ class OutboundSyncEngine(
     }
 
     fun notifyPending(): Job? {
+        onOutboxStateChanged?.invoke()
         if (!isStarted) return null
         isPendingSignal.set(true)
         val job = coroutineScope.launch {
@@ -136,26 +139,35 @@ class OutboundSyncEngine(
             return processedTotal
         } finally {
             processMutex.unlock()
+            onOutboxStateChanged?.invoke()
         }
     }
 
     private suspend fun processSingleItem(item: SyncOutboxEntity, householdId: String): Boolean {
         syncOutboxDao.markInProgress(item.id)
+        onOutboxStateChanged?.invoke()
         Log.d(TAG, "Processing outbox item: id=${item.id}, entity=${item.entityType}, entityId=${item.entityId}, op=${item.operation}")
 
         return try {
-            withTimeout(operationTimeoutMs) {
+            if (operationTimeoutMs > 0L) {
+                withTimeout(operationTimeoutMs) {
+                    routeAndExecute(item, householdId)
+                }
+            } else {
                 routeAndExecute(item, householdId)
             }
             syncOutboxDao.markSuccess(item.id)
             Log.d(TAG, "Successfully processed and marked SUCCESS for item ${item.id}")
+            onOutboxStateChanged?.invoke()
             true
         } catch (e: CancellationException) {
             Log.d(TAG, "Processing cancelled for item ${item.id}")
             syncOutboxDao.markPending(item.id)
+            onOutboxStateChanged?.invoke()
             throw e
         } catch (e: Exception) {
             handleItemFailure(item, e)
+            onOutboxStateChanged?.invoke()
             false
         }
     }

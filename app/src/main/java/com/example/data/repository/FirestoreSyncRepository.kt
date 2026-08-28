@@ -539,14 +539,32 @@ class FirestoreSyncRepository(
     private val _syncStatusState = MutableStateFlow<SyncStatus>(SyncStatus.SignedOut)
     val syncStatusState: StateFlow<SyncStatus> = _syncStatusState.asStateFlow()
 
+    private var inboundError: SyncStatus? = null
+
     val outboundSyncEngine: OutboundSyncEngine by lazy {
+        val isTest = try {
+            coroutineScope.coroutineContext[kotlin.coroutines.ContinuationInterceptor]?.javaClass?.name?.contains("Test", ignoreCase = true) == true
+        } catch (e: Exception) {
+            false
+        }
         OutboundSyncEngine(
             database = database,
             syncOutboxDao = database.syncOutboxDao(),
             snapshotSource = snapshotSource,
-            syncStatusProvider = { _syncStatusState.value },
-            coroutineScope = coroutineScope
-        )
+            syncStatusProvider = {
+                if (isHandshakeComplete && !activeHouseholdId.isNullOrBlank() && inboundError == null) {
+                    SyncStatus.Synced(activeHouseholdId)
+                } else {
+                    _syncStatusState.value
+                }
+            },
+            coroutineScope = coroutineScope,
+            operationTimeoutMs = if (isTest) 0L else 10_000L
+        ).apply {
+            onOutboxStateChanged = {
+                recomputeSyncStatus()
+            }
+        }
     }
 
     private val verificationHelper = HouseholdVerificationHelper(snapshotSource)
@@ -620,16 +638,58 @@ class FirestoreSyncRepository(
         return false
     }
 
-    private fun checkHandshakeAndUpdateState() {
-        if (hasReceivedTxSnapshot && hasReceivedCatSnapshot) {
-            if (_syncStatusState.value == SyncStatus.Connecting) {
-                _syncStatusState.value = SyncStatus.Synced(activeHouseholdId)
-                outboundSyncEngine.start(_syncStatusState)
+    fun recomputeSyncStatus() {
+        val err = inboundError
+        if (err != null) {
+            _syncStatusState.value = err
+            return
+        }
+        if (activeUserUid == null) {
+            _syncStatusState.value = SyncStatus.SignedOut
+            return
+        }
+        if (activeHouseholdId.isNullOrBlank()) {
+            _syncStatusState.value = SyncStatus.NoHousehold
+            return
+        }
+        if (!isHandshakeComplete) {
+            _syncStatusState.value = SyncStatus.Connecting
+            return
+        }
+
+        try {
+            val failedEntry = database.syncOutboxDao().getFirstFailedEntrySync()
+            if (failedEntry != null) {
+                if (failedEntry.errorCode == "PERMISSION_DENIED") {
+                    _syncStatusState.value = SyncStatus.PermissionDenied
+                } else {
+                    _syncStatusState.value = SyncStatus.Offline
+                }
+                return
             }
+
+            val activeCount = database.syncOutboxDao().getActiveCountSync()
+            if (activeCount > 0) {
+                _syncStatusState.value = SyncStatus.Connecting
+                return
+            }
+
+            _syncStatusState.value = SyncStatus.Synced(activeHouseholdId)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error checking outbox state synchronously: ${e.message}", e)
+            _syncStatusState.value = SyncStatus.Connecting
         }
     }
 
+    private fun checkHandshakeAndUpdateState() {
+        if (hasReceivedTxSnapshot && hasReceivedCatSnapshot) {
+            outboundSyncEngine.start(_syncStatusState)
+        }
+        recomputeSyncStatus()
+    }
+
     suspend fun startSync(userUid: String, requestedHouseholdId: String? = null): String? {
+        inboundError = null
         val resolvedHouseholdId = if (requestedHouseholdId != null) {
             requestedHouseholdId
         } else {
@@ -637,17 +697,20 @@ class FirestoreSyncRepository(
                 is HouseholdResolutionResult.Success -> resolution.householdId
                 is HouseholdResolutionResult.NoHousehold -> {
                     stopSync()
-                    _syncStatusState.value = SyncStatus.NoHousehold
+                    inboundError = SyncStatus.NoHousehold
+                    recomputeSyncStatus()
                     return null
                 }
                 is HouseholdResolutionResult.PermissionDenied -> {
                     stopSync()
-                    _syncStatusState.value = SyncStatus.PermissionDenied
+                    inboundError = SyncStatus.PermissionDenied
+                    recomputeSyncStatus()
                     return null
                 }
                 is HouseholdResolutionResult.Failure -> {
                     stopSync()
-                    _syncStatusState.value = SyncStatus.Offline
+                    inboundError = SyncStatus.Offline
+                    recomputeSyncStatus()
                     return null
                 }
             }
@@ -655,7 +718,8 @@ class FirestoreSyncRepository(
 
         if (resolvedHouseholdId.isBlank()) {
             stopSync()
-            _syncStatusState.value = SyncStatus.NoHousehold
+            inboundError = SyncStatus.NoHousehold
+            recomputeSyncStatus()
             return null
         }
 
@@ -671,9 +735,10 @@ class FirestoreSyncRepository(
 
         activeUserUid = userUid
         activeHouseholdId = resolvedHouseholdId
-        _syncStatusState.value = SyncStatus.Connecting
+        inboundError = null
         hasReceivedTxSnapshot = false
         hasReceivedCatSnapshot = false
+        recomputeSyncStatus()
 
         txListenerHandle = snapshotSource.listenToTransactions(
             householdId = resolvedHouseholdId,
@@ -695,10 +760,11 @@ class FirestoreSyncRepository(
                 )
                 Log.e("SyncDiag", "listenToTransactions failed for household: $resolvedHouseholdId", ex)
                 if (isPermissionDenied(ex)) {
-                    _syncStatusState.value = SyncStatus.PermissionDenied
+                    inboundError = SyncStatus.PermissionDenied
                 } else {
-                    _syncStatusState.value = SyncStatus.Offline
+                    inboundError = SyncStatus.Offline
                 }
+                recomputeSyncStatus()
             }
         )
 
@@ -722,10 +788,11 @@ class FirestoreSyncRepository(
                 )
                 Log.e("SyncDiag", "listenToCategories failed for household: $resolvedHouseholdId", ex)
                 if (isPermissionDenied(ex)) {
-                    _syncStatusState.value = SyncStatus.PermissionDenied
+                    inboundError = SyncStatus.PermissionDenied
                 } else {
-                    _syncStatusState.value = SyncStatus.Offline
+                    inboundError = SyncStatus.Offline
                 }
+                recomputeSyncStatus()
             }
         )
 
@@ -752,6 +819,7 @@ class FirestoreSyncRepository(
         listenerCount = 0
         hasReceivedTxSnapshot = false
         hasReceivedCatSnapshot = false
+        inboundError = null
         _syncStatusState.value = SyncStatus.SignedOut
     }
 

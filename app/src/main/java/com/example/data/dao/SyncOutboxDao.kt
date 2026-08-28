@@ -27,6 +27,21 @@ interface SyncOutboxDao {
     @Query("SELECT COUNT(*) FROM sync_outbox WHERE status = 'PENDING'")
     suspend fun getPendingCount(): Int
 
+    @Query("SELECT COUNT(*) FROM sync_outbox WHERE status IN ('PENDING', 'IN_PROGRESS')")
+    suspend fun getActiveCount(): Int
+
+    @Query("SELECT COUNT(*) FROM sync_outbox WHERE status IN ('PENDING', 'IN_PROGRESS')")
+    fun getActiveCountSync(): Int
+
+    @Query("SELECT COUNT(*) FROM sync_outbox WHERE status = 'FAILED'")
+    suspend fun getFailedCount(): Int
+
+    @Query("SELECT * FROM sync_outbox WHERE status = 'FAILED' ORDER BY updatedAt DESC LIMIT 1")
+    suspend fun getFirstFailedEntry(): SyncOutboxEntity?
+
+    @Query("SELECT * FROM sync_outbox WHERE status = 'FAILED' ORDER BY updatedAt DESC LIMIT 1")
+    fun getFirstFailedEntrySync(): SyncOutboxEntity?
+
     @Query("SELECT COUNT(*) FROM sync_outbox WHERE status = 'PENDING'")
     fun getPendingCountFlow(): Flow<Int>
 

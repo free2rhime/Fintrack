@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.db.FinTrackDatabase
+import com.example.data.model.SyncOutboxEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.HouseholdResolutionResult
 import com.example.data.repository.SyncStatus
@@ -538,5 +539,247 @@ class FirestoreSyncTest {
         fakeSnapshotSource.shouldFailHouseholdResolution = true
         val failResult = syncRepository.resolveHousehold("user_fail_err")
         assertTrue(failResult is HouseholdResolutionResult.Failure)
+    }
+
+    // ========================================================================
+    // SyncStatus Accuracy Tests (Step 7.9)
+    // ========================================================================
+
+    @Test
+    fun test1_inboundHandshakeWithEmptyOutboxProducesSynced() = testScope.runTest {
+        syncRepository.startSync("user_123", "hh_test_1")
+        testScheduler.advanceUntilIdle()
+
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun test2_inboundHandshakeWithPendingOutboxRemainsConnecting() = testScope.runTest {
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "outbox_1",
+                entityType = "TRANSACTION",
+                entityId = "tx_1",
+                operation = "UPSERT",
+                status = "PENDING"
+            )
+        )
+
+        syncRepository.startSync("user_123", "hh_test_1")
+        testScheduler.advanceUntilIdle()
+
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SyncStatus.Connecting, syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun test3_inboundHandshakeWithInProgressOutboxRemainsConnecting() = testScope.runTest {
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "outbox_2",
+                entityType = "TRANSACTION",
+                entityId = "tx_2",
+                operation = "UPSERT",
+                status = "IN_PROGRESS"
+            )
+        )
+
+        syncRepository.startSync("user_123", "hh_test_1")
+        testScheduler.advanceUntilIdle()
+
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SyncStatus.Connecting, syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun test4_inboundHandshakeWithFailedOutboxProducesErrorState() = testScope.runTest {
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "outbox_3",
+                entityType = "TRANSACTION",
+                entityId = "tx_3",
+                operation = "UPSERT",
+                status = "FAILED",
+                errorCode = "PERMISSION_DENIED",
+                errorMessage = "Missing authorization"
+            )
+        )
+
+        syncRepository.startSync("user_123", "hh_test_1")
+        testScheduler.advanceUntilIdle()
+
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SyncStatus.PermissionDenied, syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun test5_pendingOutboundItemSuccessfullyCompletesTransitionsToSynced() = testScope.runTest {
+        val tx4 = TransactionEntity(
+            id = "tx_4",
+            userId = "user_123",
+            date = "2026-08-20",
+            description = "Test Tx 4",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "",
+            householdId = "hh_test_1"
+        )
+        db.transactionDao().insertTransaction(tx4)
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "outbox_4",
+                entityType = "TRANSACTION",
+                entityId = "tx_4",
+                operation = "UPSERT",
+                status = "PENDING"
+            )
+        )
+
+        syncRepository.startSync("user_123", "hh_test_1")
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+
+        // Inbound handshake complete, but outbox has pending item -> Connecting
+        assertEquals(SyncStatus.Connecting, syncRepository.syncStatusState.value)
+
+        // Wait for OutboundSyncEngine to process and drain the queue
+        syncRepository.outboundSyncEngine.awaitIdle()
+        testScheduler.advanceUntilIdle()
+
+        // After outbound engine drains the queue -> Synced
+        assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun test6_newLocalMutationWhileSyncedTransitionsBackToConnectingUntilResolved() = testScope.runTest {
+        syncRepository.startSync("user_123", "hh_test_1")
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
+
+        val tx5 = TransactionEntity(
+            id = "tx_5",
+            userId = "user_123",
+            date = "2026-08-20",
+            description = "Test Tx 5",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "",
+            householdId = "hh_test_1"
+        )
+        db.transactionDao().insertTransaction(tx5)
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "outbox_5",
+                entityType = "TRANSACTION",
+                entityId = "tx_5",
+                operation = "UPSERT",
+                status = "PENDING"
+            )
+        )
+        syncRepository.outboundSyncEngine.notifyPending()
+
+        // Should immediately transition to Connecting
+        assertEquals(SyncStatus.Connecting, syncRepository.syncStatusState.value)
+
+        // Wait for outbound engine to process and drain
+        syncRepository.outboundSyncEngine.awaitIdle()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun test7_offlineWithPendingLocalMutationShowsOffline() = testScope.runTest {
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "outbox_6",
+                entityType = "TRANSACTION",
+                entityId = "tx_6",
+                operation = "UPSERT",
+                status = "PENDING"
+            )
+        )
+
+        syncRepository.startSync("user_123", "hh_test_1")
+        testScheduler.advanceUntilIdle()
+
+        fakeSnapshotSource.emitTransactionError(java.io.IOException("Network unavailable"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SyncStatus.Offline, syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun test8_reconnectWithPendingOutboxRemainsConnectingUntilOutboundCompletes() = testScope.runTest {
+        val tx7 = TransactionEntity(
+            id = "tx_7",
+            userId = "user_123",
+            date = "2026-08-20",
+            description = "Test Tx 7",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "",
+            householdId = "hh_test_1"
+        )
+        db.transactionDao().insertTransaction(tx7)
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "outbox_7",
+                entityType = "TRANSACTION",
+                entityId = "tx_7",
+                operation = "UPSERT",
+                status = "PENDING"
+            )
+        )
+
+        syncRepository.startSync("user_123", "hh_test_1")
+        fakeSnapshotSource.emitTransactionError(java.io.IOException("Network unavailable"))
+        assertEquals(SyncStatus.Offline, syncRepository.syncStatusState.value)
+
+        // Reconnect
+        syncRepository.startSync("user_123", "hh_test_1")
+        fakeSnapshotSource.emitTransactions(emptyList())
+        fakeSnapshotSource.emitCategories(emptyList())
+
+        // Inbound handshake complete, but outbox has pending item -> Connecting
+        assertEquals(SyncStatus.Connecting, syncRepository.syncStatusState.value)
+
+        // Wait for OutboundSyncEngine to process the queue
+        syncRepository.outboundSyncEngine.awaitIdle()
+        testScheduler.advanceUntilIdle()
+
+        // After outbound engine drains the queue -> Synced
+        assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
     }
 }

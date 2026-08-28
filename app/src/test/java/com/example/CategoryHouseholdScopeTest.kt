@@ -220,6 +220,16 @@ class InMemorySyncOutboxDao : SyncOutboxDao {
 
     override suspend fun getPendingCount(): Int = entries.count { it.status == "PENDING" }
 
+    override suspend fun getActiveCount(): Int = entries.count { it.status == "PENDING" || it.status == "IN_PROGRESS" }
+
+    override fun getActiveCountSync(): Int = entries.count { it.status == "PENDING" || it.status == "IN_PROGRESS" }
+
+    override suspend fun getFailedCount(): Int = entries.count { it.status == "FAILED" }
+
+    override suspend fun getFirstFailedEntry(): SyncOutboxEntity? = entries.filter { it.status == "FAILED" }.maxByOrNull { it.updatedAt }
+
+    override fun getFirstFailedEntrySync(): SyncOutboxEntity? = entries.filter { it.status == "FAILED" }.maxByOrNull { it.updatedAt }
+
     override fun getPendingCountFlow(): Flow<Int> = MutableStateFlow(entries.count { it.status == "PENDING" })
 
     override suspend fun getPendingEntryForEntity(entityId: String): SyncOutboxEntity? {
