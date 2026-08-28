@@ -307,3 +307,16 @@ Before touching code:
 ```
 
 The goal is continuity without loading the entire historical conversation into every session.
+
+## OPTIONAL DEVELOPMENT SKILLS
+
+Use these skills only when they materially improve the task:
+
+* `research` — investigation and source-based analysis.
+* `debug` — root-cause diagnosis of defects.
+* `architecture` — architectural analysis and design decisions.
+* `implement` — controlled implementation of an approved solution.
+* `verify` — fresh evidence that the change works.
+
+Skills are optional tools, not mandatory workflow stages.
+FinTrack project rules and Project Memory take precedence over any skill instructions.

@@ -623,3 +623,15 @@ When starting a new FinTrack session:
 8. Update memory when durable state changes.
 
 The goal is **continuity without unnecessary context bloat**.
+
+## OPTIONAL DEVELOPMENT SKILLS
+
+The adopted skill set is intentionally minimal:
+
+* `research` → investigate
+* `debug` → diagnose
+* `architecture` → design
+* `implement` → change
+* `verify` → prove
+
+Skills are optional tools, not mandatory workflow stages. They must not alter the established FinTrack workflow or override project constraints.
