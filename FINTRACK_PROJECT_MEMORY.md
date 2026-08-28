@@ -2,7 +2,7 @@
 
 > Canonical compact operational memory for the FinTrack project.
 > Last reconciled: 2026-08-28
-> Current verified Git checkpoint: `951b4aa`
+> Current verified Git checkpoint: `873017a`
 
 ---
 
@@ -51,25 +51,25 @@ Repository state verified by the user on 2026-08-28:
 
 ```text
 Branch:       main
-HEAD:         951b4aa
-origin/main:  951b4aa
+HEAD:         873017a
+origin/main:  873017a
 Working tree: clean
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 Commit:
 
-`951b4aa fix: stabilize transaction outbound sync`
+`873017a fix: align sync status with outbox state`
 
-The repository contains a 72-commit chronological history from the initial commit to `951b4aa`.
+The repository contains a chronological Git history from the initial commit to `873017a`.
 
 ### Important historical correction
 
-Some earlier handoff/context files identify `cea443f` as the latest checkpoint.
+Some earlier handoff/context files identify `cea443f` or `951b4aa` as the latest checkpoint.
 
-That was historically correct at the time those files were produced, but it is **NOT the current checkpoint**.
+Those were historically correct at the time those files were produced, but they are **NOT the current checkpoint**.
 
-Current checkpoint = **`951b4aa`**.
+Current checkpoint = **`873017a`**.
 
 ---
 
@@ -138,6 +138,15 @@ Subsequent commits implemented and stabilized:
 
 ### Current transaction architecture
 Subsequent commits enforced transaction household scoping, corrected null `migrationId` serialization, and stabilized transaction outbound synchronization.
+
+### SyncStatus accuracy and outbox alignment (Step 7.9)
+`873017a` aligned `SyncStatus` semantics with actual outbox state:
+- `SyncStatus.Synced` represents completed inbound handshake (transactions + categories) with a valid active household, no inbound errors, and zero unresolved outbound entries (0 PENDING, 0 IN_PROGRESS, 0 FAILED).
+- `SyncStatus.Connecting` (`"Syncing..."`) represents inbound connection in progress OR active unresolved outbound work.
+- Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) or `SyncStatus.Offline`.
+- `OutboundSyncEngine` processing is decoupled from public `SyncStatus`, allowing queue draining while status is `Connecting`.
+- Infinite Outbox Flow collectors were removed in favor of direct/finite Room queries (`getActiveCountSync`, `getFirstFailedEntrySync`) and event-driven notifications (`onOutboxStateChanged`).
+- Lifecycle `UncompletedCoroutinesError` in `TestScope` was resolved without sleeps, delays, or detached coroutines.
 
 ---
 
@@ -337,31 +346,32 @@ The current repository contains lifecycle stabilization changes, including the `
 
 # 6. SYNCSTATUS — VERIFIED SEMANTICS
 
-Current `SyncStatus.Synced` indicates successful completion of the inbound Firestore listener/handshake.
+`SyncStatus.Synced` represents:
+- completed inbound transaction snapshot handshake;
+- completed inbound category snapshot handshake;
+- valid active household;
+- absence of active inbound error;
+- zero `PENDING` outbox entries;
+- zero `IN_PROGRESS` outbox entries;
+- zero `FAILED` outbox entries.
 
-It does **not** guarantee:
+`SyncStatus.Connecting` (`"Syncing..."`) represents:
+- inbound snapshot handshake in progress; OR
+- active unresolved outbound work (`PENDING` or `IN_PROGRESS`).
 
-- outbox empty;
-- outbound writes successful;
-- all pending local mutations confirmed in Firestore.
+`FAILED` outbox entries map to:
+- `SyncStatus.PermissionDenied` (when `errorCode == "PERMISSION_DENIED"`);
+- `SyncStatus.Offline` (for other fatal outbound errors).
 
-Therefore:
+`OutboundSyncEngine` processing is decoupled from public `SyncStatus`, allowing mutations to be uploaded whenever inbound synchronization is healthy, even while the user-facing status is `Connecting`/`Syncing`.
 
-```text
-Inbound synchronization complete
-        ≠
-All outbound work complete
-```
-
-Coexistence of `Synced` with `PENDING` or `FAILED` outbound work is an **OPEN design area**, not automatically a confirmed bug.
-
-Do not redefine `SyncStatus.Synced` without an explicit architectural/product decision and tests.
+Outbox state is evaluated via direct/finite Room queries (`getActiveCountSync`, `getFirstFailedEntrySync`) and event-driven notifications (`onOutboxStateChanged`), avoiding unbounded background collectors.
 
 ---
 
 # 7. CURRENT VERIFIED / RESOLVED ITEMS
 
-At checkpoint `951b4aa` the following have been addressed:
+At checkpoint `873017a` the following have been addressed:
 
 - Google Sign-In configuration and authentication.
 - Explicit household resolution.
@@ -377,6 +387,10 @@ At checkpoint `951b4aa` the following have been addressed:
 - Null `migrationId` omission in Firestore payloads.
 - Transaction outbound synchronization stabilization.
 - Historical coroutine lifecycle stabilization work.
+- SyncStatus accuracy alignment with outbox state (0 PENDING, 0 IN_PROGRESS, 0 FAILED) (Step 7.9).
+- Decoupled outbound sync engine processing gate (Step 7.9).
+- Direct/finite outbox evaluation and event-driven state recomputation (Step 7.9).
+- Elimination of `UncompletedCoroutinesError` lifecycle defects without artificial sleeps or delays (Step 7.9).
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -390,7 +404,7 @@ Known open areas:
 Need explicit verification of behavior when devices lose connectivity and later recover.
 
 ## OPEN-2 — Outbox failure/retry/recovery semantics
-Need explicit validation of failure states, retry behavior and recovery.
+Need explicit validation of failure states, retry behavior and recovery beyond current coverage.
 
 ## OPEN-3 — Concurrent household edits
 Need defined conflict behavior when multiple household members modify shared data concurrently.
@@ -402,10 +416,10 @@ Need explicit end-to-end verification that local and remote representations rema
 Migration state exists, but complete end-to-end execution needs verification.
 
 ## OPEN-6 — Full regression suite
-The complete unit/Robolectric test matrix has not been promoted to VERIFIED green status merely from successful compilation or localized tests.
+The complete unit/Robolectric test matrix has not been promoted to VERIFIED green status merely from successful compilation or localized tests (historical migration/preflight test suite debt).
 
-## OPEN-7 — SyncStatus outbound-health semantics
-Need an explicit design decision if the UI/status model should distinguish inbound synchronization completion from outbound queue health.
+## OPEN-7 — SyncStatus outbound-health semantics (RESOLVED in Step 7.9 — 873017a)
+Resolved: `SyncStatus.Synced` requires both inbound handshake readiness and zero unresolved outbox work (0 PENDING, 0 IN_PROGRESS, 0 FAILED). Outbound engine is decoupled from public UI status.
 
 ---
 
@@ -596,13 +610,14 @@ Foundation
 → category reconciliation
 → transaction household scoping
 → transaction outbound stabilization
+→ SyncStatus outbox alignment (Step 7.9)
 ```
 
 The current baseline is:
 
 ```text
-951b4aa
-fix: stabilize transaction outbound sync
+873017a
+fix: align sync status with outbox state
 ```
 
 The next development task must be explicitly selected rather than inferred from the OPEN list.

@@ -178,17 +178,25 @@ Do not perform a broad coroutine/outbox rewrite without new reproducible evidenc
 
 ## 10. SYNCSTATUS RULE
 
-Current `SyncStatus.Synced` indicates completion of the inbound Firestore listener/handshake.
+`SyncStatus.Synced` represents:
 
-It does NOT necessarily mean:
+- completed inbound transaction snapshot handshake;
+- completed inbound category snapshot handshake;
+- valid active household;
+- absence of active inbound error;
+- zero `PENDING` outbox entries;
+- zero `IN_PROGRESS` outbox entries;
+- zero `FAILED` outbox entries.
 
-- outbox is empty;
-- all outbound writes succeeded;
-- every local mutation is confirmed in Firestore.
+`SyncStatus.Connecting` / `"Syncing..."` represents inbound handshake in progress OR unresolved active outbound work (`PENDING` or `IN_PROGRESS`).
 
-Treat outbound-health semantics as an open design area unless the current repository proves otherwise.
+`FAILED` outbox entries map to:
+- `SyncStatus.PermissionDenied` (when `errorCode == "PERMISSION_DENIED"`);
+- `SyncStatus.Offline` (for other fatal outbound errors).
 
-Do not redefine `Synced` implicitly.
+`OutboundSyncEngine` processing is decoupled from public `SyncStatus`, enabling queue processing whenever inbound sync is healthy even while the public status is `Connecting`/`Syncing`.
+
+Outbox state is evaluated using direct/finite Room queries and event-driven notifications from `OutboundSyncEngine`, avoiding infinite Room Flow collection loops.
 
 ---
 

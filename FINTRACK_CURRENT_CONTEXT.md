@@ -2,7 +2,7 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-08-28
-> Git baseline: `951b4aa`
+> Git baseline: `873017a`
 
 ## 1. ROLE OF THIS FILE
 
@@ -20,8 +20,8 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         951b4aa
-origin/main:  951b4aa
+HEAD:         873017a
+origin/main:  873017a
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
@@ -29,7 +29,7 @@ At the time this context was verified, the repository working tree was clean.
 
 Current commit:
 
-`951b4aa fix: stabilize transaction outbound sync`
+`873017a fix: align sync status with outbox state`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -121,26 +121,28 @@ The architecture contains:
 The historical outbound coroutine lifecycle issue was addressed before the current checkpoint.
 
 ### SyncStatus
-`SyncStatus.Synced` currently represents successful completion of the inbound Firestore listener/handshake.
+`SyncStatus.Synced` represents:
+- completed inbound snapshot handshake (transactions + categories);
+- valid active household;
+- absence of active inbound error;
+- zero `PENDING`, zero `IN_PROGRESS`, and zero `FAILED` outbox records.
 
-It does **not** by itself guarantee:
-- an empty outbox;
-- successful outbound writes;
-- confirmation of every local mutation in Firestore.
+`SyncStatus.Connecting` / `"Syncing..."` represents inbound handshake in progress OR unresolved active outbound work (`PENDING` or `IN_PROGRESS`).
 
-The semantics of outbound health remain an open design area unless current code/tests demonstrate otherwise.
+Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) or `SyncStatus.Offline` (for other fatal errors).
+
+`OutboundSyncEngine` processing is decoupled from public `SyncStatus`, enabling outbound processing whenever inbound sync is healthy.
 
 ## 6. OPEN WORK
 
 Known open areas:
 
-1. Offline/recovery synchronization handling.
-2. Outbox failure, retry and error-recovery semantics.
+1. Offline/recovery synchronization handling beyond current coverage.
+2. Outbox failure, retry and error-recovery semantics where still incomplete.
 3. Concurrent/conflicting household edits resolution.
 4. Room ↔ Firestore mirror integrity verification.
 5. End-to-end migration execution verification.
-6. Full regression verification across the entire test suite.
-7. SyncStatus outbound-health semantics.
+6. Full regression verification across the entire test suite (historical migration/preflight test suite debt).
 
 These are not automatically selected as the next task.
 
