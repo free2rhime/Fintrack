@@ -218,10 +218,12 @@ UI work should not change backend or synchronization architecture unless explici
 
 ## 12. CURRENT BASELINE
 
-At the time this bootstrap was created:
+At the time this bootstrap was updated:
 
 ```text
-Git baseline: 951b4aa
+Git baseline: baf2f70
+Commit: fix: harden firestore security rules
+Previous functional baseline: 873017a (fix: align sync status with outbox state)
 Branch: main
 Remote branch: origin/main
 Working tree: clean

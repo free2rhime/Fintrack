@@ -1,8 +1,9 @@
 # FINTRACK PROJECT MEMORY v2
 
 > Canonical compact operational memory for the FinTrack project.
-> Last reconciled: 2026-08-28
-> Current verified Git checkpoint: `873017a`
+> Last reconciled: 2026-08-29
+> Current verified Git checkpoint: `baf2f70`
+> Previous functional baseline: `873017a`
 
 ---
 
@@ -47,29 +48,37 @@ Never silently turn historical information into current state.
 
 # 2. CURRENT CHECKPOINT — VERIFIED
 
-Repository state verified by the user on 2026-08-28:
+Repository state verified on 2026-08-29:
 
 ```text
 Branch:       main
-HEAD:         873017a
-origin/main:  873017a
+HEAD:         baf2f70
+origin/main:  baf2f70
 Working tree: clean
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 Commit:
 
-`873017a fix: align sync status with outbox state`
+`baf2f70 fix: harden firestore security rules`
 
-The repository contains a chronological Git history from the initial commit to `873017a`.
+The repository contains a chronological Git history from the initial commit through `873017a` to `baf2f70`.
 
-### Important historical correction
+### Relationship to Previous Baseline:
 
-Some earlier handoff/context files identify `cea443f` or `951b4aa` as the latest checkpoint.
+```text
+873017a
+fix: align sync status with outbox state
 
-Those were historically correct at the time those files were produced, but they are **NOT the current checkpoint**.
+        ↓
 
-Current checkpoint = **`873017a`**.
+Step 8 security hardening (self-join closure, role protection, financial validation)
+
+        ↓
+
+baf2f70
+fix: harden firestore security rules
+```
 
 ---
 
@@ -139,7 +148,7 @@ Subsequent commits implemented and stabilized:
 ### Current transaction architecture
 Subsequent commits enforced transaction household scoping, corrected null `migrationId` serialization, and stabilized transaction outbound synchronization.
 
-### SyncStatus accuracy and outbox alignment (Step 7.9)
+### SyncStatus accuracy and outbox alignment (Step 7.9 — 873017a)
 `873017a` aligned `SyncStatus` semantics with actual outbox state:
 - `SyncStatus.Synced` represents completed inbound handshake (transactions + categories) with a valid active household, no inbound errors, and zero unresolved outbound entries (0 PENDING, 0 IN_PROGRESS, 0 FAILED).
 - `SyncStatus.Connecting` (`"Syncing..."`) represents inbound connection in progress OR active unresolved outbound work.
@@ -147,6 +156,15 @@ Subsequent commits enforced transaction household scoping, corrected null `migra
 - `OutboundSyncEngine` processing is decoupled from public `SyncStatus`, allowing queue draining while status is `Connecting`.
 - Infinite Outbox Flow collectors were removed in favor of direct/finite Room queries (`getActiveCountSync`, `getFirstFailedEntrySync`) and event-driven notifications (`onOutboxStateChanged`).
 - Lifecycle `UncompletedCoroutinesError` in `TestScope` was resolved without sleeps, delays, or detached coroutines.
+
+### Firestore Security Hardening (Step 8 — baf2f70)
+`baf2f70` closed all three critical Firestore security vulnerabilities:
+- **P0-1 Self-Join Closure:** Member creation now requires an atomic invitation binding (`inviteId`, matching household, status `PENDING`, invitee email match, active owner inviter).
+- **Invitation Replay Protection:** Rules evaluate pre-commit `PENDING` status during atomic transaction; upon commit, the invitation becomes `ACCEPTED`, preventing reuse.
+- **P0-2 Privilege Escalation Prevention:** Restricted member `role` and `status` updates and member deletions strictly to `isHouseholdOwner()`; non-owners cannot escalate to owner or delete owners. Kotlin domain `ADMIN` support is retained.
+- **P1 Financial Validation:** Enforced strictly positive `amountRon > 0`, non-negative `amountEur >= 0` and `exchangeRate >= 0`, and mandatory string `transactionDate` and `description`.
+- **DTO & Serialization:** Added nullable `inviteId` to `HouseholdMemberDto` with null-safe `toMap()` / `fromMap()`, populated during `acceptInvite()`.
+- **Verification:** 92/92 Firestore rules emulator tests passing (0 failures).
 
 ---
 
@@ -236,8 +254,11 @@ Security principles:
 
 - default deny;
 - household-scoped access;
-- OWNER/MEMBER RBAC;
-- collection-group access only where explicitly authorized;
+- OWNER/MEMBER/ADMIN RBAC (with owner-only privilege for role/status mutations and member deletions);
+- invitation binding for member self-creation (`inviteId`, matching household, status `PENDING`, matching email, active owner inviter);
+- invitation replay protection (server-side transition from `PENDING` to `ACCEPTED` upon transaction commit);
+- collection-group access only where explicitly authorized (`members` queries constrained by `uid` and `ACTIVE` status);
+- strict financial schema validation (`amountRon > 0`, `amountEur >= 0`, `exchangeRate >= 0`, string `transactionDate` and `description`);
 - no authorization weakening as a workaround for synchronization failures.
 
 ---
@@ -371,7 +392,7 @@ Outbox state is evaluated via direct/finite Room queries (`getActiveCountSync`, 
 
 # 7. CURRENT VERIFIED / RESOLVED ITEMS
 
-At checkpoint `873017a` the following have been addressed:
+At checkpoint `baf2f70` the following have been addressed:
 
 - Google Sign-In configuration and authentication.
 - Explicit household resolution.
@@ -387,10 +408,17 @@ At checkpoint `873017a` the following have been addressed:
 - Null `migrationId` omission in Firestore payloads.
 - Transaction outbound synchronization stabilization.
 - Historical coroutine lifecycle stabilization work.
-- SyncStatus accuracy alignment with outbox state (0 PENDING, 0 IN_PROGRESS, 0 FAILED) (Step 7.9).
-- Decoupled outbound sync engine processing gate (Step 7.9).
-- Direct/finite outbox evaluation and event-driven state recomputation (Step 7.9).
-- Elimination of `UncompletedCoroutinesError` lifecycle defects without artificial sleeps or delays (Step 7.9).
+- SyncStatus accuracy alignment with outbox state (0 PENDING, 0 IN_PROGRESS, 0 FAILED) (Step 7.9 — `873017a`).
+- Decoupled outbound sync engine processing gate (Step 7.9 — `873017a`).
+- Direct/finite outbox evaluation and event-driven state recomputation (Step 7.9 — `873017a`).
+- Elimination of `UncompletedCoroutinesError` lifecycle defects without artificial sleeps or delays (Step 7.9 — `873017a`).
+- Firestore Security Hardening (Step 8 — `baf2f70`):
+  - P0-1 Household Self-Join closed via atomic invitation binding (`inviteId`, `PENDING` state, email match, owner inviter check).
+  - Invitation replay protection verified against pre-commit transaction semantics.
+  - P0-2 Privilege escalation closed (admin/member self-escalation denied, admin owner deletion denied, owner self-deletion denied).
+  - P1 Financial validation enforced (`amountRon > 0`, `amountEur >= 0`, `exchangeRate >= 0`, string dates/descriptions).
+  - `HouseholdMemberDto.inviteId` serialization/deserialization and client propagation in `acceptInvite()`.
+  - 92/92 Firestore rules emulator tests passing (0 failures).
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -398,28 +426,44 @@ These statements mean the corresponding implementation work exists at the curren
 
 # 8. OPEN WORK
 
-Known open areas:
+## Current Development Priorities:
+1. **Phase 1 — COMPLETED:** Firestore Security Hardening (`baf2f70`).
+2. **Phase 2 — NEXT (P1):** Android Test Suite & Migration Stabilization (13 historical failures).
+3. **Phase 3:** Outbox Reliability & Recovery Polish.
+4. **Phase 4:** Incremental Architecture Cleanup.
+5. **Phase 5:** Beta Release Candidate / Multi-Device Verification.
 
-## OPEN-1 — Offline/recovery synchronization
+## Reconciled Open Items:
+
+### OPEN-1 — Offline/recovery synchronization
 Need explicit verification of behavior when devices lose connectivity and later recover.
 
-## OPEN-2 — Outbox failure/retry/recovery semantics
+### OPEN-2 — Outbox failure/retry/recovery semantics
 Need explicit validation of failure states, retry behavior and recovery beyond current coverage.
 
-## OPEN-3 — Concurrent household edits
+### OPEN-3 — Concurrent household edits
 Need defined conflict behavior when multiple household members modify shared data concurrently.
 
-## OPEN-4 — Room ↔ Firestore mirror integrity
+### OPEN-4 — Room ↔ Firestore mirror integrity
 Need explicit end-to-end verification that local and remote representations remain consistent.
 
-## OPEN-5 — End-to-end migration verification
+### OPEN-5 — End-to-end migration verification
 Migration state exists, but complete end-to-end execution needs verification.
 
-## OPEN-6 — Full regression suite
-The complete unit/Robolectric test matrix has not been promoted to VERIFIED green status merely from successful compilation or localized tests (historical migration/preflight test suite debt).
+### OPEN-6 — Full regression suite (P1 NEXT PRIORITY)
+The complete unit/Robolectric test matrix has 13 historical failures from migration/preflight test suite debt (Room `MigrationTestHelper` schema assets, Stage 2B preflight fixtures, Compose UI preview semantics).
 
-## OPEN-7 — SyncStatus outbound-health semantics (RESOLVED in Step 7.9 — 873017a)
+### OPEN-7 — SyncStatus outbound-health semantics (RESOLVED in Step 7.9 — 873017a)
 Resolved: `SyncStatus.Synced` requires both inbound handshake readiness and zero unresolved outbox work (0 PENDING, 0 IN_PROGRESS, 0 FAILED). Outbound engine is decoupled from public UI status.
+
+### OPEN-8 — Firestore Rules Security (RESOLVED in Step 8 — baf2f70)
+Resolved: Closed self-join bypass, role escalation, and invalid financial values. Verified with 92/92 Firestore emulator tests and TypeScript compilation.
+
+### OPEN-9 — Household Offline-First (INVALID / DESIGN DECISION)
+Household creation and invitation management are intentionally online-only control-plane operations.
+
+### OPEN-10 — Transaction Hard-Delete Mirror (CAN DEFER / P3)
+Normal application operations use the verified soft-delete model. Physical deletion mirroring can be evaluated as a future enhancement.
 
 ---
 
@@ -610,15 +654,18 @@ Foundation
 → category reconciliation
 → transaction household scoping
 → transaction outbound stabilization
-→ SyncStatus outbox alignment (Step 7.9)
+→ SyncStatus outbox alignment (Step 7.9 — 873017a)
+→ Firestore Security Hardening (Step 8 — baf2f70)
 ```
 
 The current baseline is:
 
 ```text
-873017a
-fix: align sync status with outbox state
+baf2f70
+fix: harden firestore security rules
 ```
+
+Previous functional baseline: `873017a`.
 
 The next development task must be explicitly selected rather than inferred from the OPEN list.
 
@@ -650,3 +697,18 @@ The adopted skill set is intentionally minimal:
 * `verify` → prove
 
 Skills are optional tools, not mandatory workflow stages. They must not alter the established FinTrack workflow or override project constraints.
+
+---
+
+# 17. BETA READINESS ASSESSMENT
+
+| Gate | Status | Evidence / Details |
+|---|---|---|
+| Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; 92/92 emulator rules tests passing |
+| Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, and SyncStatus alignment verified |
+| Full Android Regression Gate | **NOT YET PASS** | 317/330 passing; 13 historical migration/UI preview test fixture failures remain |
+| Migration Verification Gate | **OPEN** | Migration execution & preview fixture debt to be stabilized in Step 9 |
+| Multi-Device Production Smoke | **NOT YET VERIFIED** | Requires physical/multi-device smoke validation |
+
+**Overall Beta Status: NOT READY**
+*Reason:* Migration and test suite debt (13 historical failures) and multi-device release verification, not Firestore security rules.

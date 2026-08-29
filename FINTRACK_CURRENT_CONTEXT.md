@@ -1,8 +1,9 @@
 # FINTRACK CURRENT CONTEXT
 
 > Compact operational context for continuing FinTrack development.
-> Last verified: 2026-08-28
-> Git baseline: `873017a`
+> Last verified: 2026-08-29
+> Git baseline: `baf2f70`
+> Previous functional baseline: `873017a`
 
 ## 1. ROLE OF THIS FILE
 
@@ -20,14 +21,18 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         873017a
-origin/main:  873017a
+HEAD:         baf2f70
+origin/main:  baf2f70
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 At the time this context was verified, the repository working tree was clean.
 
 Current commit:
+
+`baf2f70 fix: harden firestore security rules`
+
+Previous functional baseline:
 
 `873017a fix: align sync status with outbox state`
 
@@ -85,12 +90,15 @@ Environments:
 - Household resolution must be explicit.
 - Synthetic/fallback household creation was removed.
 - Different households must remain isolated.
+- Household management is intentionally an online-only control-plane operation.
 
-### Firestore security
-- Default-deny security model is preserved.
-- Household-scoped access is enforced.
-- OWNER/MEMBER RBAC is implemented.
-- Security rules were adjusted to production type-checker compatibility.
+### Firestore Security Hardening (Step 8 — baf2f70)
+- **P0-1 Household Self-Join: RESOLVED.** Member creation requires an atomic invitation binding (`inviteId`, matching household, status `PENDING`, invitee email match, active owner inviter).
+- **Invitation Replay Protection: VERIFIED.** Rules evaluate `status == 'PENDING'` during pre-commit transaction evaluation; after acceptance the invitation transitions to `ACCEPTED`, preventing replay.
+- **P0-2 Privilege Escalation: RESOLVED.** Member `role` and `status` mutations and deletions are restricted to `isHouseholdOwner()`; non-owners cannot escalate or delete owners. Kotlin domain `ADMIN` support is retained.
+- **P1 Financial Validation: RESOLVED.** Strict numeric validation enforced (`amountRon > 0`, `amountEur >= 0`, `exchangeRate >= 0`, string `transactionDate` and `description`).
+- **Emulator Verification: 92/92 PASS.** All rules unit tests pass against the Firestore Local Emulator.
+- **Android Regression: 317/330 PASS (0 new regressions).** 13 historical UI/migration preview test fixture failures remain.
 
 ### Categories
 - Categories are household-scoped.
@@ -133,22 +141,26 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 
 `OutboundSyncEngine` processing is decoupled from public `SyncStatus`, enabling outbound processing whenever inbound sync is healthy.
 
-## 6. OPEN WORK
+## 6. OPEN WORK & DEVELOPMENT PRIORITIES
 
-Known open areas:
+### Development Sequence:
+1. **Phase 1 — COMPLETED:** Firestore Security Hardening (`baf2f70`).
+2. **Phase 2 — NEXT (P1):** Android Test Suite & Migration Stabilization (resolving the 13 historical test failures: Room `MigrationTestHelper` schema assets, Stage 2B preflight fixtures, Compose UI preview semantics).
+3. **Phase 3:** Outbox Reliability & Recovery Polish.
+4. **Phase 4:** Incremental Architecture Cleanup.
+5. **Phase 5:** Beta Release Candidate / Multi-Device Verification.
 
-1. Offline/recovery synchronization handling beyond current coverage.
-2. Outbox failure, retry and error-recovery semantics where still incomplete.
-3. Concurrent/conflicting household edits resolution.
-4. Room ↔ Firestore mirror integrity verification.
-5. End-to-end migration execution verification.
-6. Full regression verification across the entire test suite (historical migration/preflight test suite debt).
-
-These are not automatically selected as the next task.
+### Open Areas:
+1. P1: Test suite stabilization (13 historical migration/preflight test failures).
+2. Offline/recovery synchronization handling beyond current coverage.
+3. Outbox failure, retry and error-recovery semantics where still incomplete.
+4. Concurrent/conflicting household edits resolution.
+5. Room ↔ Firestore mirror integrity verification.
+6. End-to-end migration execution verification.
 
 ## 7. UNKNOWN / NOT FULLY VERIFIED
 
-- Full unit/Robolectric regression suite status across all edge cases.
+- Full unit/Robolectric regression suite green state across all edge cases (13 historical failures pending).
 - Degraded-network and prolonged-offline runtime behavior.
 - Some deep historical rationale contained only in ChatGPT/Antigravity transcripts or historical evidence files.
 
