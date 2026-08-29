@@ -246,7 +246,8 @@ class HouseholdInvitationTest {
                 role = "member",
                 status = "ACTIVE",
                 joinedAt = now,
-                invitedByUid = invite.inviterUid
+                invitedByUid = invite.inviterUid,
+                inviteId = inviteId
             )
             operationsLog.add("transaction:setMember:$targetHouseholdId:${signedInUser.userUid}")
             val householdMembers = membersStore.getOrPut(targetHouseholdId) { mutableMapOf() }
@@ -293,6 +294,7 @@ class HouseholdInvitationTest {
         assertEquals("member", createdMember?.role)
         assertEquals("ACTIVE", createdMember?.status)
         assertEquals("owner_uid_99", createdMember?.invitedByUid)
+        assertEquals("inv_123", createdMember?.inviteId)
     }
 
     @Test

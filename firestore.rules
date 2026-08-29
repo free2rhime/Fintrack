@@ -118,6 +118,11 @@ service cloud.firestore {
       return data.transactionId is string &&
              data.householdId is string &&
              data.createdByUid is string &&
+             data.transactionDate is string &&
+             data.description is string &&
+             data.amountRon is number && data.amountRon > 0 &&
+             data.amountEur is number && data.amountEur >= 0 &&
+             data.exchangeRate is number && data.exchangeRate >= 0 &&
              isValidTransactionType(data.type) &&
              isValidAccount(data.account) &&
              isValidDestination(data.type, data.destination) &&
@@ -171,7 +176,7 @@ service cloud.firestore {
       match /members/{uid} {
         allow read: if isHouseholdMember(householdId);
 
-        // Prevent self-join: Only admin/owner can add members, OR the household creator initializing their owner doc, OR invited member joining
+        // Prevent self-join: Only admin/owner can add members, OR the household creator initializing their owner doc, OR invited member joining with a valid PENDING invitation
         allow create: if isHouseholdAdminOrOwner(householdId) ||
                          (isHouseholdCreator(householdId) &&
                           uid == request.auth.uid &&
@@ -181,12 +186,24 @@ service cloud.firestore {
                           uid == request.auth.uid &&
                           request.resource.data.role == 'member' &&
                           request.resource.data.status == 'ACTIVE' &&
-                          'invitedByUid' in request.resource.data &&
-                          request.resource.data.invitedByUid is string &&
-                          isOwnerUid(householdId, request.resource.data.invitedByUid));
+                          'inviteId' in request.resource.data &&
+                          request.resource.data.inviteId is string &&
+                          exists(/databases/$(database)/documents/invitations/$(request.resource.data.inviteId)) &&
+                          get(/databases/$(database)/documents/invitations/$(request.resource.data.inviteId)).data.householdId == householdId &&
+                          get(/databases/$(database)/documents/invitations/$(request.resource.data.inviteId)).data.status == 'PENDING' &&
+                          request.auth.token.email != null &&
+                          get(/databases/$(database)/documents/invitations/$(request.resource.data.inviteId)).data.inviteeEmail.lower() == request.auth.token.email.lower() &&
+                          isOwnerUid(householdId, get(/databases/$(database)/documents/invitations/$(request.resource.data.inviteId)).data.inviterUid));
 
-        // Only admin/owner can update or remove members
-        allow update, delete: if isHouseholdAdminOrOwner(householdId);
+        // Only owner can update member roles/status; non-owners can only update profile details
+        allow update: if isHouseholdOwner(householdId) ||
+                         (isHouseholdMember(householdId) &&
+                          uid == request.auth.uid &&
+                          request.resource.data.role == resource.data.role &&
+                          request.resource.data.status == resource.data.status);
+
+        // Only owner can remove members; owner cannot delete their own document (must delete household)
+        allow delete: if isHouseholdOwner(householdId) && uid != request.auth.uid;
       }
 
       // Migration State subcollection

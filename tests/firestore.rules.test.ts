@@ -84,8 +84,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 150.0,
-        currency: 'RON',
+        amountRon: 150.0,
+        amountEur: 30.0,
+        exchangeRate: 5.0,
+        description: 'Existing groceries',
         transactionDate: '2026-08-10',
         createdByUid: MEMBER_UID,
         createdAt: '2026-08-10T12:00:00Z',
@@ -115,6 +117,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Cash',
         destination: null,
+        amountRon: 150.0,
+        amountEur: 30.0,
+        exchangeRate: 5.0,
+        description: 'Unauth tx',
         createdByUid: 'anonymous',
         transactionDate: '2026-08-12'
       }));
@@ -139,15 +145,39 @@ describe('FinTrack Firestore Security Rules', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 2. Membership Administration & Self-Join Prevention
+  // 2. Membership Administration & Self-Join Prevention & Role Security
   // --------------------------------------------------------------------------
-  describe('Membership Administration & Self-Join Prevention', () => {
-    it('denies self-join: stranger writing member doc for themselves', async () => {
+  describe('Membership Administration & Self-Join Prevention & Role Security', () => {
+    it('denies self-join: stranger writing member doc for themselves without inviteId', async () => {
       const strangerDb = testEnv.authenticatedContext(STRANGER_UID).firestore();
       await assertFails(setDoc(doc(strangerDb, `households/${HOUSEHOLD_ID}/members/${STRANGER_UID}`), {
         role: 'member',
         status: 'ACTIVE',
-        joinedAt: '2026-08-12T00:00:00Z'
+        joinedAt: 1770001000000
+      }));
+    });
+
+    it('denies self-join: stranger supplying valid ownerUid as invitedByUid but missing inviteId', async () => {
+      const strangerDb = testEnv.authenticatedContext(STRANGER_UID).firestore();
+      await assertFails(setDoc(doc(strangerDb, `households/${HOUSEHOLD_ID}/members/${STRANGER_UID}`), {
+        uid: STRANGER_UID,
+        role: 'member',
+        status: 'ACTIVE',
+        joinedAt: 1770001000000,
+        invitedByUid: OWNER_UID
+      }));
+    });
+
+    it('denies self-join: stranger supplying forged or non-existent inviteId', async () => {
+      const strangerDb = testEnv.authenticatedContext(STRANGER_UID, { email: 'stranger@fintrack.test' }).firestore();
+      await assertFails(setDoc(doc(strangerDb, `households/${HOUSEHOLD_ID}/members/${STRANGER_UID}`), {
+        uid: STRANGER_UID,
+        email: 'stranger@fintrack.test',
+        role: 'member',
+        status: 'ACTIVE',
+        joinedAt: 1770001000000,
+        invitedByUid: OWNER_UID,
+        inviteId: 'non_existent_invite_id'
       }));
     });
 
@@ -156,23 +186,66 @@ describe('FinTrack Firestore Security Rules', () => {
       await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/members/user_new`), {
         role: 'member',
         status: 'ACTIVE',
-        joinedAt: '2026-08-12T00:00:00Z'
+        joinedAt: 1770001000000
       }));
     });
 
     it('denies regular member updating another member role', async () => {
       const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(updateDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/members/${ADMIN_UID}`), {
+        role: 'member'
+      }));
+    });
+
+    it('denies regular member changing own role', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
       await assertFails(updateDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/members/${MEMBER_UID}`), {
+        role: 'owner'
+      }));
+    });
+
+    it('denies regular member changing own status', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(updateDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/members/${MEMBER_UID}`), {
+        status: 'INACTIVE'
+      }));
+    });
+
+    it('denies admin escalating own role to owner', async () => {
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+      await assertFails(updateDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/members/${ADMIN_UID}`), {
+        role: 'owner'
+      }));
+    });
+
+    it('denies admin deleting the owner member document', async () => {
+      const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
+      await assertFails(deleteDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/members/${OWNER_UID}`)));
+    });
+
+    it('allows household owner to change member role', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertSucceeds(updateDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/members/${MEMBER_UID}`), {
         role: 'admin'
       }));
     });
 
-    it('allows household owner or admin to add a new member', async () => {
+    it('allows household owner to delete member', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertSucceeds(deleteDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/members/${MEMBER_UID}`)));
+    });
+
+    it('denies household owner deleting own member document', async () => {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await assertFails(deleteDoc(doc(ownerDb, `households/${HOUSEHOLD_ID}/members/${OWNER_UID}`)));
+    });
+
+    it('allows household owner or admin to add a new member directly', async () => {
       const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();
       await assertSucceeds(setDoc(doc(adminDb, `households/${HOUSEHOLD_ID}/members/user_new`), {
         role: 'member',
         status: 'ACTIVE',
-        joinedAt: '2026-08-12T00:00:00Z'
+        joinedAt: 1770001000000
       }));
     });
 
@@ -193,7 +266,7 @@ describe('FinTrack Firestore Security Rules', () => {
       await assertSucceeds(setDoc(doc(creatorDb, `households/${newHouseholdId}/members/${creatorUid}`), {
         role: 'owner',
         status: 'ACTIVE',
-        joinedAt: '2026-08-12T00:00:00Z'
+        joinedAt: 1770001000000
       }));
     });
   });
@@ -210,8 +283,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Income',
         account: 'Card',
         destination: 'Bubu',
-        amount: 5000,
-        currency: 'RON',
+        amountRon: 5000.0,
+        amountEur: 1000.0,
+        exchangeRate: 5.0,
+        description: 'Salary Bubu',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -225,8 +300,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Income',
         account: 'Cash',
         destination: 'Piticania',
-        amount: 3000,
-        currency: 'RON',
+        amountRon: 3000.0,
+        amountEur: 600.0,
+        exchangeRate: 5.0,
+        description: 'Salary Piticania',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -240,8 +317,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Income',
         account: 'Meal Tickets',
         destination: null,
-        amount: 700,
-        currency: 'RON',
+        amountRon: 700.0,
+        amountEur: 140.0,
+        exchangeRate: 5.0,
+        description: 'Meal ticket bonus',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -255,8 +334,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Income',
         account: 'Card',
         destination: 'InvalidDestination',
-        amount: 1000,
-        currency: 'RON',
+        amountRon: 1000.0,
+        amountEur: 200.0,
+        exchangeRate: 5.0,
+        description: 'Invalid dest',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -270,8 +351,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 120,
-        currency: 'RON',
+        amountRon: 120.0,
+        amountEur: 24.0,
+        exchangeRate: 5.0,
+        description: 'Dinner with family',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -285,8 +368,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: 'Bubu',
-        amount: 120,
-        currency: 'RON',
+        amountRon: 120.0,
+        amountEur: 24.0,
+        exchangeRate: 5.0,
+        description: 'Expense with dest',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -300,8 +385,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Invest',
         account: 'Card',
         destination: null,
-        amount: 200,
-        currency: 'RON',
+        amountRon: 200.0,
+        amountEur: 40.0,
+        exchangeRate: 5.0,
+        description: 'Bad type',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -315,8 +402,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'CryptoWallet',
         destination: null,
-        amount: 200,
-        currency: 'RON',
+        amountRon: 200.0,
+        amountEur: 40.0,
+        exchangeRate: 5.0,
+        description: 'Bad account',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -330,8 +419,161 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Meal Tickets',
         destination: null,
-        amount: 45,
-        currency: 'RON',
+        amountRon: 45.0,
+        amountEur: 9.0,
+        exchangeRate: 5.0,
+        description: 'Lunch',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with negative amountRon', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_neg_ron`), {
+        transactionId: 'tx_neg_ron',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: -50.0,
+        amountEur: 0.0,
+        exchangeRate: 5.0,
+        description: 'Negative RON',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with zero amountRon', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_zero_ron`), {
+        transactionId: 'tx_zero_ron',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: 0.0,
+        amountEur: 0.0,
+        exchangeRate: 5.0,
+        description: 'Zero RON',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with string amountRon', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_str_ron`), {
+        transactionId: 'tx_str_ron',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: '100.0',
+        amountEur: 20.0,
+        exchangeRate: 5.0,
+        description: 'String RON',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with negative amountEur', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_neg_eur`), {
+        transactionId: 'tx_neg_eur',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: 100.0,
+        amountEur: -20.0,
+        exchangeRate: 5.0,
+        description: 'Negative EUR',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with string amountEur', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_str_eur`), {
+        transactionId: 'tx_str_eur',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: 100.0,
+        amountEur: '20.0',
+        exchangeRate: 5.0,
+        description: 'String EUR',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with negative exchangeRate', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_neg_rate`), {
+        transactionId: 'tx_neg_rate',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: 100.0,
+        amountEur: 20.0,
+        exchangeRate: -5.0,
+        description: 'Negative rate',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with string exchangeRate', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_str_rate`), {
+        transactionId: 'tx_str_rate',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: 100.0,
+        amountEur: 20.0,
+        exchangeRate: '5.0',
+        description: 'String rate',
+        transactionDate: '2026-08-12',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with missing transactionDate', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_no_date`), {
+        transactionId: 'tx_no_date',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: 100.0,
+        amountEur: 20.0,
+        exchangeRate: 5.0,
+        description: 'Missing date',
+        createdByUid: MEMBER_UID
+      }));
+    });
+
+    it('denies transaction with missing description', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(setDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_no_desc`), {
+        transactionId: 'tx_no_desc',
+        householdId: HOUSEHOLD_ID,
+        type: 'Expense',
+        account: 'Card',
+        destination: null,
+        amountRon: 100.0,
+        amountEur: 20.0,
+        exchangeRate: 5.0,
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID
       }));
@@ -350,8 +592,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 100,
-        currency: 'EUR',
+        amountRon: 497.50,
+        amountEur: 100.0,
+        exchangeRate: 4.9750,
+        description: 'EUR Purchase',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID,
         exchangeRateMetadata: {
@@ -371,8 +615,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 100,
-        currency: 'EUR',
+        amountRon: 497.50,
+        amountEur: 100.0,
+        exchangeRate: 4.9750,
+        description: 'Unofficial source',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID,
         exchangeRateMetadata: {
@@ -392,8 +638,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 100,
-        currency: 'EUR',
+        amountRon: 497.50,
+        amountEur: 100.0,
+        exchangeRate: 4.9750,
+        description: 'Negative conversion rate',
         transactionDate: '2026-08-12',
         createdByUid: MEMBER_UID,
         exchangeRateMetadata: {
@@ -413,8 +661,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 100,
-        currency: 'EUR',
+        amountRon: 497.50,
+        amountEur: 100.0,
+        exchangeRate: 4.9750,
+        description: 'Future date metadata',
         transactionDate: '2026-08-10',
         createdByUid: MEMBER_UID,
         exchangeRateMetadata: {
@@ -434,7 +684,10 @@ describe('FinTrack Firestore Security Rules', () => {
     it('allows transaction update preserving immutable IDs', async () => {
       const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
       await assertSucceeds(updateDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_existing`), {
-        amount: 180.0
+        amountRon: 180.0,
+        amountEur: 36.0,
+        exchangeRate: 5.0,
+        description: 'Updated groceries'
       }));
     });
 
@@ -836,8 +1089,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 250.0,
-        currency: 'RON',
+        amountRon: 250.0,
+        amountEur: 50.0,
+        exchangeRate: 5.0,
+        description: 'Migrated tx',
         transactionDate: '2026-08-01',
         createdByUid: 'user_legacy_author',
         migrationId: MIGRATION_ID
@@ -852,8 +1107,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 250.0,
-        currency: 'RON',
+        amountRon: 250.0,
+        amountEur: 50.0,
+        exchangeRate: 5.0,
+        description: 'Migrated tx',
         transactionDate: '2026-08-01',
         createdByUid: 'user_legacy_author',
         migrationId: 'mig_nonexistent'
@@ -868,8 +1125,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 250.0,
-        currency: 'RON',
+        amountRon: 250.0,
+        amountEur: 50.0,
+        exchangeRate: 5.0,
+        description: 'Migrated tx',
         transactionDate: '2026-08-01',
         createdByUid: 'user_legacy_author',
         migrationId: MIGRATION_ID
@@ -884,8 +1143,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 250.0,
-        currency: 'RON',
+        amountRon: 250.0,
+        amountEur: 50.0,
+        exchangeRate: 5.0,
+        description: 'Migrated tx',
         transactionDate: '2026-08-01',
         createdByUid: ADMIN_UID,
         migrationId: MIGRATION_ID // initiated by OWNER_UID
@@ -900,8 +1161,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'Expense',
         account: 'Card',
         destination: null,
-        amount: 999.0,
-        currency: 'RON',
+        amountRon: 999.0,
+        amountEur: 199.8,
+        exchangeRate: 5.0,
+        description: 'Migrated overwrite attempt',
         transactionDate: '2026-08-10',
         createdByUid: MEMBER_UID,
         migrationId: MIGRATION_ID
@@ -916,8 +1179,10 @@ describe('FinTrack Firestore Security Rules', () => {
         type: 'InvalidType',
         account: 'Card',
         destination: null,
-        amount: 100.0,
-        currency: 'RON',
+        amountRon: 100.0,
+        amountEur: 20.0,
+        exchangeRate: 5.0,
+        description: 'Malformed type',
         transactionDate: '2026-08-01',
         createdByUid: OWNER_UID,
         migrationId: MIGRATION_ID
@@ -962,10 +1227,15 @@ describe('FinTrack Firestore Security Rules', () => {
     const INVITEE_EMAIL = 'invitee@fintrack.test';
     const INVITEE_UID = 'user_invitee';
     const INVITE_ID = 'invite_001';
+    const INVITE_ACCEPTED_ID = 'invite_accepted_002';
+    const INVITE_OTHER_HH_ID = 'invite_other_hh_003';
+    const INVITE_OTHER_EMAIL_ID = 'invite_other_email_004';
 
     beforeEach(async () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const db = context.firestore();
+
+        // Valid PENDING invitation for INVITEE_EMAIL in HOUSEHOLD_ID
         await setDoc(doc(db, `invitations/${INVITE_ID}`), {
           inviteId: INVITE_ID,
           householdId: HOUSEHOLD_ID,
@@ -973,6 +1243,49 @@ describe('FinTrack Firestore Security Rules', () => {
           inviterUid: OWNER_UID,
           inviterEmail: 'owner@fintrack.test',
           inviteeEmail: INVITEE_EMAIL,
+          targetRole: 'member',
+          status: 'PENDING',
+          createdAt: 1770000000000,
+          expiresAt: 1780000000000
+        });
+
+        // Already ACCEPTED invitation (replay test)
+        await setDoc(doc(db, `invitations/${INVITE_ACCEPTED_ID}`), {
+          inviteId: INVITE_ACCEPTED_ID,
+          householdId: HOUSEHOLD_ID,
+          householdName: 'The FinTrack Family',
+          inviterUid: OWNER_UID,
+          inviterEmail: 'owner@fintrack.test',
+          inviteeEmail: INVITEE_EMAIL,
+          targetRole: 'member',
+          status: 'ACCEPTED',
+          createdAt: 1770000000000,
+          expiresAt: 1780000000000,
+          respondedAt: 1770000500000
+        });
+
+        // Invitation for a DIFFERENT household
+        await setDoc(doc(db, `invitations/${INVITE_OTHER_HH_ID}`), {
+          inviteId: INVITE_OTHER_HH_ID,
+          householdId: 'household_different',
+          householdName: 'Other Family',
+          inviterUid: OWNER_UID,
+          inviterEmail: 'owner@fintrack.test',
+          inviteeEmail: INVITEE_EMAIL,
+          targetRole: 'member',
+          status: 'PENDING',
+          createdAt: 1770000000000,
+          expiresAt: 1780000000000
+        });
+
+        // Invitation for a DIFFERENT email address
+        await setDoc(doc(db, `invitations/${INVITE_OTHER_EMAIL_ID}`), {
+          inviteId: INVITE_OTHER_EMAIL_ID,
+          householdId: HOUSEHOLD_ID,
+          householdName: 'The FinTrack Family',
+          inviterUid: OWNER_UID,
+          inviterEmail: 'owner@fintrack.test',
+          inviteeEmail: 'someoneelse@fintrack.test',
           targetRole: 'member',
           status: 'PENDING',
           createdAt: 1770000000000,
@@ -1039,7 +1352,7 @@ describe('FinTrack Firestore Security Rules', () => {
       }));
     });
 
-    it('allows invited member to create their active member doc with valid invitedByUid', async () => {
+    it('allows invited member to create their active member doc with valid invitation', async () => {
       const inviteeDb = testEnv.authenticatedContext(INVITEE_UID, { email: INVITEE_EMAIL }).firestore();
       await assertSucceeds(setDoc(doc(inviteeDb, `households/${HOUSEHOLD_ID}/members/${INVITEE_UID}`), {
         uid: INVITEE_UID,
@@ -1047,7 +1360,47 @@ describe('FinTrack Firestore Security Rules', () => {
         role: 'member',
         status: 'ACTIVE',
         joinedAt: 1770001000000,
-        invitedByUid: OWNER_UID
+        invitedByUid: OWNER_UID,
+        inviteId: INVITE_ID
+      }));
+    });
+
+    it('denies member creation with already ACCEPTED invitation (replay protection)', async () => {
+      const inviteeDb = testEnv.authenticatedContext(INVITEE_UID, { email: INVITEE_EMAIL }).firestore();
+      await assertFails(setDoc(doc(inviteeDb, `households/${HOUSEHOLD_ID}/members/${INVITEE_UID}`), {
+        uid: INVITEE_UID,
+        email: INVITEE_EMAIL,
+        role: 'member',
+        status: 'ACTIVE',
+        joinedAt: 1770001000000,
+        invitedByUid: OWNER_UID,
+        inviteId: INVITE_ACCEPTED_ID
+      }));
+    });
+
+    it('denies member creation with invitation belonging to another household', async () => {
+      const inviteeDb = testEnv.authenticatedContext(INVITEE_UID, { email: INVITEE_EMAIL }).firestore();
+      await assertFails(setDoc(doc(inviteeDb, `households/${HOUSEHOLD_ID}/members/${INVITEE_UID}`), {
+        uid: INVITEE_UID,
+        email: INVITEE_EMAIL,
+        role: 'member',
+        status: 'ACTIVE',
+        joinedAt: 1770001000000,
+        invitedByUid: OWNER_UID,
+        inviteId: INVITE_OTHER_HH_ID
+      }));
+    });
+
+    it('denies member creation with invitation addressed to another email', async () => {
+      const inviteeDb = testEnv.authenticatedContext(INVITEE_UID, { email: INVITEE_EMAIL }).firestore();
+      await assertFails(setDoc(doc(inviteeDb, `households/${HOUSEHOLD_ID}/members/${INVITEE_UID}`), {
+        uid: INVITEE_UID,
+        email: INVITEE_EMAIL,
+        role: 'member',
+        status: 'ACTIVE',
+        joinedAt: 1770001000000,
+        invitedByUid: OWNER_UID,
+        inviteId: INVITE_OTHER_EMAIL_ID
       }));
     });
   });

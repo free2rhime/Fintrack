@@ -286,7 +286,8 @@ data class HouseholdMemberDto(
     @get:PropertyName("role") @set:PropertyName("role") var role: String? = null,
     @get:PropertyName("status") @set:PropertyName("status") var status: String? = null,
     @get:PropertyName("joinedAt") @set:PropertyName("joinedAt") var joinedAt: Long? = null,
-    @get:PropertyName("invitedByUid") @set:PropertyName("invitedByUid") var invitedByUid: String? = null
+    @get:PropertyName("invitedByUid") @set:PropertyName("invitedByUid") var invitedByUid: String? = null,
+    @get:PropertyName("inviteId") @set:PropertyName("inviteId") var inviteId: String? = null
 ) {
     companion object {
         fun fromMap(map: Map<String, Any?>, docId: String): HouseholdMemberDto {
@@ -297,13 +298,14 @@ data class HouseholdMemberDto(
                 role = map["role"] as? String,
                 status = map["status"] as? String,
                 joinedAt = (map["joinedAt"] as? Number)?.toLong(),
-                invitedByUid = map["invitedByUid"] as? String
+                invitedByUid = map["invitedByUid"] as? String,
+                inviteId = map["inviteId"] as? String
             )
         }
     }
 
     fun toMap(): Map<String, Any?> {
-        return mapOf(
+        val map = mutableMapOf<String, Any?>(
             "uid" to uid,
             "email" to email,
             "displayName" to displayName,
@@ -312,6 +314,10 @@ data class HouseholdMemberDto(
             "joinedAt" to joinedAt,
             "invitedByUid" to invitedByUid
         )
+        if (inviteId != null) {
+            map["inviteId"] = inviteId
+        }
+        return map
     }
 }
 

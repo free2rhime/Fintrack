@@ -472,7 +472,8 @@ class FirestoreHouseholdRepository(
                     role = "member",
                     status = "ACTIVE",
                     joinedAt = now,
-                    invitedByUid = invite.inviterUid
+                    invitedByUid = invite.inviterUid,
+                    inviteId = inviteId
                 )
 
                 // Update invitation status to ACCEPTED

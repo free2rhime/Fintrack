@@ -3,6 +3,7 @@ package com.example
 import com.example.data.model.CategoryDto
 import com.example.data.model.ExchangeRateMetadataDto
 import com.example.data.model.ExchangeRateEntity
+import com.example.data.model.HouseholdMemberDto
 import com.example.data.model.TransactionDto
 import com.example.data.model.TransactionEntity
 import com.example.data.model.toEntity
@@ -354,5 +355,76 @@ class FirestoreDtoTest {
         assertNull("exchangeRateMetadata must be null for pending/zero-rate transactions", payload["exchangeRateMetadata"])
         assertEquals(0.0, payload["exchangeRate"])
         assertEquals("PENDING", payload["conversionStatus"])
+    }
+
+    @Test
+    fun testHouseholdMemberDtoSerializationRoundTripWithInviteId() {
+        val memberDto = HouseholdMemberDto(
+            uid = "user_invitee_456",
+            email = "invitee@example.com",
+            displayName = "Invited User",
+            role = "member",
+            status = "ACTIVE",
+            joinedAt = 1750000000000L,
+            invitedByUid = "user_owner_123",
+            inviteId = "inv_session_789"
+        )
+
+        val map = memberDto.toMap()
+        assertEquals("user_invitee_456", map["uid"])
+        assertEquals("invitee@example.com", map["email"])
+        assertEquals("Invited User", map["displayName"])
+        assertEquals("member", map["role"])
+        assertEquals("ACTIVE", map["status"])
+        assertEquals(1750000000000L, map["joinedAt"])
+        assertEquals("user_owner_123", map["invitedByUid"])
+        assertEquals("inv_session_789", map["inviteId"])
+        assertTrue(map.containsKey("inviteId"))
+
+        val deserialized = HouseholdMemberDto.fromMap(map, "user_invitee_456")
+        assertEquals("user_invitee_456", deserialized.uid)
+        assertEquals("invitee@example.com", deserialized.email)
+        assertEquals("Invited User", deserialized.displayName)
+        assertEquals("member", deserialized.role)
+        assertEquals("ACTIVE", deserialized.status)
+        assertEquals(1750000000000L, deserialized.joinedAt)
+        assertEquals("user_owner_123", deserialized.invitedByUid)
+        assertEquals("inv_session_789", deserialized.inviteId)
+    }
+
+    @Test
+    fun testHouseholdMemberDtoSerializationOmitsInviteIdWhenNull() {
+        val ownerMemberDto = HouseholdMemberDto(
+            uid = "user_owner_123",
+            email = "owner@example.com",
+            displayName = "Owner User",
+            role = "owner",
+            status = "ACTIVE",
+            joinedAt = 1750000000000L,
+            invitedByUid = null,
+            inviteId = null
+        )
+
+        val map = ownerMemberDto.toMap()
+        assertEquals("user_owner_123", map["uid"])
+        assertEquals("owner@example.com", map["email"])
+        assertEquals("owner", map["role"])
+        assertEquals("ACTIVE", map["status"])
+        assertFalse("inviteId must be omitted from toMap() when null", map.containsKey("inviteId"))
+        assertNull(map["inviteId"])
+
+        // Test backward compatibility: deserializing legacy document without inviteId key
+        val legacyDocMap = mapOf<String, Any?>(
+            "uid" to "legacy_user",
+            "email" to "legacy@example.com",
+            "role" to "member",
+            "status" to "ACTIVE"
+        )
+        val deserializedLegacy = HouseholdMemberDto.fromMap(legacyDocMap, "legacy_user")
+        assertEquals("legacy_user", deserializedLegacy.uid)
+        assertEquals("legacy@example.com", deserializedLegacy.email)
+        assertEquals("member", deserializedLegacy.role)
+        assertEquals("ACTIVE", deserializedLegacy.status)
+        assertNull(deserializedLegacy.inviteId)
     }
 }
