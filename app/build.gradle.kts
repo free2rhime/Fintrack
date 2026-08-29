@@ -73,9 +73,13 @@ android {
   sourceSets {
     getByName("test") {
       assets.srcDirs("$projectDir/schemas", "$projectDir/src/test/assets")
+      resources.srcDirs("$projectDir/schemas")
     }
     getByName("androidTest") {
       assets.srcDirs("$projectDir/schemas", "$projectDir/src/test/assets")
+    }
+    getByName("debug") {
+      assets.srcDirs("$projectDir/schemas")
     }
   }
   dependenciesInfo {

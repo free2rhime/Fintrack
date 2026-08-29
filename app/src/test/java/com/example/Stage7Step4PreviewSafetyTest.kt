@@ -1,6 +1,9 @@
 package com.example
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -8,6 +11,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.db.FinTrackDatabase
@@ -32,12 +36,15 @@ import com.example.ui.MainViewModel
 import com.example.ui.MigrationPreviewState
 import com.example.ui.MigrationUiState
 import com.example.ui.components.MigrationPreviewDialog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -92,9 +99,12 @@ class Stage7Step4PreviewSafetyTest {
 
     @Before
     fun setup() {
+        Dispatchers.setMain(testDispatcher)
         app = ApplicationProvider.getApplicationContext()
         db = Room.inMemoryDatabaseBuilder(app, FinTrackDatabase::class.java)
             .allowMainThreadQueries()
+            .setQueryExecutor(Runnable::run)
+            .setTransactionExecutor(Runnable::run)
             .build()
 
         fakeSnapshotSource = FakeSnapshotSource()
@@ -125,6 +135,7 @@ class Stage7Step4PreviewSafetyTest {
     @After
     fun tearDown() {
         db.close()
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -197,16 +208,16 @@ class Stage7Step4PreviewSafetyTest {
 
         // Verify dialog components displayed
         composeTestRule.onNodeWithTag("migration_preview_dialog").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("preview_household_name").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Miller Household").assertIsDisplayed()
-        composeTestRule.onNodeWithText("hh_123").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("preview_backup_timestamp").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("preview_household_name").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Miller Household").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("hh_123").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("preview_backup_timestamp").performScrollTo().assertIsDisplayed()
 
         // Proceed button MUST BE DISABLED initially
         composeTestRule.onNodeWithTag("migration_preview_confirm_button").assertIsNotEnabled()
 
         // Check the acknowledgment checkbox
-        composeTestRule.onNodeWithTag("migration_acknowledgment_checkbox").performClick()
+        composeTestRule.onNodeWithTag("migration_acknowledgment_checkbox").performScrollTo().performClick()
 
         // Proceed button MUST BE ENABLED now
         composeTestRule.onNodeWithTag("migration_preview_confirm_button").assertIsEnabled()
@@ -231,27 +242,28 @@ class Stage7Step4PreviewSafetyTest {
             backupTimestamp = System.currentTimeMillis()
         )
 
+        var isDialogOpen by mutableStateOf(true)
+
         // First presentation
         composeTestRule.setContent {
-            MigrationPreviewDialog(
-                previewState = previewState,
-                onConfirm = {},
-                onCancel = {}
-            )
+            if (isDialogOpen) {
+                MigrationPreviewDialog(
+                    previewState = previewState,
+                    onConfirm = {},
+                    onCancel = { isDialogOpen = false }
+                )
+            }
         }
 
         // Check it
-        composeTestRule.onNodeWithTag("migration_acknowledgment_checkbox").performClick()
+        composeTestRule.onNodeWithTag("migration_acknowledgment_checkbox").performScrollTo().performClick()
         composeTestRule.onNodeWithTag("migration_preview_confirm_button").assertIsEnabled()
 
         // Remount dialog (simulate reopening)
-        composeTestRule.setContent {
-            MigrationPreviewDialog(
-                previewState = previewState,
-                onConfirm = {},
-                onCancel = {}
-            )
-        }
+        isDialogOpen = false
+        composeTestRule.waitForIdle()
+        isDialogOpen = true
+        composeTestRule.waitForIdle()
 
         // Checkbox must be reset to unchecked and proceed disabled
         composeTestRule.onNodeWithTag("migration_preview_confirm_button").assertIsNotEnabled()

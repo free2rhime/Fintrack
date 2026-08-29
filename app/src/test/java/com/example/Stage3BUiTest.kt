@@ -89,7 +89,7 @@ class Stage3BUiTest {
 
         composeTestRule.onNodeWithTag("migration_preview_dialog").assertIsDisplayed()
         composeTestRule.onNodeWithText("Migration Preview").assertIsDisplayed()
-        composeTestRule.onNodeWithText("hh_family_42").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("preview_household_id").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("OWNER").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("150").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("18").performScrollTo().assertIsDisplayed()
@@ -100,6 +100,9 @@ class Stage3BUiTest {
         // Test cancel
         composeTestRule.onNodeWithTag("migration_preview_cancel_button").performClick()
         assertTrue("Cancel button invoked", cancelled)
+
+        // Check acknowledgment checkbox to enable confirm button
+        composeTestRule.onNodeWithTag("migration_acknowledgment_checkbox").performScrollTo().performClick()
 
         // Test confirm
         composeTestRule.onNodeWithTag("migration_preview_confirm_button").performClick()

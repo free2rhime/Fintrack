@@ -39,6 +39,7 @@ import com.example.data.util.CsvPreviewData
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import java.io.File
 
 import com.example.data.repository.PendingRetryResult
@@ -1043,7 +1044,8 @@ class MainViewModel(
 
                 when (result) {
                     is PreflightValidationResult.Ready -> {
-                        val resolvedHouseholdName = currentHousehold.value?.name?.takeIf { it.isNotBlank() }
+                        val resolvedHouseholdName = currentHousehold.value?.takeIf { it.householdId == resolvedHouseholdId }?.name?.takeIf { it.isNotBlank() }
+                            ?: householdRepository?.observeHousehold(resolvedHouseholdId)?.firstOrNull()?.name?.takeIf { it.isNotBlank() }
                             ?: resolvedHouseholdId
 
                         val manifestTimestamp = try {

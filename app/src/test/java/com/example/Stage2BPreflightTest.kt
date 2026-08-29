@@ -55,6 +55,12 @@ class Stage2BPreflightTest {
         tempBackupDir = File(context.cacheDir, "test_backup_${System.currentTimeMillis()}").apply {
             mkdirs()
         }
+        CsvBackupManager.createMigrationBackupBundle(
+            bundleDir = tempBackupDir,
+            transactions = emptyList(),
+            categories = emptyList(),
+            exchangeRates = emptyList()
+        )
     }
 
     @After
