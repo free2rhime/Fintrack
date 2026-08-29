@@ -221,9 +221,11 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: baf2f70
-Commit: fix: harden firestore security rules
-Previous functional baseline: 873017a (fix: align sync status with outbox state)
+Git baseline: a739400
+Commit: test: stabilize Android migration and UI tests
+Previous functional baseline: baf2f70 (fix: harden firestore security rules)
+Android test baseline: 330/330 PASS (0 failed, 0 skipped)
+Firestore test baseline: 92/92 PASS (0 failed)
 Branch: main
 Remote branch: origin/main
 Working tree: clean

@@ -2,8 +2,8 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-08-29
-> Git baseline: `baf2f70`
-> Previous functional baseline: `873017a`
+> Git baseline: `a739400`
+> Previous functional baseline: `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -21,8 +21,8 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         baf2f70
-origin/main:  baf2f70
+HEAD:         a739400
+origin/main:  a739400
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
@@ -30,11 +30,11 @@ At the time this context was verified, the repository working tree was clean.
 
 Current commit:
 
-`baf2f70 fix: harden firestore security rules`
+`a739400 test: stabilize Android migration and UI tests`
 
 Previous functional baseline:
 
-`873017a fix: align sync status with outbox state`
+`baf2f70 fix: harden firestore security rules`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -98,7 +98,13 @@ Environments:
 - **P0-2 Privilege Escalation: RESOLVED.** Member `role` and `status` mutations and deletions are restricted to `isHouseholdOwner()`; non-owners cannot escalate or delete owners. Kotlin domain `ADMIN` support is retained.
 - **P1 Financial Validation: RESOLVED.** Strict numeric validation enforced (`amountRon > 0`, `amountEur >= 0`, `exchangeRate >= 0`, string `transactionDate` and `description`).
 - **Emulator Verification: 92/92 PASS.** All rules unit tests pass against the Firestore Local Emulator.
-- **Android Regression: 317/330 PASS (0 new regressions).** 13 historical UI/migration preview test fixture failures remain.
+
+### Android Test Suite & Migration Stabilization (Step 9 — a739400)
+- **Step 9.1A Room Migration Tests: RESOLVED.** Resolved Room schema JSON availability for Robolectric unit tests via Gradle `debug` sourceSet asset configuration. `RoomMigrationTest` 4/4 PASS, `Stage1BMigrationStateTest` 4/4 PASS. No production migration SQL redesign.
+- **Step 9.1B Stage 2B Preflight: RESOLVED.** Initialized valid backup fixture in `Stage2BPreflightTest` test setup, resolving preflight fast-fail and verifying all downstream conflict assertions (`ACTIVE_MIGRATION_IN_PROGRESS`, `EXISTING_REMOTE_DATA_DETECTED`, security contract). 9/9 PASS. Original assertions preserved.
+- **Step 9.1C Compose / Robolectric UI Tests: RESOLVED.** Disambiguated `preview_household_id` test tag in `Stage3BUiTest` (7/7 PASS); configured coroutine test dispatching (`Dispatchers.setMain(testDispatcher)` / `resetMain()`), scrolling semantics (`performScrollTo()`), and Compose state dialog remounting in `Stage7Step4PreviewSafetyTest` (3/3 PASS).
+- **MainViewModel Production Enhancement:** One low-risk, non-destructive production enhancement was introduced in `startMigrationPreflight()` to improve human-readable household-name resolution from `householdRepository` when preflight is initiated for a target household before real-time sync is actively populated.
+- **Android Test Baseline: 330/330 PASS (0 failed, 0 skipped, 0 new regressions).**
 
 ### Categories
 - Categories are household-scoped.
@@ -145,23 +151,22 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 
 ### Development Sequence:
 1. **Phase 1 — COMPLETED:** Firestore Security Hardening (`baf2f70`).
-2. **Phase 2 — NEXT (P1):** Android Test Suite & Migration Stabilization (resolving the 13 historical test failures: Room `MigrationTestHelper` schema assets, Stage 2B preflight fixtures, Compose UI preview semantics).
-3. **Phase 3:** Outbox Reliability & Recovery Polish.
+2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
+3. **Phase 3 — NEXT (P1):** Outbox Reliability & Recovery Polish.
 4. **Phase 4:** Incremental Architecture Cleanup.
 5. **Phase 5:** Beta Release Candidate / Multi-Device Verification.
 
 ### Open Areas:
-1. P1: Test suite stabilization (13 historical migration/preflight test failures).
-2. Offline/recovery synchronization handling beyond current coverage.
-3. Outbox failure, retry and error-recovery semantics where still incomplete.
-4. Concurrent/conflicting household edits resolution.
-5. Room ↔ Firestore mirror integrity verification.
-6. End-to-end migration execution verification.
+1. Offline/recovery synchronization handling beyond current coverage.
+2. Outbox failure, retry and error-recovery semantics where still incomplete.
+3. Concurrent/conflicting household edits resolution.
+4. Room ↔ Firestore mirror integrity verification.
+5. End-to-end migration execution verification.
 
 ## 7. UNKNOWN / NOT FULLY VERIFIED
 
-- Full unit/Robolectric regression suite green state across all edge cases (13 historical failures pending).
 - Degraded-network and prolonged-offline runtime behavior.
+- Complete multi-device concurrent conflict resolution under active load.
 - Some deep historical rationale contained only in ChatGPT/Antigravity transcripts or historical evidence files.
 
 ## 8. NON-REGRESSION RULES

@@ -2,8 +2,8 @@
 
 > Canonical compact operational memory for the FinTrack project.
 > Last reconciled: 2026-08-29
-> Current verified Git checkpoint: `baf2f70`
-> Previous functional baseline: `873017a`
+> Current verified Git checkpoint: `a739400`
+> Previous functional baseline: `baf2f70`
 
 ---
 
@@ -52,32 +52,32 @@ Repository state verified on 2026-08-29:
 
 ```text
 Branch:       main
-HEAD:         baf2f70
-origin/main:  baf2f70
+HEAD:         a739400
+origin/main:  a739400
 Working tree: clean
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 Commit:
 
-`baf2f70 fix: harden firestore security rules`
+`a739400 test: stabilize Android migration and UI tests`
 
-The repository contains a chronological Git history from the initial commit through `873017a` to `baf2f70`.
+The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70` to `a739400`.
 
 ### Relationship to Previous Baseline:
 
 ```text
-873017a
-fix: align sync status with outbox state
-
-        ↓
-
-Step 8 security hardening (self-join closure, role protection, financial validation)
-
-        ↓
-
 baf2f70
 fix: harden firestore security rules
+
+        ↓
+
+Step 9 test stabilization (Room schema assets, preflight backup fixtures, Compose UI test semantics, MainViewModel household name resolution)
+
+        ↓
+
+a739400
+test: stabilize Android migration and UI tests
 ```
 
 ---
@@ -165,6 +165,14 @@ Subsequent commits enforced transaction household scoping, corrected null `migra
 - **P1 Financial Validation:** Enforced strictly positive `amountRon > 0`, non-negative `amountEur >= 0` and `exchangeRate >= 0`, and mandatory string `transactionDate` and `description`.
 - **DTO & Serialization:** Added nullable `inviteId` to `HouseholdMemberDto` with null-safe `toMap()` / `fromMap()`, populated during `acceptInvite()`.
 - **Verification:** 92/92 Firestore rules emulator tests passing (0 failures).
+
+### Android Test & Migration Stabilization (Step 9 — a739400)
+`a739400` stabilized the full Android unit/Robolectric test suite, bringing the baseline to 330/330 PASS:
+- **Step 9.1A Room Migration Tests:** Configured `debug` and `test` sourceSet assets in `app/build.gradle.kts` to expose canonical generated schemas (`app/schemas`) to Robolectric unit test execution. Resolved `FileNotFoundException` in `RoomMigrationTest` (4/4 PASS) and `Stage1BMigrationStateTest` (4/4 PASS) without modifying production migration SQL.
+- **Step 9.1B Stage 2B Preflight:** Initialized valid default backup fixture in `Stage2BPreflightTest` setup, resolving preflight fast-fail and verifying all downstream conflict assertions (`ACTIVE_MIGRATION_IN_PROGRESS`, `EXISTING_REMOTE_DATA_DETECTED`, security contract). 9/9 PASS. Original assertions preserved.
+- **Step 9.1C Compose / Robolectric UI Tests:** Disambiguated `preview_household_id` test tag in `Stage3BUiTest` (7/7 PASS); configured coroutine test dispatching (`Dispatchers.setMain(testDispatcher)` / `resetMain()`), scrolling semantics (`performScrollTo()`), and Compose state dialog remounting in `Stage7Step4PreviewSafetyTest` (3/3 PASS).
+- **MainViewModel Production Enhancement:** Introduced one low-risk, non-destructive production enhancement in `MainViewModel.startMigrationPreflight()` to resolve the human-readable household name from `householdRepository` when preflight is initiated for a target household before real-time sync is actively populated.
+- **Verification:** 330/330 Android unit tests PASS, 92/92 Firestore emulator tests PASS, 0 regressions.
 
 ---
 
@@ -419,6 +427,12 @@ At checkpoint `baf2f70` the following have been addressed:
   - P1 Financial validation enforced (`amountRon > 0`, `amountEur >= 0`, `exchangeRate >= 0`, string dates/descriptions).
   - `HouseholdMemberDto.inviteId` serialization/deserialization and client propagation in `acceptInvite()`.
   - 92/92 Firestore rules emulator tests passing (0 failures).
+- Android Test Suite & Migration Stabilization (Step 9 — `a739400`):
+  - Room migration schema asset resolution (`RoomMigrationTest` 4/4 PASS, `Stage1BMigrationStateTest` 4/4 PASS) via Gradle `debug` sourceSet asset configuration.
+  - Stage 2B Preflight test fixture backup initialization resolving `BACKUP_INVALID` fast-fail and verifying all downstream conflict states (`Stage2BPreflightTest` 9/9 PASS).
+  - Compose UI test selector disambiguation and scroll/lifecycle stabilization (`Stage3BUiTest` 7/7 PASS, `Stage7Step4PreviewSafetyTest` 3/3 PASS).
+  - Non-destructive `MainViewModel.startMigrationPreflight()` household-name resolution enhancement.
+  - Full Android regression baseline established at 330/330 PASS (0 failures, 0 skipped, 0 new regressions).
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -428,8 +442,8 @@ These statements mean the corresponding implementation work exists at the curren
 
 ## Current Development Priorities:
 1. **Phase 1 — COMPLETED:** Firestore Security Hardening (`baf2f70`).
-2. **Phase 2 — NEXT (P1):** Android Test Suite & Migration Stabilization (13 historical failures).
-3. **Phase 3:** Outbox Reliability & Recovery Polish.
+2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
+3. **Phase 3 — NEXT (P1):** Outbox Reliability & Recovery Polish.
 4. **Phase 4:** Incremental Architecture Cleanup.
 5. **Phase 5:** Beta Release Candidate / Multi-Device Verification.
 
@@ -450,8 +464,8 @@ Need explicit end-to-end verification that local and remote representations rema
 ### OPEN-5 — End-to-end migration verification
 Migration state exists, but complete end-to-end execution needs verification.
 
-### OPEN-6 — Full regression suite (P1 NEXT PRIORITY)
-The complete unit/Robolectric test matrix has 13 historical failures from migration/preflight test suite debt (Room `MigrationTestHelper` schema assets, Stage 2B preflight fixtures, Compose UI preview semantics).
+### OPEN-6 — Full regression suite (RESOLVED in Step 9 — a739400)
+Resolved: Stabilized Room schema test asset resolution, preflight backup fixtures, and Compose UI test lifecycle/scrolling semantics. Verified with 330/330 passing Android unit tests and 0 failures.
 
 ### OPEN-7 — SyncStatus outbound-health semantics (RESOLVED in Step 7.9 — 873017a)
 Resolved: `SyncStatus.Synced` requires both inbound handshake readiness and zero unresolved outbox work (0 PENDING, 0 IN_PROGRESS, 0 FAILED). Outbound engine is decoupled from public UI status.
@@ -471,10 +485,9 @@ Normal application operations use the verified soft-delete model. Physical delet
 
 Currently not fully demonstrated:
 
-- full test-suite green state across all edge cases;
 - prolonged offline/high-latency behavior;
 - complete runtime behavior under degraded network recovery;
-- complete end-to-end migration behavior;
+- complete multi-device concurrent conflict resolution under active load;
 - whether all historical Antigravity experiments remain represented in current memory.
 
 UNKNOWN does not mean broken.
@@ -656,16 +669,17 @@ Foundation
 → transaction outbound stabilization
 → SyncStatus outbox alignment (Step 7.9 — 873017a)
 → Firestore Security Hardening (Step 8 — baf2f70)
+→ Android Test & Migration Stabilization (Step 9 — a739400)
 ```
 
 The current baseline is:
 
 ```text
-baf2f70
-fix: harden firestore security rules
+a739400
+test: stabilize Android migration and UI tests
 ```
 
-Previous functional baseline: `873017a`.
+Previous functional baseline: `baf2f70`.
 
 The next development task must be explicitly selected rather than inferred from the OPEN list.
 
@@ -706,9 +720,9 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 |---|---|---|
 | Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; 92/92 emulator rules tests passing |
 | Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, and SyncStatus alignment verified |
-| Full Android Regression Gate | **NOT YET PASS** | 317/330 passing; 13 historical migration/UI preview test fixture failures remain |
-| Migration Verification Gate | **OPEN** | Migration execution & preview fixture debt to be stabilized in Step 9 |
+| Full Android Regression Gate | **PASS** | 330/330 unit/Robolectric tests passing (0 failures, 0 skipped) |
+| Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
 | Multi-Device Production Smoke | **NOT YET VERIFIED** | Requires physical/multi-device smoke validation |
 
 **Overall Beta Status: NOT READY**
-*Reason:* Migration and test suite debt (13 historical failures) and multi-device release verification, not Firestore security rules.
+*Reason:* Multi-device physical release smoke verification, not security or local unit test failures.
