@@ -22,23 +22,44 @@ class OutboundSyncEngine(
     private val snapshotSource: FirestoreSnapshotSource,
     private val syncStatusProvider: () -> SyncStatus,
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO),
-    private val operationTimeoutMs: Long = 10_000L
+    private val operationTimeoutMs: Long = 10_000L,
+    val baseRetryDelayMs: Long = DEFAULT_BASE_RETRY_DELAY_MS,
+    val maxRetryDelayMs: Long = DEFAULT_MAX_RETRY_DELAY_MS,
+    val maxRetries: Int = DEFAULT_MAX_RETRIES
 ) {
     companion object {
         private const val TAG = "OutboundSyncEngine"
         private const val BATCH_SIZE = 20
+        const val DEFAULT_BASE_RETRY_DELAY_MS = 1_000L
+        const val DEFAULT_MAX_RETRY_DELAY_MS = 30_000L
+        const val DEFAULT_MAX_RETRIES = 5
     }
 
     private val processMutex = Mutex()
     private val isPendingSignal = AtomicBoolean(false)
     private var activeJob: Job? = null
-    private var isStarted = false
+    var isStarted: Boolean = false
+        private set
 
     var onOutboxStateChanged: (() -> Unit)? = null
 
+    fun calculateRetryDelay(
+        retryCount: Int,
+        baseDelayMs: Long = baseRetryDelayMs,
+        maxDelayMs: Long = maxRetryDelayMs
+    ): Long {
+        if (retryCount <= 0 || baseDelayMs <= 0L) return 0L
+        val exponent = (retryCount - 1).coerceAtMost(30)
+        val multiplier = 1L shl exponent
+        val delay = baseDelayMs * multiplier
+        return if (delay < 0L || delay > maxDelayMs) maxDelayMs else delay
+    }
+
     @Synchronized
     fun start(syncStatusFlow: StateFlow<SyncStatus>? = null): Job? {
-        if (isStarted) return null
+        if (isStarted) {
+            return notifyPending()
+        }
         isStarted = true
 
         val job = coroutineScope.launch {
@@ -124,6 +145,16 @@ class OutboundSyncEngine(
                     if (statusBeforeItem !is SyncStatus.Synced) {
                         Log.d(TAG, "SyncStatus changed during batch processing, pausing queue: $statusBeforeItem")
                         return processedTotal
+                    }
+
+                    if (item.retryCount > 0 && baseRetryDelayMs > 0L && item.lastAttemptAt != null) {
+                        val elapsed = System.currentTimeMillis() - item.lastAttemptAt
+                        val requiredDelay = calculateRetryDelay(item.retryCount)
+                        val remaining = requiredDelay - elapsed
+                        if (remaining > 0L) {
+                            Log.d(TAG, "Applying backoff delay of ${remaining}ms for item ${item.id} (retryCount=${item.retryCount})")
+                            kotlinx.coroutines.delay(remaining)
+                        }
                     }
 
                     val success = processSingleItem(item, activeHouseholdId)
@@ -250,43 +281,37 @@ class OutboundSyncEngine(
 
         Log.w(TAG, "Item ${item.id} failed with error: $errorMessage (permDenied=$isPermissionDenied, unauth=$isUnauthenticated, timeout=$isTimeout, unavail=$isUnavailable)")
 
-        when {
-            isPermissionDenied -> {
-                syncOutboxDao.markFailed(
-                    id = item.id,
-                    errorCode = "PERMISSION_DENIED",
-                    errorMessage = errorMessage,
-                    retryCount = item.retryCount + 1
-                )
-            }
-            isUnauthenticated -> {
-                syncOutboxDao.recordRetryFailure(
-                    id = item.id,
-                    errorCode = "UNAUTHENTICATED",
-                    errorMessage = errorMessage
-                )
-            }
-            isTimeout -> {
-                syncOutboxDao.recordRetryFailure(
-                    id = item.id,
-                    errorCode = "TIMEOUT",
-                    errorMessage = "Operation timed out: $errorMessage"
-                )
-            }
-            isUnavailable -> {
-                syncOutboxDao.recordRetryFailure(
-                    id = item.id,
-                    errorCode = "UNAVAILABLE",
-                    errorMessage = errorMessage
-                )
-            }
-            else -> {
-                syncOutboxDao.recordRetryFailure(
-                    id = item.id,
-                    errorCode = "UNKNOWN_ERROR",
-                    errorMessage = errorMessage
-                )
-            }
+        val errorCode = when {
+            isPermissionDenied -> "PERMISSION_DENIED"
+            isUnauthenticated -> "UNAUTHENTICATED"
+            isTimeout -> "TIMEOUT"
+            isUnavailable -> "UNAVAILABLE"
+            else -> "UNKNOWN_ERROR"
+        }
+
+        val nextRetryCount = item.retryCount + 1
+
+        if (isPermissionDenied) {
+            syncOutboxDao.markFailed(
+                id = item.id,
+                errorCode = "PERMISSION_DENIED",
+                errorMessage = errorMessage,
+                retryCount = nextRetryCount
+            )
+        } else if (nextRetryCount >= maxRetries) {
+            Log.w(TAG, "Item ${item.id} reached max retry threshold ($maxRetries), marking FAILED with errorCode=$errorCode")
+            syncOutboxDao.markFailed(
+                id = item.id,
+                errorCode = errorCode,
+                errorMessage = "Exceeded max retries ($maxRetries): $errorMessage",
+                retryCount = nextRetryCount
+            )
+        } else {
+            syncOutboxDao.recordRetryFailure(
+                id = item.id,
+                errorCode = errorCode,
+                errorMessage = errorMessage
+            )
         }
     }
 

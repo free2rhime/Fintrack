@@ -559,7 +559,10 @@ class FirestoreSyncRepository(
                 }
             },
             coroutineScope = coroutineScope,
-            operationTimeoutMs = if (isTest) 0L else 10_000L
+            operationTimeoutMs = if (isTest) 0L else 10_000L,
+            baseRetryDelayMs = if (isTest) 0L else OutboundSyncEngine.DEFAULT_BASE_RETRY_DELAY_MS,
+            maxRetryDelayMs = if (isTest) 0L else OutboundSyncEngine.DEFAULT_MAX_RETRY_DELAY_MS,
+            maxRetries = OutboundSyncEngine.DEFAULT_MAX_RETRIES
         ).apply {
             onOutboxStateChanged = {
                 recomputeSyncStatus()
@@ -684,6 +687,7 @@ class FirestoreSyncRepository(
     private fun checkHandshakeAndUpdateState() {
         if (hasReceivedTxSnapshot && hasReceivedCatSnapshot) {
             outboundSyncEngine.start(_syncStatusState)
+            outboundSyncEngine.notifyPending()
         }
         recomputeSyncStatus()
     }
