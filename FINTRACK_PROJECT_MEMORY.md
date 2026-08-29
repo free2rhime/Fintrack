@@ -2,8 +2,8 @@
 
 > Canonical compact operational memory for the FinTrack project.
 > Last reconciled: 2026-08-29
-> Current verified Git checkpoint: `a739400`
-> Previous functional baseline: `baf2f70`
+> Current verified Git checkpoint: `32fc27b`
+> Previous functional baseline: `a739400` / `baf2f70`
 
 ---
 
@@ -52,17 +52,17 @@ Repository state verified on 2026-08-29:
 
 ```text
 Branch:       main
-HEAD:         a739400
-origin/main:  a739400
+HEAD:         32fc27b
+origin/main:  32fc27b
 Working tree: clean
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 Commit:
 
-`a739400 test: stabilize Android migration and UI tests`
+`32fc27b fix: improve outbox reliability and reconnection recovery`
 
-The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70` to `a739400`.
+The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70`, `a739400` to `32fc27b`.
 
 ### Relationship to Previous Baseline:
 
@@ -72,12 +72,17 @@ fix: harden firestore security rules
 
         ↓
 
-Step 9 test stabilization (Room schema assets, preflight backup fixtures, Compose UI test semantics, MainViewModel household name resolution)
+a739400
+test: stabilize Android migration and UI tests
 
         ↓
 
-a739400
-test: stabilize Android migration and UI tests
+Step 10 Outbox Reliability & Reconnection Polish (foreground wake-up, exponential backoff, max retries threshold, lifecycle preservation)
+
+        ↓
+
+32fc27b
+fix: improve outbox reliability and reconnection recovery
 ```
 
 ---
@@ -173,6 +178,15 @@ Subsequent commits enforced transaction household scoping, corrected null `migra
 - **Step 9.1C Compose / Robolectric UI Tests:** Disambiguated `preview_household_id` test tag in `Stage3BUiTest` (7/7 PASS); configured coroutine test dispatching (`Dispatchers.setMain(testDispatcher)` / `resetMain()`), scrolling semantics (`performScrollTo()`), and Compose state dialog remounting in `Stage7Step4PreviewSafetyTest` (3/3 PASS).
 - **MainViewModel Production Enhancement:** Introduced one low-risk, non-destructive production enhancement in `MainViewModel.startMigrationPreflight()` to resolve the human-readable household name from `householdRepository` when preflight is initiated for a target household before real-time sync is actively populated.
 - **Verification:** 330/330 Android unit tests PASS, 92/92 Firestore emulator tests PASS, 0 regressions.
+
+### Outbox Reliability & Reconnection Polish (Step 10 — 32fc27b)
+`32fc27b` resolved outbound synchronization reliability gaps and established the 335/335 PASS test baseline:
+- **Foreground Reconnection Recovery:** `FirestoreSyncRepository.checkHandshakeAndUpdateState()` explicitly wakes the outbound queue via `outboundSyncEngine.notifyPending()` upon inbound handshake/reconnection; `OutboundSyncEngine.start()` safely forwards to `notifyPending()` if already started rather than silently returning.
+- **Exponential Retry Backoff:** Implemented deterministic, cancellable exponential retry backoff based on `retryCount` (base delay = 1000ms, max delay = 30000ms, formula `delay = base * 2^(retryCount - 1)`, overflow protected). Unit-test interceptor mode uses zero delay for instantaneous tests.
+- **Maximum Retry Threshold:** Implemented `MAX_RETRIES = 5` threshold for transient/unknown errors (`UNAUTHENTICATED`, `TIMEOUT`, `UNAVAILABLE`, `UNKNOWN_ERROR`). When threshold is reached, item transitions from `PENDING` to `FAILED` with descriptive error message, unblocking FIFO queue processing and informing `SyncStatus`. `PERMISSION_DENIED` immediately transitions to `FAILED` on attempt 1.
+- **Coroutine Lifecycle & Concurrency:** `activeJob` ownership preserved, cancellable delay, `CancellationException` preserved (reverting `IN_PROGRESS` to `PENDING`), single worker guarded by `processMutex` and atomic wakeup signal.
+- **Household Isolation & FIFO:** Sequential FIFO processing maintained; strict household validation before remote dispatch preserved.
+- **Verification:** 335/335 Android unit tests PASS (27/27 focused Outbox tests), 92/92 Firestore emulator tests PASS, 0 new regressions.
 
 ---
 
@@ -433,6 +447,13 @@ At checkpoint `baf2f70` the following have been addressed:
   - Compose UI test selector disambiguation and scroll/lifecycle stabilization (`Stage3BUiTest` 7/7 PASS, `Stage7Step4PreviewSafetyTest` 3/3 PASS).
   - Non-destructive `MainViewModel.startMigrationPreflight()` household-name resolution enhancement.
   - Full Android regression baseline established at 330/330 PASS (0 failures, 0 skipped, 0 new regressions).
+- Outbox Reliability & Reconnection Polish (Step 10 — `32fc27b`):
+  - Foreground reconnection recovery: `FirestoreSyncRepository.checkHandshakeAndUpdateState()` wakes the outbound queue upon inbound snapshot handshake completion / reconnection; `OutboundSyncEngine.start()` safely forwards to `notifyPending()` if already started rather than silently returning.
+  - Exponential retry backoff: deterministic, cancellable exponential retry backoff based on `retryCount` (base delay = 1000ms, max delay = 30000ms, formula `delay = base * 2^(retryCount - 1)`, overflow protected). Unit-test interceptor mode uses zero delay for instantaneous tests.
+  - Maximum retry threshold: `MAX_RETRIES = 5` threshold for transient/unknown errors (`UNAUTHENTICATED`, `TIMEOUT`, `UNAVAILABLE`, `UNKNOWN_ERROR`). When threshold is reached, item transitions from `PENDING` to `FAILED` with descriptive error message, unblocking FIFO queue processing and informing `SyncStatus`. `PERMISSION_DENIED` immediately transitions to `FAILED` on attempt 1.
+  - Coroutine lifecycle & concurrency safety: `activeJob` ownership preserved, cancellable delay, `CancellationException` preserved (reverting `IN_PROGRESS` to `PENDING`), single worker guarded by `processMutex` and atomic wakeup signal.
+  - Household isolation & FIFO preserved: sequential FIFO processing maintained; strict household validation before remote dispatch preserved.
+  - Full Android regression baseline established at 335/335 PASS (27/27 focused Outbox tests, 0 failures, 0 skipped, 0 new regressions).
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -443,17 +464,17 @@ These statements mean the corresponding implementation work exists at the curren
 ## Current Development Priorities:
 1. **Phase 1 — COMPLETED:** Firestore Security Hardening (`baf2f70`).
 2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
-3. **Phase 3 — NEXT (P1):** Outbox Reliability & Recovery Polish.
-4. **Phase 4:** Incremental Architecture Cleanup.
+3. **Phase 3 — COMPLETED:** Outbox Reliability & Recovery Polish (`32fc27b`).
+4. **Phase 4 — NEXT (P1):** Incremental Architecture Cleanup (MainViewModel extraction, non-breaking, test-preserving).
 5. **Phase 5:** Beta Release Candidate / Multi-Device Verification.
 
 ## Reconciled Open Items:
 
-### OPEN-1 — Offline/recovery synchronization
-Need explicit verification of behavior when devices lose connectivity and later recover.
+### OPEN-1 — Offline/recovery synchronization (RESOLVED in Step 10 — 32fc27b)
+Resolved: Foreground reconnection recovery wakes the outbound queue automatically upon inbound snapshot handshake completion. Verified by `OutboundSyncEngineReliabilityTest`.
 
-### OPEN-2 — Outbox failure/retry/recovery semantics
-Need explicit validation of failure states, retry behavior and recovery beyond current coverage.
+### OPEN-2 — Outbox failure/retry/recovery semantics (RESOLVED in Step 10 — 32fc27b)
+Resolved: Implemented deterministic exponential retry backoff and max retry threshold (`MAX_RETRIES = 5`) for transient/unknown errors, preventing unbounded retries and queue starvation. Verified by `OutboundSyncEngineReliabilityTest`.
 
 ### OPEN-3 — Concurrent household edits
 Need defined conflict behavior when multiple household members modify shared data concurrently.
@@ -478,6 +499,9 @@ Household creation and invitation management are intentionally online-only contr
 
 ### OPEN-10 — Transaction Hard-Delete Mirror (CAN DEFER / P3)
 Normal application operations use the verified soft-delete model. Physical deletion mirroring can be evaluated as a future enhancement.
+
+### OPEN-11 — Periodic Outbox Completed Records Cleanup (CAN DEFER / P2)
+Periodic background deletion of `SUCCESS` outbox records older than 24-48 hours. Basic manual cleanup queries exist in DAO.
 
 ---
 
@@ -670,16 +694,17 @@ Foundation
 → SyncStatus outbox alignment (Step 7.9 — 873017a)
 → Firestore Security Hardening (Step 8 — baf2f70)
 → Android Test & Migration Stabilization (Step 9 — a739400)
+→ Outbox Reliability & Reconnection Polish (Step 10 — 32fc27b)
 ```
 
 The current baseline is:
 
 ```text
-a739400
-test: stabilize Android migration and UI tests
+32fc27b
+fix: improve outbox reliability and reconnection recovery
 ```
 
-Previous functional baseline: `baf2f70`.
+Previous functional baseline: `a739400` / `baf2f70`.
 
 The next development task must be explicitly selected rather than inferred from the OPEN list.
 
@@ -719,8 +744,8 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 | Gate | Status | Evidence / Details |
 |---|---|---|
 | Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; 92/92 emulator rules tests passing |
-| Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, and SyncStatus alignment verified |
-| Full Android Regression Gate | **PASS** | 330/330 unit/Robolectric tests passing (0 failures, 0 skipped) |
+| Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, foreground reconnection recovery, exponential retry backoff, max retries threshold, and SyncStatus alignment verified |
+| Full Android Regression Gate | **PASS** | 335/335 unit/Robolectric tests passing (27/27 focused Outbox tests, 0 failures, 0 skipped) |
 | Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
 | Multi-Device Production Smoke | **NOT YET VERIFIED** | Requires physical/multi-device smoke validation |
 

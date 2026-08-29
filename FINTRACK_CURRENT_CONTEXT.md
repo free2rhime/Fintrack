@@ -2,8 +2,8 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-08-29
-> Git baseline: `a739400`
-> Previous functional baseline: `baf2f70`
+> Git baseline: `32fc27b`
+> Previous functional baseline: `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -21,8 +21,8 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         a739400
-origin/main:  a739400
+HEAD:         32fc27b
+origin/main:  32fc27b
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
@@ -30,11 +30,11 @@ At the time this context was verified, the repository working tree was clean.
 
 Current commit:
 
-`a739400 test: stabilize Android migration and UI tests`
+`32fc27b fix: improve outbox reliability and reconnection recovery`
 
 Previous functional baseline:
 
-`baf2f70 fix: harden firestore security rules`
+`a739400 test: stabilize Android migration and UI tests` / `baf2f70 fix: harden firestore security rules`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -106,6 +106,14 @@ Environments:
 - **MainViewModel Production Enhancement:** One low-risk, non-destructive production enhancement was introduced in `startMigrationPreflight()` to improve human-readable household-name resolution from `householdRepository` when preflight is initiated for a target household before real-time sync is actively populated.
 - **Android Test Baseline: 330/330 PASS (0 failed, 0 skipped, 0 new regressions).**
 
+### Outbox Reliability & Reconnection Polish (Step 10 — 32fc27b)
+- **Foreground Reconnection Recovery: RESOLVED.** `FirestoreSyncRepository.checkHandshakeAndUpdateState()` wakes the outbound queue upon inbound snapshot handshake completion / reconnection; `OutboundSyncEngine.start()` safely forwards to `notifyPending()` if already started rather than silently returning.
+- **Exponential Retry Backoff: RESOLVED.** Implemented deterministic, cancellable exponential retry backoff based on `retryCount` (base delay = 1000ms, max delay = 30000ms, formula `delay = base * 2^(retryCount - 1)`, overflow protected). Unit-test mode uses zero delay for instantaneous tests.
+- **Maximum Retry Threshold: RESOLVED.** Implemented `MAX_RETRIES = 5` threshold for transient/unknown errors (`UNAUTHENTICATED`, `TIMEOUT`, `UNAVAILABLE`, `UNKNOWN_ERROR`). When threshold is reached, item transitions from `PENDING` to `FAILED` with descriptive error message, unblocking FIFO queue processing and informing `SyncStatus`. `PERMISSION_DENIED` immediately transitions to `FAILED` on attempt 1.
+- **Coroutine Lifecycle & Concurrency: VERIFIED.** `activeJob` ownership preserved, cancellable delay, `CancellationException` preserved (reverting `IN_PROGRESS` to `PENDING`), single worker guarded by `processMutex` and atomic wakeup signal.
+- **Household Isolation & FIFO: PRESERVED.** Sequential FIFO processing maintained; strict household validation before remote dispatch preserved.
+- **Test Baseline: 335/335 Android Unit Tests PASS (27/27 focused Outbox tests), 92/92 Firestore Emulator Tests PASS, 0 new regressions.**
+
 ### Categories
 - Categories are household-scoped.
 - Stable UUIDs are used as identity.
@@ -152,16 +160,16 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 ### Development Sequence:
 1. **Phase 1 — COMPLETED:** Firestore Security Hardening (`baf2f70`).
 2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
-3. **Phase 3 — NEXT (P1):** Outbox Reliability & Recovery Polish.
-4. **Phase 4:** Incremental Architecture Cleanup.
+3. **Phase 3 — COMPLETED:** Outbox Reliability & Recovery Polish (`32fc27b`).
+4. **Phase 4 — NEXT (P1):** Incremental Architecture Cleanup (MainViewModel extraction, non-breaking, test-preserving).
 5. **Phase 5:** Beta Release Candidate / Multi-Device Verification.
 
 ### Open Areas:
-1. Offline/recovery synchronization handling beyond current coverage.
-2. Outbox failure, retry and error-recovery semantics where still incomplete.
-3. Concurrent/conflicting household edits resolution.
-4. Room ↔ Firestore mirror integrity verification.
-5. End-to-end migration execution verification.
+1. Incremental separation of concerns in `MainViewModel` (transaction, category, migration, household logic extraction).
+2. Multi-device concurrent conflict resolution under active load.
+3. Room ↔ Firestore mirror integrity end-to-end runtime verification.
+4. End-to-end migration execution verification.
+5. Periodic cleanup of old `SUCCESS` outbox records (P2 housekeeping).
 
 ## 7. UNKNOWN / NOT FULLY VERIFIED
 
