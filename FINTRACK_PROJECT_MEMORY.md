@@ -1,9 +1,9 @@
 # FINTRACK PROJECT MEMORY v2
 
 > Canonical compact operational memory for the FinTrack project.
-> Last reconciled: 2026-08-29
-> Current verified Git checkpoint: `32fc27b`
-> Previous functional baseline: `a739400` / `baf2f70`
+> Last reconciled: 2026-08-30
+> Current verified Git checkpoint: `37155bc`
+> Previous functional baseline: `32fc27b` / `a739400` / `baf2f70`
 
 ---
 
@@ -48,21 +48,21 @@ Never silently turn historical information into current state.
 
 # 2. CURRENT CHECKPOINT — VERIFIED
 
-Repository state verified on 2026-08-29:
+Repository state verified on 2026-08-30:
 
 ```text
 Branch:       main
-HEAD:         32fc27b
-origin/main:  32fc27b
+HEAD:         37155bc
+origin/main:  37155bc
 Working tree: clean
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 Commit:
 
-`32fc27b fix: improve outbox reliability and reconnection recovery`
+`37155bc refactor: extract domain logic from MainViewModel`
 
-The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70`, `a739400` to `32fc27b`.
+The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70`, `a739400`, `32fc27b` to `37155bc`.
 
 ### Relationship to Previous Baseline:
 
@@ -77,12 +77,17 @@ test: stabilize Android migration and UI tests
 
         ↓
 
-Step 10 Outbox Reliability & Reconnection Polish (foreground wake-up, exponential backoff, max retries threshold, lifecycle preservation)
+32fc27b
+fix: improve outbox reliability and reconnection recovery
 
         ↓
 
-32fc27b
-fix: improve outbox reliability and reconnection recovery
+Step 11 Architecture Cleanup (HistoricalRateRepairCoordinator, CsvImportOrchestrator, MigrationPreflightHelper, test contracts & UI state preservation)
+
+        ↓
+
+37155bc
+refactor: extract domain logic from MainViewModel
 ```
 
 ---
@@ -187,6 +192,15 @@ Subsequent commits enforced transaction household scoping, corrected null `migra
 - **Coroutine Lifecycle & Concurrency:** `activeJob` ownership preserved, cancellable delay, `CancellationException` preserved (reverting `IN_PROGRESS` to `PENDING`), single worker guarded by `processMutex` and atomic wakeup signal.
 - **Household Isolation & FIFO:** Sequential FIFO processing maintained; strict household validation before remote dispatch preserved.
 - **Verification:** 335/335 Android unit tests PASS (27/27 focused Outbox tests), 92/92 Firestore emulator tests PASS, 0 new regressions.
+
+### Architecture Cleanup (Step 11 — 37155bc)
+`37155bc` extracted domain and infrastructure responsibilities from `MainViewModel` into dedicated, stateless coordinators without expanding scope or breaking existing test contracts:
+- **Step 11.1 Historical Rate Repair Coordinator:** Extracted BNR rate discrepancy auditing, EUR variance calculation, CSV backup creation, six-point backup validation, and repair preparation into `HistoricalRateRepairCoordinator`. (3/3 unit tests PASS).
+- **Step 11.2 CSV Import Orchestrator:** Extracted ContentResolver/URI input-stream management, CSV parsing & header validation, duplicate mode resolution (`SKIP_EXISTING`, `UPDATE_EXISTING`), pre-import backup creation, and atomic repository import invocation into `CsvImportOrchestrator`. (4/4 unit tests PASS).
+- **Step 11.3 Migration Preflight Helper:** Extracted mandatory preflight backup bundle creation, manifest timestamp parsing, `PreflightValidationResult.Ready` to `MigrationPreviewState` data mapping, and UI error sanitization into `MigrationPreflightHelper`. (3/3 unit tests PASS).
+- **Step 11.4 Regression & Commit Readiness Audit:** Confirmed all 25 focused migration tests, 34 outbox regression tests, 19 historical repair tests, 13 CSV import tests, and 18 auth/lifecycle tests pass with zero test integrity compromises.
+- **Preserved Boundaries:** `MainViewModel` retains full UI state ownership (`MigrationUiState`, `MainUiState`), all coroutine lifecycle ownership (`viewModelScope`), migration state machine transitions, `confirmAndExecuteMigration()` progress callback, auth/household resolution, and public ViewModel API.
+- **Verification:** 345/345 Android unit tests PASS (0 failed, 0 skipped), 92/92 Firestore emulator tests PASS, assembleDebug PASS, 0 new regressions.
 
 ---
 
@@ -695,18 +709,19 @@ Foundation
 → Firestore Security Hardening (Step 8 — baf2f70)
 → Android Test & Migration Stabilization (Step 9 — a739400)
 → Outbox Reliability & Reconnection Polish (Step 10 — 32fc27b)
+→ Architecture Cleanup (Step 11 — 37155bc)
 ```
 
 The current baseline is:
 
 ```text
-32fc27b
-fix: improve outbox reliability and reconnection recovery
+37155bc
+refactor: extract domain logic from MainViewModel
 ```
 
-Previous functional baseline: `a739400` / `baf2f70`.
+Previous functional baseline: `32fc27b` / `a739400` / `baf2f70`.
 
-The next development task must be explicitly selected rather than inferred from the OPEN list.
+The next development task is the Beta Smoke Test.
 
 ---
 
@@ -745,7 +760,7 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 |---|---|---|
 | Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; 92/92 emulator rules tests passing |
 | Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, foreground reconnection recovery, exponential retry backoff, max retries threshold, and SyncStatus alignment verified |
-| Full Android Regression Gate | **PASS** | 335/335 unit/Robolectric tests passing (27/27 focused Outbox tests, 0 failures, 0 skipped) |
+| Full Android Regression Gate | **PASS** | 345/345 unit/Robolectric tests passing (0 failures, 0 skipped) |
 | Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
 | Multi-Device Production Smoke | **NOT YET VERIFIED** | Requires physical/multi-device smoke validation |
 

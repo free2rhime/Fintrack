@@ -221,16 +221,31 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: 32fc27b
-Commit: fix: improve outbox reliability and reconnection recovery
-Previous functional baseline: a739400 (test: stabilize Android migration and UI tests) / baf2f70 (fix: harden firestore security rules)
-Android test baseline: 335/335 PASS (0 failed, 0 skipped)
-Focused Outbox reliability baseline: 27/27 PASS
+Git baseline: 37155bc
+Commit: refactor: extract domain logic from MainViewModel
+Previous functional baseline: 32fc27b (fix: improve outbox reliability and reconnection recovery) / a739400 (test: stabilize Android migration and UI tests) / baf2f70 (fix: harden firestore security rules)
+Android test baseline: 345/345 PASS (0 failed, 0 skipped)
+Focused Step 11 architecture baseline: 25/25 PASS
 Firestore test baseline: 92/92 PASS (0 failed)
 Branch: main
 Remote branch: origin/main
 Working tree: clean
 ```
+
+### Architecture Cleanup (Step 11 — 37155bc)
+Domain and infrastructure responsibilities extracted from `MainViewModel` into dedicated coordinators:
+- `HistoricalRateRepairCoordinator` (historical BNR rate audit, discrepancy reporting, CSV backup creation & validation, repair execution)
+- `CsvImportOrchestrator` (ContentResolver / URI stream reading, CSV parsing & validation, duplicate mode handling, pre-import backup, atomic import execution)
+- `MigrationPreflightHelper` (mandatory preflight backup bundle creation, manifest timestamp extraction, preview state mapping, error sanitization)
+
+Preserved boundaries:
+- MainViewModel public API
+- UI state ownership and all `_migrationUiState` / `_uiState` mutation points
+- `viewModelScope` coroutine lifecycle
+- Authentication lifecycle & household resolution
+- Firestore sync lifecycle & Room-backed Outbox architecture
+- Migration state machine
+- Firestore security model
 
 Always verify these values before acting; they are a baseline, not an instruction to assume the repository has not changed.
 

@@ -1,9 +1,9 @@
 # FINTRACK CURRENT CONTEXT
 
 > Compact operational context for continuing FinTrack development.
-> Last verified: 2026-08-29
-> Git baseline: `32fc27b`
-> Previous functional baseline: `a739400` / `baf2f70`
+> Last verified: 2026-08-30
+> Git baseline: `37155bc`
+> Previous functional baseline: `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -21,8 +21,8 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         32fc27b
-origin/main:  32fc27b
+HEAD:         37155bc
+origin/main:  37155bc
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
@@ -30,11 +30,11 @@ At the time this context was verified, the repository working tree was clean.
 
 Current commit:
 
-`32fc27b fix: improve outbox reliability and reconnection recovery`
+`37155bc refactor: extract domain logic from MainViewModel`
 
 Previous functional baseline:
 
-`a739400 test: stabilize Android migration and UI tests` / `baf2f70 fix: harden firestore security rules`
+`32fc27b fix: improve outbox reliability and reconnection recovery` / `a739400 test: stabilize Android migration and UI tests` / `baf2f70 fix: harden firestore security rules`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -114,6 +114,13 @@ Environments:
 - **Household Isolation & FIFO: PRESERVED.** Sequential FIFO processing maintained; strict household validation before remote dispatch preserved.
 - **Test Baseline: 335/335 Android Unit Tests PASS (27/27 focused Outbox tests), 92/92 Firestore Emulator Tests PASS, 0 new regressions.**
 
+### Architecture Cleanup (Step 11 — 37155bc)
+- **HistoricalRateRepairCoordinator (Step 11.1): EXTRACTED.** Separated BNR historical rate discrepancy detection, EUR impact calculation, CSV backup file creation & six-point validation, and repair preparation from `MainViewModel` into dedicated coordinator. (3/3 unit tests PASS).
+- **CsvImportOrchestrator (Step 11.2): EXTRACTED.** Separated ContentResolver/URI input-stream resolution, CSV header/row parsing & validation, duplicate mode handling (`SKIP_EXISTING`, `UPDATE_EXISTING`), pre-import backup generation, and atomic repository import delegation from `MainViewModel`. (4/4 unit tests PASS).
+- **MigrationPreflightHelper (Step 11.3): EXTRACTED.** Separated mandatory preflight backup bundle creation, manifest timestamp extraction, `PreflightValidationResult.Ready` to `MigrationPreviewState` data mapping, and UI error message sanitization from `MainViewModel`. (3/3 unit tests PASS).
+- **Preserved Boundaries:** `MainViewModel` retains full UI state ownership (`MigrationUiState`, `MainUiState`), all coroutine lifecycle ownership (`viewModelScope`), migration state machine transitions, `confirmAndExecuteMigration()` progress callback, auth/household resolution, and public ViewModel API.
+- **Combined Test Baseline: 345/345 Android Unit Tests PASS, 92/92 Firestore Emulator Tests PASS, assembleDebug PASS, 0 new regressions.**
+
 ### Categories
 - Categories are household-scoped.
 - Stable UUIDs are used as identity.
@@ -161,15 +168,14 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 1. **Phase 1 — COMPLETED:** Firestore Security Hardening (`baf2f70`).
 2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
 3. **Phase 3 — COMPLETED:** Outbox Reliability & Recovery Polish (`32fc27b`).
-4. **Phase 4 — NEXT (P1):** Incremental Architecture Cleanup (MainViewModel extraction, non-breaking, test-preserving).
-5. **Phase 5:** Beta Release Candidate / Multi-Device Verification.
+4. **Phase 4 — COMPLETED:** Architecture Cleanup (`37155bc`).
+5. **Phase 5 — NEXT (P1):** Beta Smoke Test / Multi-Device Verification.
 
 ### Open Areas:
-1. Incremental separation of concerns in `MainViewModel` (transaction, category, migration, household logic extraction).
-2. Multi-device concurrent conflict resolution under active load.
-3. Room ↔ Firestore mirror integrity end-to-end runtime verification.
-4. End-to-end migration execution verification.
-5. Periodic cleanup of old `SUCCESS` outbox records (P2 housekeeping).
+1. Multi-device concurrent conflict resolution under active load.
+2. Room ↔ Firestore mirror integrity end-to-end runtime verification.
+3. End-to-end migration execution verification.
+4. Periodic cleanup of old `SUCCESS` outbox records (P2 housekeeping).
 
 ## 7. UNKNOWN / NOT FULLY VERIFIED
 
