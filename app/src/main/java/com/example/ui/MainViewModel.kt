@@ -36,6 +36,12 @@ import com.example.data.util.CsvDuplicateMode
 import com.example.data.util.CsvImportFinalResult
 import com.example.data.util.CsvImporter
 import com.example.data.util.CsvPreviewData
+import com.example.data.util.CsvImportOrchestrator
+import com.example.data.util.CsvImportParseResult
+import com.example.data.util.HistoricalRateRepairCoordinator
+import com.example.data.util.RepairExecutionResult
+import com.example.data.util.MigrationPreflightHelper
+import com.example.data.util.PreflightBackupResult
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -172,6 +178,25 @@ class MainViewModel(
 
     private val activeHouseholdRepo: HouseholdRepository by lazy {
         householdRepository ?: FirestoreHouseholdRepository(authRepository = authRepository)
+    }
+
+    private val historicalRateRepairCoordinator: HistoricalRateRepairCoordinator by lazy {
+        HistoricalRateRepairCoordinator(transactionRepository)
+    }
+
+    private val csvImportOrchestrator: CsvImportOrchestrator by lazy {
+        CsvImportOrchestrator(
+            transactionRepository = transactionRepository,
+            categoryRepository = categoryRepository
+        )
+    }
+
+    private val migrationPreflightHelper: MigrationPreflightHelper by lazy {
+        MigrationPreflightHelper(
+            transactionRepository = transactionRepository,
+            categoryRepository = categoryRepository,
+            exchangeRateDao = database?.exchangeRateDao()
+        )
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -579,27 +604,16 @@ class MainViewModel(
 
     fun importCsv(context: android.content.Context, uri: android.net.Uri) {
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val csvContent = inputStream?.bufferedReader()?.use { it.readText() } ?: ""
-                if (csvContent.isBlank()) {
-                    showNotification("CSV file is empty or could not be read.")
-                    return@launch
+            when (val result = csvImportOrchestrator.parseAndValidateFromUri(context, uri)) {
+                is CsvImportParseResult.Success -> {
+                    _uiState.value = _uiState.value.copy(csvPreviewData = result.preview)
                 }
-
-                val allExistingTxs = transactionRepository.getAllTransactionsList()
-                val currentCategories = categoryRepository.getAllCategoriesList()
-
-                val preview = CsvImporter.parseAndValidate(
-                    csvContent = csvContent,
-                    existingTransactions = allExistingTxs,
-                    existingCategories = currentCategories,
-                    duplicateMode = CsvDuplicateMode.SKIP_EXISTING
-                )
-
-                _uiState.value = _uiState.value.copy(csvPreviewData = preview)
-            } catch (e: Exception) {
-                showNotification("Import error: ${e.message}")
+                is CsvImportParseResult.EmptyFile -> {
+                    showNotification(result.message)
+                }
+                is CsvImportParseResult.Failure -> {
+                    showNotification("Import error: ${result.message}")
+                }
             }
         }
     }
@@ -607,16 +621,7 @@ class MainViewModel(
     fun updateCsvDuplicateMode(mode: CsvDuplicateMode) {
         val currentPreview = _uiState.value.csvPreviewData ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            val allExistingTxs = transactionRepository.getAllTransactionsList()
-            val currentCategories = categoryRepository.getAllCategoriesList()
-
-            val updatedPreview = CsvImporter.parseAndValidate(
-                csvContent = currentPreview.rawCsvContent,
-                existingTransactions = allExistingTxs,
-                existingCategories = currentCategories,
-                duplicateMode = mode
-            )
-
+            val updatedPreview = csvImportOrchestrator.updateDuplicateMode(currentPreview, mode)
             _uiState.value = _uiState.value.copy(csvPreviewData = updatedPreview)
         }
     }
@@ -624,42 +629,15 @@ class MainViewModel(
     fun executeCsvImport(context: android.content.Context) {
         val preview = _uiState.value.csvPreviewData ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val allExistingTxs = transactionRepository.getAllTransactionsList()
-                val backupFile = File(context.cacheDir, "fintrack_pre_import_backup_${System.currentTimeMillis()}.csv")
-
-                val result = transactionRepository.executeAtomicCsvImport(
-                    previewData = preview,
-                    backupFile = backupFile,
-                    allExistingTransactions = allExistingTxs
-                )
-
-                _uiState.value = _uiState.value.copy(
-                    csvPreviewData = null,
-                    csvImportFinalResult = result
-                )
-
-                if (result.success) {
-                    showNotification("Import complete: ${result.insertedCount} inserted, ${result.updatedCount} updated, ${result.skippedCount} skipped.")
-                } else {
-                    showNotification("Import failed: ${result.errorMessage}")
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    csvPreviewData = null,
-                    csvImportFinalResult = CsvImportFinalResult(
-                        success = false,
-                        insertedCount = 0,
-                        updatedCount = 0,
-                        skippedCount = 0,
-                        failedCount = preview.validTransactionsToImport.size,
-                        categoriesCreatedCount = 0,
-                        subcategoriesCreatedCount = 0,
-                        pendingCount = 0,
-                        unverifiedCount = 0,
-                        errorMessage = "Execution error: ${e.message}"
-                    )
-                )
+            val result = csvImportOrchestrator.executeImport(preview, context.cacheDir)
+            _uiState.value = _uiState.value.copy(
+                csvPreviewData = null,
+                csvImportFinalResult = result
+            )
+            if (result.success) {
+                showNotification("Import complete: ${result.insertedCount} inserted, ${result.updatedCount} updated, ${result.skippedCount} skipped.")
+            } else {
+                showNotification("Import failed: ${result.errorMessage}")
             }
         }
     }
@@ -801,110 +779,53 @@ class MainViewModel(
     fun generateDiscrepancyReport() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isAuditingHistoricalRates = true)
-            val unverified = transactionRepository.getUnverifiedTransactions()
-            val items = mutableListOf<DiscrepancyItem>()
-
-            for (tx in unverified) {
-                val bnrResult = transactionRepository.getOfficialRate(tx.date)
-                if (bnrResult.status == "OFFICIAL" && bnrResult.rate > 0.0) {
-                    val correctEUR = ExchangeRateService.calculateAmountEUR(tx.amountRON, bnrResult.rate)
-                    val diff = kotlin.math.abs(correctEUR - tx.amountEUR)
-                    items.add(
-                        DiscrepancyItem(
-                            transactionId = tx.id,
-                            date = tx.date,
-                            description = tx.description,
-                            amountRON = tx.amountRON,
-                            oldRate = tx.exchangeRate,
-                            correctRate = bnrResult.rate,
-                            effectiveBnrDate = bnrResult.effectiveDate,
-                            oldAmountEUR = tx.amountEUR,
-                            correctAmountEUR = correctEUR,
-                            differenceEUR = Math.round(diff * 100.0) / 100.0
-                        )
-                    )
-                }
+            try {
+                val report = historicalRateRepairCoordinator.generateDiscrepancyReport(getApplication<Application>().cacheDir)
+                _uiState.value = _uiState.value.copy(
+                    isAuditingHistoricalRates = false,
+                    discrepancyReport = report
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isAuditingHistoricalRates = false,
+                    userNotification = "Error generating report: ${e.message}"
+                )
             }
-
-            // Create backup CSV before applying corrections
-            val allTxs = transactionRepository.getAllTransactionsList()
-            val backupFile = File(getApplication<Application>().cacheDir, "fintrack_backup_before_repair.csv")
-            CsvExporter.writeTransactionsToFile(backupFile, allTxs)
-
-            val totalDiff = items.sumOf { it.differenceEUR }
-            val report = DiscrepancyReport(
-                items = items,
-                totalDiscrepancyEUR = Math.round(totalDiff * 100.0) / 100.0,
-                backupFilePath = backupFile.absolutePath
-            )
-
-            _uiState.value = _uiState.value.copy(
-                isAuditingHistoricalRates = false,
-                discrepancyReport = report
-            )
         }
     }
-
-    private val isSyncingPending = java.util.concurrent.atomic.AtomicBoolean(false)
 
     fun confirmAndApplyRepair() {
         val report = uiState.value.discrepancyReport ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val allTxs = transactionRepository.getAllTransactionsList()
-                val backupFile = File(getApplication<Application>().cacheDir, "fintrack_backup_before_repair.csv")
-
-                CsvExporter.writeTransactionsToFile(backupFile, allTxs)
-
-                // Perform strict 6-point backup validation
-                if (!validateBackupFile(backupFile, allTxs.size)) {
+            val result = historicalRateRepairCoordinator.confirmAndApplyRepair(
+                report = report,
+                cacheDir = getApplication<Application>().cacheDir
+            )
+            when (result) {
+                is RepairExecutionResult.Success -> {
                     _uiState.value = _uiState.value.copy(
                         discrepancyReport = null,
-                        userNotification = "Repair aborted: CSV backup validation failed."
+                        userNotification = "Applied official BNR rates to ${result.updatedCount} transaction(s)."
                     )
-                    return@launch
                 }
-
-                val preparedItems = mutableListOf<PreparedRepairItem>()
-                for (item in report.items) {
-                    val tx = transactionRepository.getTransactionById(item.transactionId) ?: continue
-                    preparedItems.add(PreparedRepairItem(tx, item.correctRate, item.effectiveBnrDate))
+                is RepairExecutionResult.ValidationFailed -> {
+                    _uiState.value = _uiState.value.copy(
+                        discrepancyReport = null,
+                        userNotification = "Repair aborted: ${result.message}"
+                    )
                 }
-
-                val updatedCount = transactionRepository.applyRepairBatch(preparedItems)
-
-                _uiState.value = _uiState.value.copy(
-                    discrepancyReport = null,
-                    userNotification = "Applied official BNR rates to $updatedCount transaction(s)."
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    discrepancyReport = null,
-                    userNotification = "Error applying repair: ${e.message}"
-                )
+                is RepairExecutionResult.Failure -> {
+                    _uiState.value = _uiState.value.copy(
+                        discrepancyReport = null,
+                        userNotification = "Error applying repair: ${result.message}"
+                    )
+                }
             }
         }
     }
 
     fun validateBackupFile(file: File, expectedCount: Int): Boolean {
-        try {
-            if (!file.exists()) return false
-            if (!file.canRead()) return false
-            if (file.length() <= 0) return false
-
-            val lines = file.readLines()
-            if (lines.isEmpty()) return false
-
-            val header = lines.first()
-            if (!header.startsWith("Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR")) return false
-
-            val dataRows = lines.drop(1).filter { it.isNotBlank() }
-            if (dataRows.size < expectedCount) return false
-
-            return true
-        } catch (e: Exception) {
-            return false
-        }
+        return historicalRateRepairCoordinator.validateBackupFile(file, expectedCount)
     }
 
     fun dismissDiscrepancyReport() {
@@ -1010,30 +931,18 @@ class MainViewModel(
 
                 // Ensure a valid backup bundle exists before running preflight
                 val effectiveBackupDir = backupBundleDir ?: run {
-                    val backupsRootDir = File(getApplication<Application>().filesDir, "migration_backups").apply { mkdirs() }
-                    val newBundleDir = File(backupsRootDir, "backup_${System.currentTimeMillis()}")
-                    
-                    val allTxs = transactionRepository.allTransactions.first()
-                    val allCats = categoryRepository.getAllCategoriesList()
-                    val allRates = database?.exchangeRateDao()?.getAllOfficialRates() ?: emptyList()
-
-                    val backupCreationResult = CsvBackupManager.createMigrationBackupBundle(
-                        bundleDir = newBundleDir,
-                        transactions = allTxs,
-                        categories = allCats,
-                        exchangeRates = allRates
-                    )
-
-                    if (!backupCreationResult.isValid) {
-                        _migrationUiState.value = MigrationUiState.Failure(
-                            MigrationResultState.Failure(
-                                stage = "PREFLIGHT_BACKUP",
-                                sanitizedError = backupCreationResult.errorMessage ?: "Failed to generate mandatory preflight backup bundle."
+                    when (val backupResult = migrationPreflightHelper.createPreflightBackup(getApplication<Application>().filesDir)) {
+                        is PreflightBackupResult.Success -> backupResult.backupBundleDir
+                        is PreflightBackupResult.Failure -> {
+                            _migrationUiState.value = MigrationUiState.Failure(
+                                MigrationResultState.Failure(
+                                    stage = "PREFLIGHT_BACKUP",
+                                    sanitizedError = backupResult.errorMessage
+                                )
                             )
-                        )
-                        return@launch
+                            return@launch
+                        }
                     }
-                    newBundleDir
                 }
 
                 val result = coordinator.validatePreflight(
@@ -1048,27 +957,11 @@ class MainViewModel(
                             ?: householdRepository?.observeHousehold(resolvedHouseholdId)?.firstOrNull()?.name?.takeIf { it.isNotBlank() }
                             ?: resolvedHouseholdId
 
-                        val manifestTimestamp = try {
-                            val manifestFile = File(effectiveBackupDir, CsvBackupManager.MANIFEST_FILE_NAME)
-                            if (manifestFile.exists()) {
-                                com.example.data.util.MigrationManifest.fromJson(manifestFile.readText())?.creationTimestamp
-                            } else null
-                        } catch (_: Exception) { null } ?: System.currentTimeMillis()
-
                         _migrationUiState.value = MigrationUiState.Preview(
-                            MigrationPreviewState(
-                                householdId = result.householdId,
-                                householdName = resolvedHouseholdName,
-                                userUid = result.userUid,
-                                userRole = result.memberInfo.role,
-                                transactionsCount = result.localCounts.transactionsCount,
-                                categoriesCount = result.localCounts.categoriesCount,
-                                exchangeRatesCount = result.localCounts.exchangeRatesCount,
-                                totalRecords = result.localCounts.totalCount,
-                                backupBundlePath = result.backupBundlePath,
-                                backupTimestamp = manifestTimestamp,
-                                backupValidationStatus = "VALIDATED",
-                                preflightReadyData = result
+                            migrationPreflightHelper.mapToPreviewState(
+                                result = result,
+                                resolvedHouseholdName = resolvedHouseholdName,
+                                effectiveBackupDir = effectiveBackupDir
                             )
                         )
                     }
@@ -1209,12 +1102,7 @@ class MainViewModel(
     }
 
     private fun sanitizeMigrationError(rawError: String?): String {
-        if (rawError.isNullOrBlank()) return "An unexpected error occurred during migration."
-        val clean = rawError.lines()
-            .map { it.replace(Regex("at [a-zA-Z0-9_$.]+\\(.*\\)"), "").trim() }
-            .filter { it.isNotBlank() && !it.startsWith("java.") && !it.startsWith("kotlin.") && !it.startsWith("android.") }
-            .firstOrNull() ?: "An unexpected error occurred during migration."
-        return clean.take(150)
+        return migrationPreflightHelper.sanitizeError(rawError)
     }
 
     fun resetHouseholdCreationState() {
