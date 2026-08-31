@@ -227,12 +227,13 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: aed996f
-Commit: ci: enable Firebase-configured online APK builds
-Previous baseline: 14f5338 (ci: remove redundant GitHub workflows) / 0da6b96 (docs: update project memory after step 12.1) / 4ed7894 (fix: allow cross-user transaction editing) / 1ed28ec / 37155bc / 32fc27b / a739400 / baf2f70
+Git baseline: 7a8b6bf
+Commit: docs: update project memory after step 12.1I
+Previous baseline: aed996f (ci: enable Firebase-configured online APK builds) / 14f5338 / 0da6b96 / 4ed7894 / 1ed28ec / 37155bc / 32fc27b / a739400 / baf2f70
 Android test baseline: 343/343 PASS (0 failed, 0 errors, 0 skipped)
-Firestore rules test baseline: 95/95 test cases preserved in tests/firestore.rules.test.ts (emulator not executed in Step 12.1I)
+Firestore rules test baseline: 95/95 test cases preserved in tests/firestore.rules.test.ts
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
+Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B
 Branch: main
 Remote branch: origin/main
 Working tree: clean
@@ -248,8 +249,16 @@ Working tree: clean
 - **GitHub Actions Workflows Removed:** Redundant workflows (`build-debug-apk.yml`, `unit-tests.yml`, `firestore-rules-tests.yml`) removed from `.github/workflows/`.
 - **Retained Workflow:** `.github/workflows/build-apk.yml` ("Build Debug APK") actively retained for release artifact generation.
 - **Firebase Secret Handling (Step 12.1I — aed996f):** Temporarily reconstructs `app/google-services.json` from `secrets.GOOGLE_SERVICES_JSON` during workflow execution; validates JSON structure safely without secret logging; cleans up the file in an `always()` post-step. `google-services.json` remains strictly outside the Git repository.
-- **Real-Device Google Sign-In:** Online APK generation and Google Services build integration are PASS; real Google Sign-In authentication requires physical device verification in Step 12.2.
+- **Online APK Status:** PASS on CI; builds signed release-compatible debug artifact with real Firebase configuration.
 - **Testing & Security Preserved:** Android 343/343 tests passing locally; Firestore security rules test suite (`tests/firestore.rules.test.ts`) preserved.
+
+### Physical Two-Device Beta Smoke Test Regression (Step 12.2 — COMPLETE)
+- **Two-Device Setup:** Successfully verified on physical Device A and Device B.
+- **Authentication:** Google Sign-In verified on real devices with Firebase Authentication.
+- **Household & Permissions:** Household creation, member invitations, and role boundaries verified.
+- **Cross-User Transactions:** Non-creator edit/delete and real-time bidirectional sync verified PASS. Historical bug with `PermissionDenied` on cross-user edits confirmed resolved.
+- **Outbox & Offline:** Local persistence, outbox recovery on reconnection, and foreground synchronization verified PASS.
+- **Lifecycle:** App restart, FirebaseAuth session restoration, and sync recovery verified PASS.
 
 Always verify these values before acting; they are a baseline, not an instruction to assume the repository has not changed.
 

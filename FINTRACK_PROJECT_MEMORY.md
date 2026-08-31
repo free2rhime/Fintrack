@@ -2,8 +2,8 @@
 
 > Canonical compact operational memory for the FinTrack project.
 > Last reconciled: 2026-08-31
-> Current verified Git checkpoint: `aed996f`
-> Previous functional baseline: `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Current verified Git checkpoint: `7a8b6bf`
+> Previous functional baseline: `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ---
 
@@ -52,17 +52,17 @@ Repository state verified on 2026-08-31:
 
 ```text
 Branch:       main
-HEAD:         aed996f
-origin/main:  aed996f
+HEAD:         7a8b6bf
+origin/main:  7a8b6bf
 Working tree: clean
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 Commit:
 
-`aed996f ci: enable Firebase-configured online APK builds`
+`7a8b6bf docs: update project memory after step 12.1I`
 
-The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70`, `a739400`, `32fc27b`, `37155bc`, `1ed28ec`, `4ed7894`, `0da6b96`, `14f5338` to `aed996f`.
+The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70`, `a739400`, `32fc27b`, `37155bc`, `1ed28ec`, `4ed7894`, `0da6b96`, `14f5338`, `aed996f` to `7a8b6bf`.
 
 ### Relationship to Previous Baseline:
 
@@ -109,6 +109,11 @@ ci: remove redundant GitHub workflows (Step 12.1G)
 
 aed996f
 ci: enable Firebase-configured online APK builds (Step 12.1I)
+
+        ↓
+
+7a8b6bf
+docs: update project memory after step 12.1I (Step 12.1J)
 ```
 
 ---
@@ -241,8 +246,23 @@ Subsequent commits enforced transaction household scoping, corrected null `migra
 - **Removed Workflows:** `.github/workflows/build-debug-apk.yml`, `.github/workflows/unit-tests.yml`, and `.github/workflows/firestore-rules-tests.yml`.
 - **Retained Workflow:** `.github/workflows/build-apk.yml` ("Build Debug APK").
 - **Firebase Secret Injection (Step 12.1I — aed996f):** Temporarily reconstructs `app/google-services.json` from `secrets.GOOGLE_SERVICES_JSON` during workflow execution; validates JSON structure safely without secret logging; cleans up the file in an `always()` post-step. `google-services.json` remains strictly outside the Git repository.
-- **Online APK Status:** assembleDebug PASS; Google Services integration PASS; Real-device Google Sign-In requires physical two-device testing (Step 12.2).
+- **Online APK Status:** assembleDebug PASS; Google Services integration PASS; successfully verified on physical devices (Step 12.2).
 - **Testing & Security Preserved:** `tests/firestore.rules.test.ts` preserved in codebase; 343/343 Android unit tests PASS.
+
+### Two-Device Physical Beta Smoke Test Regression (Step 12.2 — COMPLETE)
+Step 12.2 was successfully executed on two physical devices (Device A and Device B) using the GitHub Actions-generated release APK with real Firebase services:
+- **Physical Device Authentication:** Google Sign-In verified PASS on Device A and Device B against production Firebase Authentication.
+- **Household & Invitation Flow:** Household creation, invitation issuance, atomic token acceptance, and membership resolution verified PASS on physical devices. Existing OWNER/MEMBER security model strictly preserved.
+- **Cross-User Transaction Mutation:**
+  - Verified User 1 creating Transaction A and User 2 creating Transaction B.
+  - Verified User 2 editing Transaction A and User 1 editing Transaction B.
+  - Verified User 1 deleting User 2's transaction and User 2 deleting User 1's transaction.
+  - Bidirectional sync verified PASS in real-time. No transaction disappears from Room or UI. `SyncStatus` does not drop into `PermissionDenied`. `createdByUid` remains immutable.
+  - The historical defect (where saving cross-user edits triggered `PermissionDenied` and made transactions disappear) is confirmed resolved on physical hardware.
+- **Category Synchronization & Authorization:** Real-time category synchronization verified PASS; OWNER/ADMIN category hierarchy management verified PASS; unauthorized MEMBER mutation restrictions verified PASS.
+- **Outbox & Offline Reconnection:** Inbound, outbound, and bidirectional sync verified PASS; local persistence, outbox queueing, network reconnection, pending mutation recovery, and foreground reconnection verified PASS.
+- **App Lifecycle & Sessions:** App restart, FirebaseAuth session restoration, sync recovery after restart, and sign-out/sign-in cycles verified PASS.
+- **Verification Layers:** Automated test suite (343/343 Android tests PASS, 95/95 Firestore emulator rules tests preserved) and Physical device suite (Device A & Device B PASS) are both green and complementary.
 
 ---
 
@@ -526,6 +546,13 @@ At checkpoint `baf2f70` the following have been addressed:
   - CI redundancy cleanup removing `build-debug-apk.yml`, `unit-tests.yml`, `firestore-rules-tests.yml`, and retaining `build-apk.yml`.
   - Online APK build enabled with safe temporary injection and validation of `app/google-services.json` from `GOOGLE_SERVICES_JSON` secret (`.github/workflows/build-apk.yml`).
   - 343/343 Android unit tests PASS (0 failures, 0 skipped), 95/95 Firestore rules test cases preserved in `tests/firestore.rules.test.ts`.
+- Two-Device Physical Beta Smoke Test Regression (Step 12.2 — COMPLETE):
+  - Real-device Google Sign-In PASS on Device A and Device B against production Firebase.
+  - Household creation, invitation issuance, atomic acceptance, and membership resolution PASS.
+  - Cross-user transaction creation, bidirectional syncing, updating, and deletion PASS on both physical devices with immutable `createdByUid`. Historical bug (saving cross-user edits causing `PermissionDenied` and disappearing transactions) confirmed resolved.
+  - Category synchronization, OWNER/ADMIN management, and MEMBER restrictions PASS.
+  - Inbound, outbound, and bidirectional sync PASS with no `PermissionDenied` errors during valid operations; local persistence, outbox queueing, network reconnection, pending mutation recovery, and foreground reconnection PASS.
+  - App restart, FirebaseAuth session restoration, sync recovery after restart, and sign-out/sign-in PASS.
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -539,27 +566,14 @@ These statements mean the corresponding implementation work exists at the curren
 3. **Phase 3 — COMPLETED:** Outbox Reliability & Recovery Polish (`32fc27b`).
 4. **Phase 4 — COMPLETED:** Incremental Architecture Cleanup (`37155bc`).
 5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission, Data Integrity & CI Baseline Synchronization (`4ed7894` / `14f5338` / `aed996f`).
-6. **Phase 6 (Step 12.2) — NEXT (P1):** Two-Device Beta Smoke Test Regression.
+6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression on Physical Hardware.
+   - *12.2:* Physical Two-Device Smoke Test Execution (PASS on Device A & Device B)
+   - *12.2B:* Project Memory Update + Commit + Push
+7. **Phase 7 — NEXT:** Beta Release Polish & Housekeeping (Pending Roadmap Review).
 
-## Automated vs. Real-Device Verification Policy:
-- **Automated Verification:** PASS (343/343 Android unit tests, 95/95 Firestore rules test cases preserved).
-- **Real-Device Verification:** REQUIRED. The physical two-device scenario cannot be considered verified purely from unit and emulator tests.
-
-### Critical Two-Device Real-Device Test Scenario (Step 12.2):
-1. **Device A (User 1):** Create Transaction A.
-2. **Device B (User 2):** Create Transaction B.
-3. **Device B (User 2):** Edit Transaction A.
-4. **Device A (User 1):** Edit Transaction B.
-5. **Verification Criteria:**
-   - Both transactions remain visible on both devices.
-   - Edits propagate bidirectionally between devices.
-   - No transaction disappears from Room or UI.
-   - `SyncStatus` does NOT transition to `PermissionDenied`.
-   - Firestore contains updated documents with original `createdByUid` intact.
-   - Sign-out / Sign-in retains data and resolves household correctly.
-6. **Cross-User Deletion:**
-   - User 1 deletes User 2's transaction; User 2 deletes User 1's transaction.
-   - Verify deletions propagate correctly to both devices.
+## Verification Layer Policy:
+- **Automated Verification:** PASS (343/343 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
+- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed with 0 errors across Google Sign-In, household sync, cross-user transactions, offline recovery, and app restart).
 
 ## Reconciled Open Items:
 
@@ -798,18 +812,19 @@ Foundation
 → Cross-User Transaction Permission & Data Integrity (Step 12.1 — 4ed7894)
 → CI Baseline Cleanup (Step 12.1G — 14f5338)
 → GitHub Online APK & Firebase Configuration (Step 12.1I — aed996f)
+→ Two-Device Beta Smoke Test Regression (Step 12.2)
 ```
 
 The current baseline is:
 
 ```text
-aed996f
-ci: enable Firebase-configured online APK builds
+7a8b6bf
+docs: update project memory after step 12.1I
 ```
 
-Previous functional baseline: `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
+Previous functional baseline: `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
 
-The next development task is the Beta Smoke Test Regression (Step 12.2).
+Step 12.2 (Two-Device Beta Smoke Test Regression) has been verified and completed on physical hardware. The next development task is Beta Release Polish & Housekeeping (Pending Roadmap Review).
 
 ---
 
@@ -851,7 +866,7 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 | Full Android Regression Gate | **PASS** | 343/343 unit/Robolectric tests passing (0 failures, 0 skipped) |
 | Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
 | Online Firebase APK Gate | **PASS** | assembleDebug PASS; safe secret injection and JSON validation in CI; Google Services integration PASS |
-| Multi-Device Production Smoke | **NOT YET VERIFIED** | Requires physical/multi-device smoke validation and real-device Google Sign-In (Step 12.2) |
+| Multi-Device Production Smoke | **PASS** | Physical Device A & Device B smoke regression verified with GitHub release APK, real Firebase auth, cross-user mutations, category sync, offline recovery, and app restarts (Step 12.2) |
 
-**Overall Beta Status: NOT READY**
-*Reason:* Multi-device physical release smoke verification and real-device Google Sign-In validation (Step 12.2), not security or local unit test failures.
+**Overall Beta Status: READY FOR BETA RELEASE / BETA SMOKE TEST COMPLETE**
+*Details:* All core functional, security, automated testing, and physical multi-device smoke verification gates have passed. Ready for roadmap transition / release polish.
