@@ -2,8 +2,8 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-08-31
-> Git baseline: `14f5338`
-> Previous baseline: `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Git baseline: `aed996f`
+> Previous baseline: `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -21,8 +21,8 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         14f5338
-origin/main:  14f5338
+HEAD:         aed996f
+origin/main:  aed996f
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
@@ -30,11 +30,11 @@ At the time this context was verified, the repository working tree was clean.
 
 Current commit:
 
-`14f5338 ci: remove redundant GitHub workflows`
+`aed996f ci: enable Firebase-configured online APK builds`
 
 Previous functional baseline:
 
-`0da6b96` (docs: update project memory after step 12.1) / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+`14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` (docs: update project memory after step 12.1) / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -129,9 +129,11 @@ Environments:
 - **Security Boundaries Preserved:** Category/subcategory mutations remain OWNER/ADMIN-only. Household member management and invitation administration remain OWNER-only. Cross-household isolation strictly enforced.
 - **Test Baseline: 343/343 Android Unit Tests PASS, 95/95 Firestore Rules test cases preserved in `tests/firestore.rules.test.ts`, assembleDebug PASS, 0 new regressions.**
 
-### CI Baseline Cleanup (Step 12.1G — 14f5338)
+### CI Baseline Cleanup & Firebase-Configured Online APK (Steps 12.1G–12.1I — 14f5338 / aed996f)
 - **Redundant Workflows Removed:** `.github/workflows/build-debug-apk.yml`, `.github/workflows/unit-tests.yml`, and `.github/workflows/firestore-rules-tests.yml` were cleanly removed.
 - **Retained Workflow:** `.github/workflows/build-apk.yml` ("Build Debug APK") actively maintained for APK release artifact generation.
+- **Firebase Secret Injection (Step 12.1I — aed996f):** Temporarily reconstructs `app/google-services.json` from `secrets.GOOGLE_SERVICES_JSON` during workflow execution; validates JSON structure safely without secret logging; cleans up the file in an `always()` post-step. `google-services.json` remains strictly outside the Git repository.
+- **Online APK Status:** assembleDebug PASS; Google Services integration PASS; Real-device Google Sign-In requires physical two-device testing (Step 12.2).
 - **Firebase & Credentials:** `google-services.json` strategy preserved outside Git repository for local development; Firestore security rules and test suite preserved.
 
 ### Categories
@@ -184,7 +186,7 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
 3. **Phase 3 — COMPLETED:** Outbox Reliability & Recovery Polish (`32fc27b`).
 4. **Phase 4 — COMPLETED:** Architecture Cleanup (`37155bc`).
-5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission, Data Integrity & CI Baseline Synchronization (`4ed7894` / `14f5338`).
+5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission, Data Integrity & CI Baseline Synchronization (`4ed7894` / `14f5338` / `aed996f`).
    - *12.1A:* Cross-User Transaction Permission & Data Integrity Audit
    - *12.1B:* Cross-User Transaction Permission & Data Integrity Implementation
    - *12.1C:* Cross-User Transaction Regression & Commit Readiness Audit
@@ -193,6 +195,8 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
    - *12.1F:* GitHub Firestore Action Removal & CI Baseline Cleanup
    - *12.1G:* GitHub Actions Redundancy Cleanup
    - *12.1H:* Project Memory Update & CI Baseline Synchronization
+   - *12.1I:* GitHub Online APK & Firebase Configuration (`aed996f`)
+   - *12.1J:* Project Memory Update & Online APK Baseline Synchronization
 6. **Phase 6 (Step 12.2) — NEXT (P1):** Two-Device Beta Smoke Test Regression.
 
 ### Automated vs. Real-Device Verification:
