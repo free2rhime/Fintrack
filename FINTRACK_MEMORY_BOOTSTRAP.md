@@ -143,20 +143,22 @@ Never introduce a synthetic/fallback household merely to keep synchronization mo
 
 ---
 
-## 8. CATEGORY NON-REGRESSION RULES
+## 8. CATEGORY & MEMBER NON-REGRESSION RULES
 
-Preserve the current category architecture:
+Preserve the current category and member authorization architecture:
 
 - household-scoped categories;
 - stable UUID identity;
 - shared household category structure;
-- OWNER category management;
+- OWNER category management (OWNER may create, update, delete categories/subcategories; ADMIN permissions preserved; MEMBER cannot mutate categories);
 - MEMBER consumption;
+- MEMBER MANAGEMENT is OWNER-ONLY (household member management, invitation administration, role changes, member removal);
+- invitation security (atomic token binding, pre-commit PENDING check, replay protection, household binding, email verification);
 - initial seeding only when a household is explicitly created;
 - no recurring startup category seeding;
 - no deterministic category-ID hashing as identity.
 
-Do not reopen the category architecture without a demonstrated regression or explicit product decision.
+Do not broaden transaction permissions into category or member management permissions.
 
 ---
 
@@ -165,7 +167,11 @@ Do not reopen the category architecture without a demonstrated regression or exp
 Preserve:
 
 - household-scoped transactions;
+- cross-user transaction editing & deletion: all active household members may create, edit, and delete transactions within their authorized household (transaction creator is not an authorization boundary);
+- immutable `createdByUid` preservation: `createdByUid` represents original creator audit identity and must NOT be overwritten when another member edits a transaction;
 - Room/outbox synchronization;
+- FAILED outbox shielding: `SyncOutboxDao.getActiveEntityIdsByType` includes `FAILED` entries to prevent stale inbound snapshots from overwriting local un-synced/failed mutations;
+- active household preservation: `MainViewModel.activeHouseholdId` preserves resolved household context during `SyncStatus.PermissionDenied` and `SyncStatus.Offline` states;
 - bidirectional transaction synchronization;
 - deletion propagation;
 - correct Expense vs. Income semantics;
@@ -221,31 +227,22 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: 37155bc
-Commit: refactor: extract domain logic from MainViewModel
-Previous functional baseline: 32fc27b (fix: improve outbox reliability and reconnection recovery) / a739400 (test: stabilize Android migration and UI tests) / baf2f70 (fix: harden firestore security rules)
-Android test baseline: 345/345 PASS (0 failed, 0 skipped)
-Focused Step 11 architecture baseline: 25/25 PASS
-Firestore test baseline: 92/92 PASS (0 failed)
+Git baseline: 4ed7894
+Commit: fix: allow cross-user transaction editing
+Previous baseline: 1ed28ec (docs: update project memory after step 11) / 37155bc (refactor: extract domain logic from MainViewModel) / 32fc27b / a739400 / baf2f70
+Android test baseline: 340/340 PASS (0 failed, 0 errors, 0 skipped)
+Focused cross-user regression baseline: 48/48 PASS
+Firestore test baseline: 95/95 PASS (0 failed)
 Branch: main
 Remote branch: origin/main
 Working tree: clean
 ```
 
-### Architecture Cleanup (Step 11 — 37155bc)
-Domain and infrastructure responsibilities extracted from `MainViewModel` into dedicated coordinators:
-- `HistoricalRateRepairCoordinator` (historical BNR rate audit, discrepancy reporting, CSV backup creation & validation, repair execution)
-- `CsvImportOrchestrator` (ContentResolver / URI stream reading, CSV parsing & validation, duplicate mode handling, pre-import backup, atomic import execution)
-- `MigrationPreflightHelper` (mandatory preflight backup bundle creation, manifest timestamp extraction, preview state mapping, error sanitization)
-
-Preserved boundaries:
-- MainViewModel public API
-- UI state ownership and all `_migrationUiState` / `_uiState` mutation points
-- `viewModelScope` coroutine lifecycle
-- Authentication lifecycle & household resolution
-- Firestore sync lifecycle & Room-backed Outbox architecture
-- Migration state machine
-- Firestore security model
+### Cross-User Transaction Permission & Data Integrity (Step 12.1 — 4ed7894)
+- **Cross-User Transaction Mutations:** All active household members may create, update, and delete transactions in their household (`firestore.rules`). Transaction creator identity (`createdByUid`) is preserved immutably across cross-user edits (`FirestoreDtos.kt`).
+- **FAILED Outbox Shielding:** `SyncOutboxDao.getActiveEntityIdsByType` includes `FAILED` status, protecting local un-synced edits from destructive overwrite by stale inbound remote snapshots (`SyncOutboxDao.kt`, `Stage9OutboxShieldTest`).
+- **Active Household Preservation:** `MainViewModel.activeHouseholdId` preserves resolved household ID during `SyncStatus.PermissionDenied` and `SyncStatus.Offline` states without falsely converting error status to `Synced` (`MainViewModel.kt`, `CategoryPermissionsTest`).
+- **Preserved Boundaries:** Category/subcategory mutations remain OWNER/ADMIN-only. Household member management and invitation administration remain OWNER-only. Cross-household isolation strictly enforced.
 
 Always verify these values before acting; they are a baseline, not an instruction to assume the repository has not changed.
 

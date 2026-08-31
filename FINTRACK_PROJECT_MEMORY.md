@@ -1,9 +1,9 @@
 # FINTRACK PROJECT MEMORY v2
 
 > Canonical compact operational memory for the FinTrack project.
-> Last reconciled: 2026-08-30
-> Current verified Git checkpoint: `37155bc`
-> Previous functional baseline: `32fc27b` / `a739400` / `baf2f70`
+> Last reconciled: 2026-08-31
+> Current verified Git checkpoint: `4ed7894`
+> Previous functional baseline: `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ---
 
@@ -48,21 +48,21 @@ Never silently turn historical information into current state.
 
 # 2. CURRENT CHECKPOINT — VERIFIED
 
-Repository state verified on 2026-08-30:
+Repository state verified on 2026-08-31:
 
 ```text
 Branch:       main
-HEAD:         37155bc
-origin/main:  37155bc
+HEAD:         4ed7894
+origin/main:  4ed7894
 Working tree: clean
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 Commit:
 
-`37155bc refactor: extract domain logic from MainViewModel`
+`4ed7894 fix: allow cross-user transaction editing`
 
-The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70`, `a739400`, `32fc27b` to `37155bc`.
+The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70`, `a739400`, `32fc27b`, `37155bc`, `1ed28ec` to `4ed7894`.
 
 ### Relationship to Previous Baseline:
 
@@ -82,12 +82,22 @@ fix: improve outbox reliability and reconnection recovery
 
         ↓
 
-Step 11 Architecture Cleanup (HistoricalRateRepairCoordinator, CsvImportOrchestrator, MigrationPreflightHelper, test contracts & UI state preservation)
+37155bc
+refactor: extract domain logic from MainViewModel
 
         ↓
 
-37155bc
-refactor: extract domain logic from MainViewModel
+1ed28ec
+docs: update project memory after step 11
+
+        ↓
+
+Step 12.1 Cross-User Transaction Permission & Data Integrity (cross-user edit/delete in rules, createdByUid immutability, FAILED outbox shielding, active household ID preservation)
+
+        ↓
+
+4ed7894
+fix: allow cross-user transaction editing
 ```
 
 ---
@@ -202,6 +212,19 @@ Subsequent commits enforced transaction household scoping, corrected null `migra
 - **Preserved Boundaries:** `MainViewModel` retains full UI state ownership (`MigrationUiState`, `MainUiState`), all coroutine lifecycle ownership (`viewModelScope`), migration state machine transitions, `confirmAndExecuteMigration()` progress callback, auth/household resolution, and public ViewModel API.
 - **Verification:** 345/345 Android unit tests PASS (0 failed, 0 skipped), 92/92 Firestore emulator tests PASS, assembleDebug PASS, 0 new regressions.
 
+### Cross-User Transaction Permission & Data Integrity (Step 12.1 — 4ed7894)
+`4ed7894` resolved the cross-user transaction editing and deletion synchronization blocker while safeguarding local data integrity:
+- **Step 12.1A Forensic Audit:** Diagnosed root causes of multi-device permission failures: Firestore update/delete rules strictly bound transaction mutations to creator UID, while `TransactionEntity.toFirestoreMap()` replaced `createdByUid` with the editor's UID, causing `PERMISSION_DENIED` and cascading data loss.
+- **Step 12.1B Implementation:**
+  - *Cross-User Update Authorization:* Rules permit any active household member to update transactions within the household, preserving the immutability of `transactionId`, `householdId`, and `createdByUid` (`firestore.rules`).
+  - *Cross-User Delete Authorization:* Rules permit any active household member to delete transactions within the household (`allow delete: if isHouseholdMember(householdId)` in `firestore.rules`).
+  - *Immutable createdByUid Serialization:* `TransactionEntity.toFirestoreMap()` preserves original `createdByUid`, falling back to `effectiveUid` only for new creations (`FirestoreDtos.kt`).
+  - *FAILED Outbox Shielding:* `SyncOutboxDao.getActiveEntityIdsByType()` includes `FAILED` status, preventing stale inbound snapshots from destructively overwriting local un-synced or failed edits (`SyncOutboxDao.kt`).
+  - *Active Household Preservation:* `MainViewModel.activeHouseholdId` preserves resolved household context during `SyncStatus.PermissionDenied` and `SyncStatus.Offline` states without falsely masking error statuses (`MainViewModel.kt`).
+- **Step 12.1C Regression & Commit Readiness Audit:** Confirmed 0 regressions across 48 focused tests and 95 Firestore emulator rules tests.
+- **Step 12.1D Commit & Push:** Committed and pushed `4ed7894` (`fix: allow cross-user transaction editing`).
+- **Verification:** 340/340 Android unit tests PASS, 95/95 Firestore emulator rules tests PASS, assembleDebug PASS, 0 new regressions.
+
 ---
 
 # 4. CURRENT ARCHITECTURE — VERIFIED
@@ -290,7 +313,10 @@ Security principles:
 
 - default deny;
 - household-scoped access;
-- OWNER/MEMBER/ADMIN RBAC (with owner-only privilege for role/status mutations and member deletions);
+- cross-user transaction mutations: all active household members may create, update, and delete transactions in their household;
+- immutable transaction audit fields (`createdByUid`, `transactionId`, `householdId` are strictly immutable on update);
+- OWNER/MEMBER/ADMIN RBAC (with owner-only privilege for role/status mutations, member deletions, and invitation management);
+- OWNER-only category and subcategory creation, update, and deletion (ADMIN per model; MEMBER cannot mutate);
 - invitation binding for member self-creation (`inviteId`, matching household, status `PENDING`, matching email, active owner inviter);
 - invitation replay protection (server-side transition from `PENDING` to `ACCEPTED` upon transaction commit);
 - collection-group access only where explicitly authorized (`members` queries constrained by `uid` and `ACTIVE` status);
@@ -306,8 +332,7 @@ Current category architecture:
 - household-scoped;
 - stable UUID identity;
 - shared across household members;
-- OWNER-managed;
-- MEMBER consumption;
+- OWNER-managed (MEMBER consumption only);
 - initial default seeding only on explicit household creation;
 - no repeated startup seeding;
 - no deterministic category-ID hashing;
@@ -324,6 +349,8 @@ This architecture should be treated as stable unless a reproducible regression o
 Transactions are:
 
 - household-scoped;
+- editable and deletable by any active household member;
+- tagged with an immutable `createdByUid` representing original creator audit identity;
 - synchronized bidirectionally;
 - subject to deletion propagation;
 - categorized using the household category model;
@@ -341,7 +368,7 @@ The synchronization architecture contains:
 ```text
 Room
   ↓
-Outbox
+Outbox (PENDING / IN_PROGRESS / FAILED)
   ↓
 OutboundSyncEngine
   ↓
@@ -351,7 +378,7 @@ Firestore
   ↓
 snapshot/listener
   ↓
-FirestoreSyncRepository
+FirestoreSyncRepository (with FAILED/active outbox shield)
   ↓
 Room
 ```
@@ -468,6 +495,16 @@ At checkpoint `baf2f70` the following have been addressed:
   - Coroutine lifecycle & concurrency safety: `activeJob` ownership preserved, cancellable delay, `CancellationException` preserved (reverting `IN_PROGRESS` to `PENDING`), single worker guarded by `processMutex` and atomic wakeup signal.
   - Household isolation & FIFO preserved: sequential FIFO processing maintained; strict household validation before remote dispatch preserved.
   - Full Android regression baseline established at 335/335 PASS (27/27 focused Outbox tests, 0 failures, 0 skipped, 0 new regressions).
+- Architecture Cleanup (Step 11 — `37155bc`):
+  - Domain responsibilities extracted from `MainViewModel` into `HistoricalRateRepairCoordinator`, `CsvImportOrchestrator`, and `MigrationPreflightHelper`.
+  - UI state ownership, coroutines, and public APIs preserved.
+  - 345/345 Android unit tests passing (0 failures, 0 skipped).
+- Cross-User Transaction Permission & Data Integrity (Step 12.1 — `4ed7894`):
+  - Cross-user transaction editing and deletion authorization in Firestore rules for all active household members (`allow update`, `allow delete` in `firestore.rules`).
+  - Creator UID immutability in `FirestoreDtos.kt` (`createdByUid` preserved across cross-user edits).
+  - Local transaction shielding in `SyncOutboxDao.kt` (`FAILED` outbox status included in active entity ID queries to prevent overwrite by stale inbound snapshots).
+  - Active household ID preservation in `MainViewModel.kt` during `PermissionDenied` and `Offline` sync states.
+  - 340/340 Android unit tests PASS (48/48 focused cross-user tests), 95/95 Firestore emulator rules tests PASS (0 failures).
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -479,8 +516,29 @@ These statements mean the corresponding implementation work exists at the curren
 1. **Phase 1 — COMPLETED:** Firestore Security Hardening (`baf2f70`).
 2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
 3. **Phase 3 — COMPLETED:** Outbox Reliability & Recovery Polish (`32fc27b`).
-4. **Phase 4 — NEXT (P1):** Incremental Architecture Cleanup (MainViewModel extraction, non-breaking, test-preserving).
-5. **Phase 5:** Beta Release Candidate / Multi-Device Verification.
+4. **Phase 4 — COMPLETED:** Incremental Architecture Cleanup (`37155bc`).
+5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission & Data Integrity (`4ed7894`).
+6. **Phase 6 (Step 12.2) — NEXT (P1):** Two-Device Beta Smoke Test Regression.
+
+## Automated vs. Real-Device Verification Policy:
+- **Automated Verification:** PASS (340/340 Android unit tests, 95/95 Firestore emulator rules tests).
+- **Real-Device Verification:** REQUIRED. The physical two-device scenario cannot be considered verified purely from unit and emulator tests.
+
+### Critical Two-Device Real-Device Test Scenario (Step 12.2):
+1. **Device A (User 1):** Create Transaction A.
+2. **Device B (User 2):** Create Transaction B.
+3. **Device B (User 2):** Edit Transaction A.
+4. **Device A (User 1):** Edit Transaction B.
+5. **Verification Criteria:**
+   - Both transactions remain visible on both devices.
+   - Edits propagate bidirectionally between devices.
+   - No transaction disappears from Room or UI.
+   - `SyncStatus` does NOT transition to `PermissionDenied`.
+   - Firestore contains updated documents with original `createdByUid` intact.
+   - Sign-out / Sign-in retains data and resolves household correctly.
+6. **Cross-User Deletion:**
+   - User 1 deletes User 2's transaction; User 2 deletes User 1's transaction.
+   - Verify deletions propagate correctly to both devices.
 
 ## Reconciled Open Items:
 
@@ -523,9 +581,9 @@ Periodic background deletion of `SUCCESS` outbox records older than 24-48 hours.
 
 Currently not fully demonstrated:
 
-- prolonged offline/high-latency behavior;
+- prolonged offline/high-latency behavior on physical devices;
 - complete runtime behavior under degraded network recovery;
-- complete multi-device concurrent conflict resolution under active load;
+- complete multi-device concurrent conflict resolution under active physical load;
 - whether all historical Antigravity experiments remain represented in current memory.
 
 UNKNOWN does not mean broken.
@@ -543,17 +601,23 @@ Do not reintroduce:
 5. startup/repeated category seeding;
 6. null `migrationId` serialization where rules reject it;
 7. per-user isolation inside a shared household;
-8. artificial delays to mask coroutine lifecycle defects;
-9. arbitrary coroutine cancellation/restart logic;
-10. broad rewrites without reproducible evidence.
+8. creator-only edit/delete restrictions on shared household transactions;
+9. overwriting `createdByUid` with editor's UID during transaction edits;
+10. artificial delays to mask coroutine lifecycle defects;
+11. arbitrary coroutine cancellation/restart logic;
+12. broad rewrites without reproducible evidence.
 
 Preserve:
 
 - household isolation;
 - default-deny security;
-- OWNER/MEMBER RBAC;
+- OWNER/MEMBER RBAC (OWNER-only member management and category administration);
 - shared household financial data;
+- cross-user transaction editing and deletion within household;
+- immutable `createdByUid` preservation;
 - Room/outbox architecture;
+- FAILED outbox shielding from stale inbound snapshots;
+- active household ID preservation during non-fatal sync errors;
 - bidirectional synchronization;
 - deletion propagation;
 - Expense vs Income semantics;
@@ -710,18 +774,19 @@ Foundation
 → Android Test & Migration Stabilization (Step 9 — a739400)
 → Outbox Reliability & Reconnection Polish (Step 10 — 32fc27b)
 → Architecture Cleanup (Step 11 — 37155bc)
+→ Cross-User Transaction Permission & Data Integrity (Step 12.1 — 4ed7894)
 ```
 
 The current baseline is:
 
 ```text
-37155bc
-refactor: extract domain logic from MainViewModel
+4ed7894
+fix: allow cross-user transaction editing
 ```
 
-Previous functional baseline: `32fc27b` / `a739400` / `baf2f70`.
+Previous functional baseline: `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
 
-The next development task is the Beta Smoke Test.
+The next development task is the Beta Smoke Test Regression (Step 12.2).
 
 ---
 
@@ -758,11 +823,11 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 
 | Gate | Status | Evidence / Details |
 |---|---|---|
-| Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; 92/92 emulator rules tests passing |
-| Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, foreground reconnection recovery, exponential retry backoff, max retries threshold, and SyncStatus alignment verified |
-| Full Android Regression Gate | **PASS** | 345/345 unit/Robolectric tests passing (0 failures, 0 skipped) |
+| Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; cross-user transaction edit/delete verified; 95/95 emulator rules tests passing |
+| Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, foreground reconnection recovery, exponential retry backoff, max retries threshold, FAILED outbox shielding, and SyncStatus alignment verified |
+| Full Android Regression Gate | **PASS** | 340/340 unit/Robolectric tests passing (0 failures, 0 skipped, 48/48 focused cross-user tests) |
 | Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
-| Multi-Device Production Smoke | **NOT YET VERIFIED** | Requires physical/multi-device smoke validation |
+| Multi-Device Production Smoke | **NOT YET VERIFIED** | Requires physical/multi-device smoke validation (Step 12.2) |
 
 **Overall Beta Status: NOT READY**
-*Reason:* Multi-device physical release smoke verification, not security or local unit test failures.
+*Reason:* Multi-device physical release smoke verification (Step 12.2), not security or local unit test failures.

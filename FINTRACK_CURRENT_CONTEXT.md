@@ -1,9 +1,9 @@
 # FINTRACK CURRENT CONTEXT
 
 > Compact operational context for continuing FinTrack development.
-> Last verified: 2026-08-30
-> Git baseline: `37155bc`
-> Previous functional baseline: `32fc27b` / `a739400` / `baf2f70`
+> Last verified: 2026-08-31
+> Git baseline: `4ed7894`
+> Previous baseline: `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -21,8 +21,8 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         37155bc
-origin/main:  37155bc
+HEAD:         4ed7894
+origin/main:  4ed7894
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
@@ -30,11 +30,11 @@ At the time this context was verified, the repository working tree was clean.
 
 Current commit:
 
-`37155bc refactor: extract domain logic from MainViewModel`
+`4ed7894 fix: allow cross-user transaction editing`
 
 Previous functional baseline:
 
-`32fc27b fix: improve outbox reliability and reconnection recovery` / `a739400 test: stabilize Android migration and UI tests` / `baf2f70 fix: harden firestore security rules`
+`1ed28ec` (docs: update project memory after step 11) / `37155bc` (refactor: extract domain logic from MainViewModel) / `32fc27b` / `a739400` / `baf2f70`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -121,11 +121,19 @@ Environments:
 - **Preserved Boundaries:** `MainViewModel` retains full UI state ownership (`MigrationUiState`, `MainUiState`), all coroutine lifecycle ownership (`viewModelScope`), migration state machine transitions, `confirmAndExecuteMigration()` progress callback, auth/household resolution, and public ViewModel API.
 - **Combined Test Baseline: 345/345 Android Unit Tests PASS, 92/92 Firestore Emulator Tests PASS, assembleDebug PASS, 0 new regressions.**
 
+### Cross-User Transaction Permission & Data Integrity (Step 12.1 — 4ed7894)
+- **Cross-User Transaction Editing & Deletion: RESOLVED.** All active household members are permitted to create, edit, and delete transactions belonging to their household (`firestore.rules`). Creator identity is decoupled from mutation authorization.
+- **Immutable createdByUid Preservation: VERIFIED.** `TransactionEntity.toFirestoreMap()` preserves original `createdByUid` on edits across multiple users, satisfying Firestore immutability rules (`FirestoreDtos.kt`, `FirestoreDtoTest`).
+- **FAILED Outbox Shielding: RESOLVED.** `SyncOutboxDao.getActiveEntityIdsByType` includes `FAILED` outbox entries, shielding local un-synced or failed Room mutations from destructive overwrite by stale inbound remote snapshots (`SyncOutboxDao.kt`, `Stage9OutboxShieldTest`).
+- **Active Household Preservation: RESOLVED.** `MainViewModel.activeHouseholdId` preserves resolved household context during `SyncStatus.PermissionDenied` and `SyncStatus.Offline` states without falsely masking errors or collapsing the query scope (`MainViewModel.kt`, `CategoryPermissionsTest`).
+- **Security Boundaries Preserved:** Category/subcategory mutations remain OWNER/ADMIN-only. Household member management and invitation administration remain OWNER-only. Cross-household isolation strictly enforced.
+- **Test Baseline: 340/340 Android Unit Tests PASS (48/48 focused cross-user tests), 95/95 Firestore Emulator Tests PASS, assembleDebug PASS, 0 new regressions.**
+
 ### Categories
 - Categories are household-scoped.
 - Stable UUIDs are used as identity.
 - Categories are shared by household members.
-- OWNER manages category hierarchy.
+- OWNER manages category hierarchy (ADMIN permissions per model; MEMBER cannot mutate).
 - Initial default-category seeding occurs only on explicit household creation.
 - Startup/repeated category seeding loops were removed.
 - Deterministic category-ID hashing is not used.
@@ -134,6 +142,8 @@ Environments:
 
 ### Transactions
 - Transactions are household-scoped.
+- All active household members may create, update, and delete transactions.
+- `createdByUid` remains immutable as original creator audit identity.
 - Bidirectional synchronization exists.
 - Transaction deletion propagation exists.
 - `migrationId` is omitted from Firestore payloads when null.
@@ -169,18 +179,38 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
 3. **Phase 3 — COMPLETED:** Outbox Reliability & Recovery Polish (`32fc27b`).
 4. **Phase 4 — COMPLETED:** Architecture Cleanup (`37155bc`).
-5. **Phase 5 — NEXT (P1):** Beta Smoke Test / Multi-Device Verification.
+5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission & Data Integrity (`4ed7894`).
+6. **Phase 6 (Step 12.2) — NEXT (P1):** Two-Device Beta Smoke Test Regression.
+
+### Automated vs. Real-Device Verification:
+- **Automated Verification:** PASS (340/340 Android unit/Robolectric tests, 95/95 Firestore emulator rules tests, 48/48 focused cross-user tests).
+- **Real-Device Verification:** STILL REQUIRED (Physical two-device smoke testing under real multi-device network conditions).
+
+### Critical Two-Device Real-Device Test Scenario (Step 12.2):
+1. **Device A (User 1):** Create Transaction A.
+2. **Device B (User 2):** Create Transaction B.
+3. **Device B (User 2):** Edit Transaction A.
+4. **Device A (User 1):** Edit Transaction B.
+5. **Verify:**
+   - Both transactions remain visible on both devices.
+   - Edits propagate bidirectionally.
+   - No transaction disappears from Room or UI.
+   - `SyncStatus` does NOT transition to `PermissionDenied`.
+   - Firestore contains updated documents with original `createdByUid` intact.
+   - Sign-out / Sign-in retains data and resolves household correctly.
+6. **Cross-User Deletion:**
+   - User 1 deletes User 2's transaction; User 2 deletes User 1's transaction.
+   - Verify deletions propagate correctly to both devices.
 
 ### Open Areas:
-1. Multi-device concurrent conflict resolution under active load.
-2. Room ↔ Firestore mirror integrity end-to-end runtime verification.
-3. End-to-end migration execution verification.
-4. Periodic cleanup of old `SUCCESS` outbox records (P2 housekeeping).
+1. Two-Device physical smoke verification under active concurrent use (Step 12.2).
+2. Degraded-network and prolonged-offline real runtime behavior.
+3. Periodic cleanup of old `SUCCESS` outbox records (P2 housekeeping).
 
 ## 7. UNKNOWN / NOT FULLY VERIFIED
 
-- Degraded-network and prolonged-offline runtime behavior.
-- Complete multi-device concurrent conflict resolution under active load.
+- Degraded-network and prolonged-offline runtime behavior on physical devices.
+- Complete multi-device concurrent conflict resolution under active physical load.
 - Some deep historical rationale contained only in ChatGPT/Antigravity transcripts or historical evidence files.
 
 ## 8. NON-REGRESSION RULES
@@ -195,14 +225,18 @@ Do not reintroduce:
 - weakened Firestore authorization;
 - artificial sleeps/delays used to mask lifecycle defects;
 - arbitrary coroutine cancellation/restart logic;
-- per-user financial/category isolation inside a shared household.
+- per-user financial/category isolation inside a shared household;
+- creator-only edit/delete restrictions on shared household transactions;
+- overwriting `createdByUid` with editor's UID during transaction edits.
 
 Preserve:
 
 - strict household isolation;
 - default-deny Firestore security;
-- OWNER/MEMBER RBAC;
+- OWNER/MEMBER RBAC (OWNER-only member management and category administration);
 - Room/outbox synchronization;
+- FAILED outbox shielding from stale inbound snapshots;
+- active household preservation during non-fatal sync errors;
 - shared household financial/category model;
 - Expense vs Income semantics;
 - RON/EUR support;
