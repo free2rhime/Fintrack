@@ -2,7 +2,7 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-08-31
-> Git baseline: `1bef33f`
+> Git baseline: `1bef33f` / Step 12.3G CSV Import Context Propagation & PermissionDenied Fix
 > Previous baseline: `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
@@ -26,7 +26,7 @@ origin/main:  1bef33f
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
-At the time this context was verified, the repository working tree was clean.
+At the time this context was verified, the repository working tree was synchronized.
 
 Current commit:
 
@@ -145,6 +145,16 @@ Environments:
 - **Sync & Outbox:** Inbound, outbound, and bidirectional sync PASS with no `PermissionDenied` errors during valid operations; local persistence, outbox queueing, reconnection, pending mutation recovery, and foreground recovery PASS.
 - **Session & App Lifecycle:** App restart, FirebaseAuth session restoration, sync recovery, and sign-out/sign-in PASS.
 
+### CSV Import Authenticated Context Propagation & PermissionDenied Fix (Step 12.3G)
+- **Defect Resolution:** Resolved the real-device CSV import failure where transactions passed preview and BNR conversion but failed to appear in Room UI / export and triggered `PERMISSION_DENIED` in Firestore sync.
+- **Context Propagation:** `MainViewModel` resolves authenticated user UID (`activeUserUid.value ?: authRepository.getCurrentUserUid()`) and active household ID (`activeHouseholdId.value`) and passes them through `CsvImportOrchestrator` → `CsvImporter` → `RoomTransactionRepository`.
+- **Preserved Attributes:** Imported `TransactionEntity` and `CategoryEntity` objects explicitly assign `householdId = activeHouseholdId`, `userId = authenticatedUserUid`, and `createdByUid = authenticatedUserUid`.
+- **Outbox & Serialization Parity:** Outbox records and Firestore payloads serialize valid authenticated UID for `createdByUid` matching `request.auth.uid`. Fallback `"remote_user"` / `"local_user"` identities are completely eliminated for authenticated imports.
+- **Real-Device Verification:** Physical Android device import verified PASS: 33 transactions imported, official BNR EUR rates converted, visible in UI, queryable in export, outbox processed to Firestore, SyncStatus = `Synced`. Repeated import verified PASS.
+- **Local Persistence Resilience:** Room persistence commits atomically before sync; transactions remain valid and queryable locally even if outbound network sync fails or encounters Firestore errors.
+- **Rules Unchanged:** Zero weakening or modification of `firestore.rules`.
+- **Test Baseline:** 360/360 Android unit/Robolectric tests PASS (21/21 focused CSV tests, 33-transaction real-world regression test PASS, local persistence after sync failure test PASS), 95/95 Firestore rules test cases preserved.
+
 ### CSV Import & Automatic BNR EUR Conversion (Step 12.3 — 1bef33f)
 - **Automatic RON → EUR Conversion:** When importing RON transactions via CSV, `CsvImportOrchestrator` automatically resolves official BNR exchange rates and calculates `amountEUR` during pre-import validation/preview.
 - **Historical Rate Resolution & Caching:** Resolves official rate for each transaction date via `TransactionRepository.getOfficialRate()`; distinct dates reuse resolved rates; weekend and public holiday dates fall back to the preceding publishing day via existing BNR effective-date rules.
@@ -221,17 +231,25 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression (Physical Device A & Device B).
    - *12.2:* Two-Device Beta Smoke Test Regression Execution (PASS on Device A & Device B)
    - *12.2B:* Project Memory Update + Commit + Push
-7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion (`1bef33f`).
+7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation (`1bef33f` / Step 12.3G).
    - *12.3A:* CSV Automatic BNR EUR Conversion Architectural Audit
    - *12.3B:* CSV Automatic BNR EUR Conversion Implementation & Tests
    - *12.3C:* Regression & Commit Readiness Audit
    - *12.3D:* Commit & Push (`1bef33f`)
    - *12.3E:* Project Memory Update + Commit + Push
-8. **Phase 8 — NEXT:** Beta Release Polish & Housekeeping (Pending Roadmap Review).
+   - *12.3F:* CSV Import PermissionDenied Root-Cause Audit
+   - *12.3G:* CSV Import Context Propagation & PermissionDenied Fix (360/360 Android tests PASS, 21/21 focused CSV tests PASS)
+   - *12.3H:* CSV Import Regression & Commit Readiness Audit (READY)
+   - *12.3I:* CSV Import Fix Commit & Push
+   - *12.3J:* Project Memory Update & CSV Import Fix Baseline Synchronization
+   - *Physical Device Verification:* 33/33 transactions imported, BNR EUR rates converted, Room UI visible, export visible, outbox synced, zero PermissionDenied errors.
+8. **Phase 8 (Step 12.3K) — OPEN INVESTIGATION:** CSV Category & SubCategory Matching/Deduplication Audit.
+   - *Symptom:* Repeated CSV import creates duplicate categories/subcategories (e.g. repeated "Gaz", "Digi" under the same parent).
+   - *Status:* Investigation pending (evaluating whitespace trimming, unicode normalization, or case sensitivity).
 
 ### Verification Layer Status:
-- **Automated Verification:** PASS (355/355 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
-- **Physical Device Verification:** PASS (Two physical devices verified for Google Sign-In, household sync, cross-user transaction edit/delete, category management, offline recovery, and app restart).
+- **Automated Verification:** PASS (360/360 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
+- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import and re-import completed with 0 errors across BNR conversion, Room UI visibility, CSV export, and Firestore sync).
 
 ### Open Housekeeping Areas:
 1. Periodic cleanup of old `SUCCESS` outbox records (P2 housekeeping).

@@ -553,17 +553,20 @@ At checkpoint `baf2f70` the following have been addressed:
   - Category synchronization, OWNER/ADMIN management, and MEMBER restrictions PASS.
   - Inbound, outbound, and bidirectional sync PASS with no `PermissionDenied` errors during valid operations; local persistence, outbox queueing, network reconnection, pending mutation recovery, and foreground reconnection PASS.
   - App restart, FirebaseAuth session restoration, sync recovery after restart, and sign-out/sign-in PASS.
-- CSV Import & Automatic BNR EUR Conversion (Step 12.3 — `1bef33f`):
+- CSV Import & Automatic BNR EUR Conversion + Context Propagation (Step 12.3 — `1bef33f` / Step 12.3G):
   - Automatic RON → EUR conversion during CSV preview and import via `CsvImportOrchestrator`.
   - Historical BNR rate resolution using transaction date via `TransactionRepository.getOfficialRate()` with distinct-date caching and reuse.
   - Weekend and public holiday fallback to the preceding publishing day via existing BNR effective-date rules.
   - Existing `ExchangeRateService.calculateAmountEUR` reused for calculation and rounding consistency.
   - Conversion metadata populated (`exchangeRate`, `exchangeRateDate`, `exchangeRateSource = "BNR"`, `conversionStatus = ConversionStatus.AUTO_CONVERTED`).
   - Safe offline/unavailable fallback: `conversionStatus = ConversionStatus.PENDING`, `amountEUR = 0.0`, `exchangeRate = 0.0`, `exchangeRateSource = "NONE"`.
-  - Preview dialog values and persisted Room/Outbox values are strictly identical.
-  - Full compatibility with `SKIP_EXISTING` and `UPDATE_EXISTING` duplicate modes.
-  - `CsvImporter` remains stateless; `CsvImportOrchestrator` handles orchestration and rate resolution.
-  - 355/355 Android unit tests PASS (16/16 focused orchestrator tests), 95/95 Firestore rules test cases preserved, assembleDebug PASS.
+  - Authenticated context propagation (Step 12.3G): resolved the CSV import PermissionDenied defect by passing authenticated user UID and active household ID from `MainViewModel` through `CsvImportOrchestrator` to `CsvImporter` and `RoomTransactionRepository`. Transactions explicitly receive `householdId = activeHouseholdId`, `userId = authenticatedUserUid`, and `createdByUid = authenticatedUserUid`.
+  - Elimination of fallback identities: authenticated imports no longer default to `householdId = null`, `userId = "local_user"`, or serialize `"remote_user"` to Firestore.
+  - Local resilience & atomic commit: Room persistence commits atomically; transactions remain valid and queryable locally even if outbound network sync encounters errors.
+  - Zero rules weakening: `firestore.rules` remain strictly enforced without modification.
+  - Preview and persisted values remain strictly identical across `SKIP_EXISTING` and `UPDATE_EXISTING` modes.
+  - Real-device physical verification: 33/33 transactions imported, official BNR EUR rates converted, visible in UI, queryable in export, outbox processed to Firestore, SyncStatus = `Synced`. Repeated import verified PASS.
+  - 360/360 Android unit tests PASS (21/21 focused orchestrator/importer tests), 95/95 Firestore rules test cases preserved, assembleDebug PASS.
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -578,17 +581,25 @@ These statements mean the corresponding implementation work exists at the curren
 4. **Phase 4 — COMPLETED:** Incremental Architecture Cleanup (`37155bc`).
 5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission, Data Integrity & CI Baseline Synchronization (`4ed7894` / `14f5338` / `aed996f`).
 6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression on Physical Hardware.
-7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion (`1bef33f`).
+7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation (`1bef33f` / Step 12.3G).
    - *12.3A:* CSV Automatic BNR EUR Conversion Architectural Audit
    - *12.3B:* CSV Automatic BNR EUR Conversion Implementation & Tests
    - *12.3C:* Regression & Commit Readiness Audit
    - *12.3D:* Commit & Push (`1bef33f`)
    - *12.3E:* Project Memory Update + Commit + Push
-8. **Phase 8 — NEXT:** Beta Release Polish & Housekeeping (Pending Roadmap Review).
+   - *12.3F:* CSV Import PermissionDenied Root-Cause Audit
+   - *12.3G:* CSV Import Context Propagation & PermissionDenied Fix (360/360 Android tests PASS, 21/21 focused CSV tests PASS)
+   - *12.3H:* CSV Import Regression & Commit Readiness Audit (READY)
+   - *12.3I:* CSV Import Fix Commit & Push
+   - *12.3J:* Project Memory Update & CSV Import Fix Baseline Synchronization
+   - *Physical Device Verification:* 33/33 transactions imported, BNR EUR rates converted, Room UI visible, export visible, outbox synced, zero PermissionDenied errors.
+8. **Phase 8 (Step 12.3K) — OPEN INVESTIGATION:** CSV Category & SubCategory Matching/Deduplication Audit.
+   - *Symptom:* Repeated CSV import creates duplicate categories/subcategories (e.g. repeated "Gaz", "Digi" under the same parent).
+   - *Status:* Investigation pending (evaluating whitespace trimming, unicode normalization, or case sensitivity).
 
 ## Verification Layer Policy:
-- **Automated Verification:** PASS (355/355 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
-- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed with 0 errors across Google Sign-In, household sync, cross-user transactions, offline recovery, and app restart).
+- **Automated Verification:** PASS (360/360 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
+- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import and re-import completed with 0 errors across BNR conversion, Room UI visibility, CSV export, and Firestore sync).
 
 ## Reconciled Open Items:
 
@@ -879,11 +890,11 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 |---|---|---|
 | Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; cross-user transaction edit/delete verified; 95/95 emulator rules test cases preserved |
 | Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, foreground reconnection recovery, exponential retry backoff, max retries threshold, FAILED outbox shielding, and SyncStatus alignment verified |
-| Full Android Regression Gate | **PASS** | 355/355 unit/Robolectric tests passing (0 failures, 0 skipped; 16/16 focused CSV import orchestrator tests) |
+| Full Android Regression Gate | **PASS** | 360/360 unit/Robolectric tests passing (0 failures, 0 skipped; 21/21 focused CSV import orchestrator/importer tests) |
 | Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
 | Online Firebase APK Gate | **PASS** | assembleDebug PASS; safe secret injection and JSON validation in CI; Google Services integration PASS |
 | Multi-Device Production Smoke | **PASS** | Physical Device A & Device B smoke regression verified with GitHub release APK, real Firebase auth, cross-user mutations, category sync, offline recovery, and app restarts (Step 12.2) |
-| CSV BNR Conversion Gate | **PASS** | Automatic RON → EUR conversion during CSV preview/import with historical BNR rate resolution, distinct-date caching, and safe PENDING fallback (Step 12.3 — 1bef33f) |
+| CSV BNR & Sync Gate | **PASS** | Automatic RON → EUR conversion during CSV preview/import with historical BNR rate resolution, distinct-date caching, authenticated context propagation, and real-device physical verification (Step 12.3 — 1bef33f / Step 12.3G) |
 
 **Overall Beta Status: READY FOR BETA RELEASE / BETA SMOKE TEST COMPLETE**
-*Details:* All core functional, security, automated testing, physical multi-device smoke, and CSV BNR conversion gates have passed. Ready for roadmap transition / release polish.
+*Details:* All core functional, security, automated testing (360/360), physical multi-device smoke, and CSV BNR conversion + sync context propagation gates have passed. Ready for roadmap transition / release polish. Category deduplication is tracked as a separate open audit (Step 12.3K).

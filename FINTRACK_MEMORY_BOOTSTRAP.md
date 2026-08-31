@@ -227,17 +227,24 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: 1bef33f
-Commit: feat: automate BNR EUR conversion for CSV imports
-Previous baseline: 7a8b6bf (docs: update project memory after step 12.1J) / aed996f (ci: enable Firebase-configured online APK builds) / 14f5338 / 0da6b96 / 4ed7894 / 1ed28ec / 37155bc / 32fc27b / a739400 / baf2f70
-Android test baseline: 355/355 PASS (0 failed, 0 errors, 0 skipped; 16/16 focused CsvImportOrchestrator tests)
+Git baseline: 1bef33f (Step 12.3 baseline) / Step 12.3G CSV Import Context Propagation & PermissionDenied Fix
+Android test baseline: 360/360 PASS (0 failed, 0 errors, 0 skipped; 21/21 focused CSV import orchestrator/importer tests)
 Firestore rules test baseline: 95/95 test cases preserved in tests/firestore.rules.test.ts
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
-Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B
+Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS (33/33 transactions imported, BNR converted, visible in UI, persisted in Room, synced to Firestore without PermissionDenied)
 Branch: main
 Remote branch: origin/main
-Working tree: clean
+Working tree: clean / synchronized
 ```
+
+### CSV Import Authenticated Context Propagation & PermissionDenied Fix (Step 12.3G)
+- **Authenticated Context Propagation:** The CSV import pipeline propagates the authenticated user and active household context through `MainViewModel` → `CsvImportOrchestrator` → `CsvImporter` → `TransactionRepository` → `RoomTransactionRepository` → `Room` → `SyncOutbox` → `OutboundSyncEngine` → `Firestore`.
+- **Preserved Transaction Attributes:** Imported transactions explicitly receive `householdId = activeHouseholdId`, `userId = authenticatedUserUid`, and `createdByUid = authenticatedUserUid`.
+- **Resolved Visibility & Permission Denied:** Resolves the defect where imported transactions had `householdId = null` (invisible to Room household-filtered UI queries) and serialized fallback `"remote_user"` as `createdByUid` (triggering Firestore `PERMISSION_DENIED`).
+- **No Rule Weakening:** Firestore security rules remain strictly enforced without modification.
+- **Local Persistence Resilience:** Room persistence operates atomically; local transactions remain valid and queryable even if outbound network sync fails or encounters transient errors.
+- **Real-Device Verification:** Verified on physical hardware with 33 transactions imported, BNR EUR rates converted, visible in UI, queryable in export, and synced cleanly to Firestore.
+- **Open Investigation (Step 12.3K):** Repeated import of CSV transactions creates duplicate categories and subcategories (e.g. repeated "Gaz", "Digi"). Cause is under investigation (potential whitespace, normalization, or exact matching differences).
 
 ### CSV Import & Automatic BNR EUR Conversion (Step 12.3 — 1bef33f)
 - **Automatic RON → EUR Conversion:** When importing RON transactions via CSV, `CsvImportOrchestrator` automatically resolves official BNR exchange rates and calculates `amountEUR` during pre-import validation/preview.
