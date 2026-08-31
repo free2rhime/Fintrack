@@ -504,18 +504,6 @@ object CsvImporter {
             }
         }
 
-        val categoryEntities = previewData.missingCategories.map {
-            CategoryEntity(
-                id = UUID.randomUUID().toString(),
-                name = it.name,
-                type = it.type,
-                subCategory = it.subCategory,
-                userId = effectiveUserId,
-                householdId = effectiveHouseholdId,
-                createdByUid = effectiveCreatedByUid
-            )
-        }
-
         var pendingCount = 0
         var unverifiedCount = 0
         (txsToInsert + txsToUpdate).forEach { tx ->
@@ -523,13 +511,46 @@ object CsvImporter {
             if (tx.conversionStatus == "UNVERIFIED") unverifiedCount++
         }
 
+        var categoriesCreated = 0
+        var subcategoriesCreated = 0
+
         // 2. ATOMIC DATABASE TRANSACTION
         return try {
             database.withTransaction {
                 val now = System.currentTimeMillis()
-                if (categoryEntities.isNotEmpty()) {
-                    database.categoryDao().insertAllCategories(categoryEntities)
-                    val catOutbox = categoryEntities.map { cat ->
+                val existingInDb = database.categoryDao().getAllCategoriesList(effectiveHouseholdId)
+                val trulyMissingCategories = mutableListOf<CategoryEntity>()
+                for (item in previewData.missingCategories) {
+                    val alreadyExists = existingInDb.any { dbCat ->
+                        dbCat.name.equals(item.name, ignoreCase = true) &&
+                        dbCat.subCategory.equals(item.subCategory, ignoreCase = true) &&
+                        dbCat.type.equals(item.type, ignoreCase = true)
+                    } || trulyMissingCategories.any { newCat ->
+                        newCat.name.equals(item.name, ignoreCase = true) &&
+                        newCat.subCategory.equals(item.subCategory, ignoreCase = true) &&
+                        newCat.type.equals(item.type, ignoreCase = true)
+                    }
+                    if (!alreadyExists) {
+                        trulyMissingCategories.add(
+                            CategoryEntity(
+                                id = UUID.randomUUID().toString(),
+                                name = item.name,
+                                type = item.type,
+                                subCategory = item.subCategory,
+                                userId = effectiveUserId,
+                                householdId = effectiveHouseholdId,
+                                createdByUid = effectiveCreatedByUid
+                            )
+                        )
+                    }
+                }
+
+                categoriesCreated = trulyMissingCategories.map { it.name }.distinct().size
+                subcategoriesCreated = trulyMissingCategories.size
+
+                if (trulyMissingCategories.isNotEmpty()) {
+                    database.categoryDao().insertAllCategories(trulyMissingCategories)
+                    val catOutbox = trulyMissingCategories.map { cat ->
                         SyncOutboxEntity(
                             entityType = "CATEGORY",
                             entityId = cat.id,
@@ -577,8 +598,8 @@ object CsvImporter {
                 updatedCount = txsToUpdate.size,
                 skippedCount = skippedCount,
                 failedCount = previewData.invalidRowsCount,
-                categoriesCreatedCount = previewData.missingCategories.map { it.name }.distinct().size,
-                subcategoriesCreatedCount = previewData.missingCategories.size,
+                categoriesCreatedCount = categoriesCreated,
+                subcategoriesCreatedCount = subcategoriesCreated,
                 pendingCount = pendingCount,
                 unverifiedCount = unverifiedCount,
                 backupFilePath = backupFile.absolutePath,

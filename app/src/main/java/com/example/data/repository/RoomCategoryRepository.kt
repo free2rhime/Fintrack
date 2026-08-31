@@ -24,7 +24,8 @@ class RoomCategoryRepository(
         return categoryDao.getAllCategories(householdId)
     }
 
-    override suspend fun getAllCategoriesList(): List<CategoryEntity> = allCategories.first()
+    override suspend fun getAllCategoriesList(householdId: String?): List<CategoryEntity> =
+        categoryDao.getAllCategoriesList(householdId)
 
     override suspend fun ensureDefaultCategoriesSeeded(householdId: String?, enqueueOutbox: Boolean) {
         val existing = categoryDao.getAllCategories(householdId).first()

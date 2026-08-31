@@ -57,7 +57,7 @@ class CsvImportOrchestrator(
             }
 
             val allExistingTxs = transactionRepository.getAllTransactionsList()
-            val currentCategories = categoryRepository.getAllCategoriesList()
+            val currentCategories = categoryRepository.getAllCategoriesList(householdId)
 
             val initialPreview = CsvImporter.parseAndValidate(
                 csvContent = csvContent,

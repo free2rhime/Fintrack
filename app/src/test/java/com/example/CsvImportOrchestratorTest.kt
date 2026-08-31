@@ -140,7 +140,8 @@ class CsvImportOrchestratorTest {
     ) : CategoryRepository {
         override val allCategories: Flow<List<CategoryEntity>> = emptyFlow()
         override fun getCategories(householdId: String?): Flow<List<CategoryEntity>> = emptyFlow()
-        override suspend fun getAllCategoriesList(): List<CategoryEntity> = categories
+        override suspend fun getAllCategoriesList(householdId: String?): List<CategoryEntity> =
+            if (householdId == null) categories.filter { it.householdId == null } else categories.filter { it.householdId == householdId }
         override suspend fun ensureDefaultCategoriesSeeded(householdId: String?, enqueueOutbox: Boolean) {}
         override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String, householdId: String?) {}
         override suspend fun updateCategory(category: CategoryEntity) {}

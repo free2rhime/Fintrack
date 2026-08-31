@@ -446,7 +446,8 @@ class FakeCategoryRepository(private val authRepo: AuthRepository? = null) : Cat
 
     override fun getCategories(householdId: String?): Flow<List<CategoryEntity>> = allCategories
 
-    override suspend fun getAllCategoriesList(): List<CategoryEntity> = catList.toList()
+    override suspend fun getAllCategoriesList(householdId: String?): List<CategoryEntity> =
+        if (householdId == null) catList.filter { it.householdId == null } else catList.filter { it.householdId == householdId }
     override suspend fun ensureDefaultCategoriesSeeded(householdId: String?, enqueueOutbox: Boolean) {}
     override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String, householdId: String?) {
         catList.add(CategoryEntity(id = "cat_${catList.size + 1}", name = name, type = type, subCategory = subCategory, userId = userId, householdId = householdId))
