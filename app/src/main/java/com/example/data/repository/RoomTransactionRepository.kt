@@ -407,13 +407,19 @@ class RoomTransactionRepository(
     override suspend fun executeAtomicCsvImport(
         previewData: CsvPreviewData,
         backupFile: File,
-        allExistingTransactions: List<TransactionEntity>
+        allExistingTransactions: List<TransactionEntity>,
+        householdId: String?,
+        userId: String,
+        createdByUid: String?
     ): CsvImportFinalResult {
         val result = CsvImporter.executeAtomicImport(
             database = database as FinTrackDatabase,
             previewData = previewData,
             backupFile = backupFile,
-            allExistingTransactions = allExistingTransactions
+            allExistingTransactions = allExistingTransactions,
+            householdId = householdId,
+            userId = userId,
+            createdByUid = createdByUid
         )
         if (result.success) {
             onOutboxMutated?.invoke()

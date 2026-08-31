@@ -606,7 +606,15 @@ class MainViewModel(
 
     fun importCsv(context: android.content.Context, uri: android.net.Uri) {
         viewModelScope.launch(Dispatchers.IO) {
-            when (val result = csvImportOrchestrator.parseAndValidateFromUri(context, uri)) {
+            val currentUid = activeUserUid.value ?: authRepository.getCurrentUserUid()
+            val currentHouseholdId = activeHouseholdId.value
+            when (val result = csvImportOrchestrator.parseAndValidateFromUri(
+                context = context,
+                uri = uri,
+                householdId = currentHouseholdId,
+                userId = currentUid ?: "local_user",
+                createdByUid = currentUid
+            )) {
                 is CsvImportParseResult.Success -> {
                     _uiState.value = _uiState.value.copy(csvPreviewData = result.preview)
                 }
@@ -631,7 +639,15 @@ class MainViewModel(
     fun executeCsvImport(context: android.content.Context) {
         val preview = _uiState.value.csvPreviewData ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            val result = csvImportOrchestrator.executeImport(preview, context.cacheDir)
+            val currentUid = activeUserUid.value ?: authRepository.getCurrentUserUid()
+            val currentHouseholdId = activeHouseholdId.value
+            val result = csvImportOrchestrator.executeImport(
+                preview = preview,
+                cacheDir = context.cacheDir,
+                householdId = currentHouseholdId,
+                userId = currentUid ?: "local_user",
+                createdByUid = currentUid
+            )
             _uiState.value = _uiState.value.copy(
                 csvPreviewData = null,
                 csvImportFinalResult = result

@@ -418,7 +418,14 @@ class FakeTransactionRepository(private val authRepo: AuthRepository? = null) : 
     override suspend fun insertBatch(transactions: List<TransactionEntity>) { txList.addAll(transactions); _txListFlow.value = txList.toList() }
     override suspend fun getOfficialRate(date: String): BnrRateResult = BnrRateResult(date, date, 5.0, "BNR_OFFICIAL", "OFFICIAL", "OK")
     override suspend fun runBnrDiagnostic(): BnrDiagnosticResult = BnrDiagnosticResult(isReachable = true, httpStatus = "200")
-    override suspend fun executeAtomicCsvImport(previewData: CsvPreviewData, backupFile: File, allExistingTransactions: List<TransactionEntity>): CsvImportFinalResult {
+    override suspend fun executeAtomicCsvImport(
+        previewData: CsvPreviewData,
+        backupFile: File,
+        allExistingTransactions: List<TransactionEntity>,
+        householdId: String?,
+        userId: String,
+        createdByUid: String?
+    ): CsvImportFinalResult {
         return CsvImportFinalResult(true, 0, 0, 0, 0, 0, 0, 0, 0)
     }
 }

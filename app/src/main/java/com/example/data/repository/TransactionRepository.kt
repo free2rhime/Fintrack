@@ -83,6 +83,9 @@ interface TransactionRepository {
     suspend fun executeAtomicCsvImport(
         previewData: CsvPreviewData,
         backupFile: File,
-        allExistingTransactions: List<TransactionEntity>
+        allExistingTransactions: List<TransactionEntity>,
+        householdId: String? = null,
+        userId: String = "local_user",
+        createdByUid: String? = null
     ): CsvImportFinalResult
 }

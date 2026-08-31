@@ -190,7 +190,14 @@ class CategoryPermissionsTest {
             isReachable = true,
             httpStatus = "200"
         )
-        override suspend fun executeAtomicCsvImport(previewData: CsvPreviewData, backupFile: File, allExistingTransactions: List<TransactionEntity>): CsvImportFinalResult =
+        override suspend fun executeAtomicCsvImport(
+            previewData: CsvPreviewData,
+            backupFile: File,
+            allExistingTransactions: List<TransactionEntity>,
+            householdId: String?,
+            userId: String,
+            createdByUid: String?
+        ): CsvImportFinalResult =
             throw NotImplementedError()
     }
 

@@ -27,7 +27,9 @@ import com.example.data.util.CsvPreviewData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
+import com.example.data.model.toFirestoreMap
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -119,7 +121,14 @@ class CsvImportOrchestratorTest {
         }
 
         override suspend fun runBnrDiagnostic(): BnrDiagnosticResult = BnrDiagnosticResult(isReachable = true, httpStatus = "200")
-        override suspend fun executeAtomicCsvImport(previewData: CsvPreviewData, backupFile: File, allExistingTransactions: List<TransactionEntity>): CsvImportFinalResult {
+        override suspend fun executeAtomicCsvImport(
+            previewData: CsvPreviewData,
+            backupFile: File,
+            allExistingTransactions: List<TransactionEntity>,
+            householdId: String?,
+            userId: String,
+            createdByUid: String?
+        ): CsvImportFinalResult {
             return CsvImportFinalResult(true, previewData.validTransactionsToImport.size, 0, 0, 0, 0, 0, 0, 0)
         }
     }
@@ -545,6 +554,217 @@ tx_hh_1,2026-08-10,100.0,Groceries,Expense,Card,Food,Groceries,injected_untruste
         } catch (e: CancellationException) {
             assertEquals("Simulated coroutine cancellation", e.message)
         }
+    }
+
+    @Test
+    fun test17_authenticatedContextPropagatedToRoomAndOutbox() = runBlocking {
+        val testHouseholdId = "hh_alpha_123"
+        val testUserUid = "user_alice_999"
+
+        roomCatRepo.addCategory("Food", "Expense", "Groceries")
+        db.exchangeRateDao().insertRate(
+            ExchangeRateEntity(
+                date = "2026-08-10",
+                requestedDate = "2026-08-10",
+                effectiveDate = "2026-08-10",
+                rate = 5.0,
+                source = "BNR_OFFICIAL",
+                status = "OFFICIAL",
+                fetchedAt = System.currentTimeMillis()
+            )
+        )
+
+        val orchestrator = CsvImportOrchestrator(roomTxRepo, roomCatRepo)
+        val csv = """Transaction_ID,Transaction_Date,Amount_RON,Description,Type,Account,Category,SubCategory
+tx_auth_1,2026-08-10,250.0,Groceries,Expense,Card,Food,Groceries
+"""
+        val parseResult = orchestrator.parseAndValidateFromContent(
+            csvContent = csv,
+            householdId = testHouseholdId,
+            userId = testUserUid,
+            createdByUid = testUserUid
+        ) as CsvImportParseResult.Success
+
+        val importResult = orchestrator.executeImport(
+            preview = parseResult.preview,
+            cacheDir = cacheDir,
+            householdId = testHouseholdId,
+            userId = testUserUid,
+            createdByUid = testUserUid
+        )
+
+        assertTrue(importResult.success)
+        assertEquals(1, importResult.insertedCount)
+
+        // 1. Verify Room entity contains authenticated identity & household
+        val tx = db.transactionDao().getTransactionById("tx_auth_1")
+        assertNotNull(tx)
+        assertEquals(testHouseholdId, tx!!.householdId)
+        assertEquals(testUserUid, tx.userId)
+        assertEquals(testUserUid, tx.createdByUid)
+        assertFalse(tx.userId == "local_user")
+
+        // 2. Verify visibility under active household query
+        val activeTxs = db.transactionDao().getAllTransactions(testHouseholdId).first()
+        assertEquals(1, activeTxs.size)
+        assertEquals("tx_auth_1", activeTxs.first().id)
+
+        // 3. Verify non-visibility under other household query
+        val foreignTxs = db.transactionDao().getAllTransactions("hh_other_888").first()
+        assertEquals(0, foreignTxs.size)
+
+        // 4. Verify Outbox entry
+        val outboxEntries = db.syncOutboxDao().getPendingEntries()
+        val txEntry = outboxEntries.find { it.entityId == "tx_auth_1" && it.entityType == "TRANSACTION" }
+        assertNotNull(txEntry)
+        assertEquals("UPSERT", txEntry!!.operation)
+        assertEquals("PENDING", txEntry.status)
+
+        // 5. Verify Firestore serialization contains authenticated createdByUid
+        val firestoreMap = tx.toFirestoreMap(tx.householdId!!)
+        assertEquals(testUserUid, firestoreMap["createdByUid"])
+        assertEquals(testHouseholdId, firestoreMap["householdId"])
+        assertFalse(firestoreMap["createdByUid"] == "remote_user")
+        assertFalse(firestoreMap["createdByUid"] == "local_user")
+    }
+
+    @Test
+    fun test18_realWorld33TransactionsRegression() = runBlocking {
+        val testHouseholdId = "hh_beta_456"
+        val testUserUid = "user_beta_777"
+
+        roomCatRepo.addCategory("Food & Dining", "Expense", "Groceries")
+        roomCatRepo.addCategory("Housing & Utilities", "Expense", "Electricity")
+        roomCatRepo.addCategory("Salary", "Income", "Main Job")
+
+        db.exchangeRateDao().insertRate(
+            ExchangeRateEntity(
+                date = "2026-08-10",
+                requestedDate = "2026-08-10",
+                effectiveDate = "2026-08-10",
+                rate = 5.0,
+                source = "BNR_OFFICIAL",
+                status = "OFFICIAL",
+                fetchedAt = System.currentTimeMillis()
+            )
+        )
+
+        // Generate 33 valid transactions
+        val sb = StringBuilder()
+        sb.append("Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory,Destination\n")
+        for (i in 1..33) {
+            val type = if (i % 5 == 0) "Income" else "Expense"
+            val cat = if (type == "Income") "Salary" else if (i % 2 == 0) "Food & Dining" else "Housing & Utilities"
+            val sub = if (type == "Income") "Main Job" else if (i % 2 == 0) "Groceries" else "Electricity"
+            val dest = if (type == "Income") "Bubu" else ""
+            sb.append("TX_BATCH_$i,2026-08-10,${100.0 * i},${20.0 * i},5.0,2026-08-10,2026-08-10,BNR_OFFICIAL,OFFICIAL,Transaction $i,$type,Card,$cat,$sub,$dest\n")
+        }
+
+        val orchestrator = CsvImportOrchestrator(roomTxRepo, roomCatRepo)
+        val parseResult = orchestrator.parseAndValidateFromContent(
+            csvContent = sb.toString(),
+            householdId = testHouseholdId,
+            userId = testUserUid,
+            createdByUid = testUserUid
+        ) as CsvImportParseResult.Success
+
+        assertEquals(33, parseResult.preview.validRowsCount)
+        assertEquals(0, parseResult.preview.invalidRowsCount)
+
+        val importResult = orchestrator.executeImport(
+            preview = parseResult.preview,
+            cacheDir = cacheDir,
+            householdId = testHouseholdId,
+            userId = testUserUid,
+            createdByUid = testUserUid
+        )
+
+        assertTrue(importResult.success)
+        assertEquals(33, importResult.insertedCount)
+
+        // 1. Room persistence count under active household query
+        val householdTxs = db.transactionDao().getAllTransactions(testHouseholdId).first()
+        assertEquals(33, householdTxs.size)
+
+        // 2. Verify all 33 transactions have non-null householdId, userUid, and createdByUid
+        for (tx in householdTxs) {
+            assertEquals(testHouseholdId, tx.householdId)
+            assertEquals(testUserUid, tx.userId)
+            assertEquals(testUserUid, tx.createdByUid)
+            assertNotNull(tx.createdAt)
+            assertTrue(tx.createdAt > 0L)
+
+            // Verify Firestore payload format for every transaction
+            val firestoreMap = tx.toFirestoreMap(tx.householdId!!)
+            assertEquals(testUserUid, firestoreMap["createdByUid"])
+            assertEquals(testHouseholdId, firestoreMap["householdId"])
+            assertFalse(firestoreMap["createdByUid"] == "remote_user")
+            assertFalse(firestoreMap["createdByUid"] == "local_user")
+        }
+
+        // 3. Verify Outbox contains all 33 entries with PENDING status
+        val outboxEntries = db.syncOutboxDao().getPendingEntries()
+        val txOutbox = outboxEntries.filter { it.entityType == "TRANSACTION" }
+        assertEquals(33, txOutbox.size)
+    }
+
+    @Test
+    fun test19_localPersistenceSurvivesOutboundSyncFailure() = runBlocking {
+        val testHouseholdId = "hh_gamma_999"
+        val testUserUid = "user_gamma_888"
+
+        roomCatRepo.addCategory("Food & Dining", "Expense", "Groceries")
+        db.exchangeRateDao().insertRate(
+            ExchangeRateEntity(
+                date = "2026-08-10",
+                requestedDate = "2026-08-10",
+                effectiveDate = "2026-08-10",
+                rate = 5.0,
+                source = "BNR_OFFICIAL",
+                status = "OFFICIAL",
+                fetchedAt = System.currentTimeMillis()
+            )
+        )
+
+        val csv = """Transaction_ID,Transaction_Date,Amount_RON,Description,Type,Account,Category,SubCategory
+tx_resilient_1,2026-08-10,350.0,Dinner,Expense,Card,Food & Dining,Groceries
+"""
+        val orchestrator = CsvImportOrchestrator(roomTxRepo, roomCatRepo)
+        val parseResult = orchestrator.parseAndValidateFromContent(
+            csvContent = csv,
+            householdId = testHouseholdId,
+            userId = testUserUid,
+            createdByUid = testUserUid
+        ) as CsvImportParseResult.Success
+
+        val importResult = orchestrator.executeImport(
+            preview = parseResult.preview,
+            cacheDir = cacheDir,
+            householdId = testHouseholdId,
+            userId = testUserUid,
+            createdByUid = testUserUid
+        )
+        assertTrue(importResult.success)
+
+        // Simulate outbox failure (e.g. sync engine fails outbound network or catches permission denied)
+        val outbox = db.syncOutboxDao().getPendingEntries().first { it.entityId == "tx_resilient_1" }
+        db.syncOutboxDao().updateOutboxEntry(
+            outbox.copy(
+                status = "FAILED",
+                retryCount = 1,
+                errorCode = "PERMISSION_DENIED",
+                errorMessage = "Cloud Firestore rejected write",
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+
+        // Room transaction MUST survive and remain fully visible and intact in local database
+        val localTxs = db.transactionDao().getAllTransactions(testHouseholdId).first()
+        assertEquals(1, localTxs.size)
+        assertEquals("tx_resilient_1", localTxs.first().id)
+        assertEquals(350.0, localTxs.first().amountRON, 0.001)
+        assertEquals(testHouseholdId, localTxs.first().householdId)
+        assertEquals(testUserUid, localTxs.first().createdByUid)
     }
 }
 

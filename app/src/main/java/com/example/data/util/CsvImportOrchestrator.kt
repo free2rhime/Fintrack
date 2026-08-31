@@ -20,11 +20,23 @@ class CsvImportOrchestrator(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository
 ) {
-    suspend fun parseAndValidateFromUri(context: Context, uri: Uri): CsvImportParseResult {
+    suspend fun parseAndValidateFromUri(
+        context: Context,
+        uri: Uri,
+        householdId: String? = null,
+        userId: String = "local_user",
+        createdByUid: String? = null
+    ): CsvImportParseResult {
         return try {
             val inputStream = context.contentResolver.openInputStream(uri)
             val csvContent = inputStream?.bufferedReader()?.use { it.readText() } ?: ""
-            parseAndValidateFromContent(csvContent, CsvDuplicateMode.SKIP_EXISTING)
+            parseAndValidateFromContent(
+                csvContent = csvContent,
+                duplicateMode = CsvDuplicateMode.SKIP_EXISTING,
+                householdId = householdId,
+                userId = userId,
+                createdByUid = createdByUid
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -34,7 +46,10 @@ class CsvImportOrchestrator(
 
     suspend fun parseAndValidateFromContent(
         csvContent: String,
-        duplicateMode: CsvDuplicateMode = CsvDuplicateMode.SKIP_EXISTING
+        duplicateMode: CsvDuplicateMode = CsvDuplicateMode.SKIP_EXISTING,
+        householdId: String? = null,
+        userId: String = "local_user",
+        createdByUid: String? = null
     ): CsvImportParseResult {
         return try {
             if (csvContent.isBlank()) {
@@ -48,7 +63,10 @@ class CsvImportOrchestrator(
                 csvContent = csvContent,
                 existingTransactions = allExistingTxs,
                 existingCategories = currentCategories,
-                duplicateMode = duplicateMode
+                duplicateMode = duplicateMode,
+                householdId = householdId,
+                userId = userId,
+                createdByUid = createdByUid
             )
 
             val resolvedPreview = resolveBnrRatesForPreview(initialPreview)
@@ -133,7 +151,13 @@ class CsvImportOrchestrator(
         )
     }
 
-    suspend fun executeImport(preview: CsvPreviewData, cacheDir: File): CsvImportFinalResult {
+    suspend fun executeImport(
+        preview: CsvPreviewData,
+        cacheDir: File,
+        householdId: String? = null,
+        userId: String = "local_user",
+        createdByUid: String? = null
+    ): CsvImportFinalResult {
         return try {
             val allExistingTxs = transactionRepository.getAllTransactionsList()
             val backupFile = File(cacheDir, "fintrack_pre_import_backup_${System.currentTimeMillis()}.csv")
@@ -141,7 +165,10 @@ class CsvImportOrchestrator(
             transactionRepository.executeAtomicCsvImport(
                 previewData = preview,
                 backupFile = backupFile,
-                allExistingTransactions = allExistingTxs
+                allExistingTransactions = allExistingTxs,
+                householdId = householdId,
+                userId = userId,
+                createdByUid = createdByUid
             )
         } catch (e: CancellationException) {
             throw e

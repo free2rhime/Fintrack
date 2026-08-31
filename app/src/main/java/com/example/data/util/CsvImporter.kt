@@ -99,7 +99,10 @@ object CsvImporter {
         csvContent: String,
         existingTransactions: List<TransactionEntity>,
         existingCategories: List<CategoryEntity>,
-        duplicateMode: CsvDuplicateMode = CsvDuplicateMode.SKIP_EXISTING
+        duplicateMode: CsvDuplicateMode = CsvDuplicateMode.SKIP_EXISTING,
+        householdId: String? = null,
+        userId: String = "local_user",
+        createdByUid: String? = null
     ): CsvPreviewData {
         val cleanCsv = csvContent.removePrefix("\uFEFF")
         val lines = cleanCsv.lines()
@@ -362,6 +365,19 @@ object CsvImporter {
                 totalRonExpense += amountRON
             }
 
+            val existingTx = existingTransactions.find { it.id == id }
+            val effectiveUserId = if (existingTx != null && existingTx.userId.isNotBlank() && existingTx.userId != "local_user") {
+                existingTx.userId
+            } else if (userId.isNotBlank()) {
+                userId
+            } else {
+                "local_user"
+            }
+            val effectiveHouseholdId = existingTx?.householdId ?: householdId
+            val effectiveCreatedByUid = existingTx?.createdByUid
+                ?: createdByUid?.takeIf { it.isNotBlank() }
+                ?: if (effectiveUserId != "local_user") effectiveUserId else null
+
             val now = System.currentTimeMillis()
             val tx = TransactionEntity(
                 id = id,
@@ -378,7 +394,10 @@ object CsvImporter {
                 destination = normDestination,
                 exchangeRateSource = finalExchangeRateSource,
                 conversionStatus = finalConversionStatus,
-                createdAt = now,
+                userId = effectiveUserId,
+                householdId = effectiveHouseholdId,
+                createdByUid = effectiveCreatedByUid,
+                createdAt = existingTx?.createdAt ?: now,
                 updatedAt = now
             )
 
@@ -415,7 +434,10 @@ object CsvImporter {
         database: FinTrackDatabase,
         previewData: CsvPreviewData,
         backupFile: File,
-        allExistingTransactions: List<TransactionEntity>
+        allExistingTransactions: List<TransactionEntity>,
+        householdId: String? = null,
+        userId: String = "local_user",
+        createdByUid: String? = null
     ): CsvImportFinalResult {
         // 1. OUTSIDE TRANSACTION: Create and Validate Backup
         val backupResult = CsvBackupManager.createAndValidateBackup(
@@ -439,20 +461,46 @@ object CsvImporter {
             )
         }
 
-        val existingIds = allExistingTransactions.map { it.id }.toSet()
+        val effectiveHouseholdId = householdId ?: previewData.validTransactionsToImport.firstOrNull { it.householdId != null }?.householdId
+        val effectiveUserId = if (userId.isNotBlank() && userId != "local_user") userId else (previewData.validTransactionsToImport.firstOrNull { it.userId.isNotBlank() && it.userId != "local_user" }?.userId ?: "local_user")
+        val effectiveCreatedByUid = createdByUid?.takeIf { it.isNotBlank() }
+            ?: previewData.validTransactionsToImport.firstOrNull { !it.createdByUid.isNullOrBlank() }?.createdByUid
+            ?: if (effectiveUserId != "local_user") effectiveUserId else null
+
+        val existingTxMap = allExistingTransactions.associateBy { it.id }
         val txsToInsert = mutableListOf<TransactionEntity>()
         val txsToUpdate = mutableListOf<TransactionEntity>()
         var skippedCount = 0
 
+        val now = System.currentTimeMillis()
         for (tx in previewData.validTransactionsToImport) {
-            if (existingIds.contains(tx.id)) {
+            val existingTx = existingTxMap[tx.id]
+            val finalTx = if (existingTx != null) {
+                tx.copy(
+                    createdAt = existingTx.createdAt,
+                    createdByUid = existingTx.createdByUid ?: tx.createdByUid ?: effectiveCreatedByUid,
+                    householdId = existingTx.householdId ?: tx.householdId ?: effectiveHouseholdId,
+                    userId = if (existingTx.userId.isNotBlank() && existingTx.userId != "local_user") existingTx.userId else (if (tx.userId.isNotBlank() && tx.userId != "local_user") tx.userId else effectiveUserId),
+                    updatedAt = now
+                )
+            } else {
+                tx.copy(
+                    householdId = tx.householdId ?: effectiveHouseholdId,
+                    userId = if (tx.userId.isNotBlank() && tx.userId != "local_user") tx.userId else effectiveUserId,
+                    createdByUid = tx.createdByUid ?: effectiveCreatedByUid,
+                    createdAt = if (tx.createdAt > 0L) tx.createdAt else now,
+                    updatedAt = now
+                )
+            }
+
+            if (existingTx != null) {
                 if (previewData.duplicateMode == CsvDuplicateMode.UPDATE_EXISTING) {
-                    txsToUpdate.add(tx)
+                    txsToUpdate.add(finalTx)
                 } else {
                     skippedCount++
                 }
             } else {
-                txsToInsert.add(tx)
+                txsToInsert.add(finalTx)
             }
         }
 
@@ -461,7 +509,10 @@ object CsvImporter {
                 id = UUID.randomUUID().toString(),
                 name = it.name,
                 type = it.type,
-                subCategory = it.subCategory
+                subCategory = it.subCategory,
+                userId = effectiveUserId,
+                householdId = effectiveHouseholdId,
+                createdByUid = effectiveCreatedByUid
             )
         }
 
