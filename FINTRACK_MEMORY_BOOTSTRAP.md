@@ -156,7 +156,10 @@ Preserve the current category and member authorization architecture:
 - invitation security (atomic token binding, pre-commit PENDING check, replay protection, household binding, email verification);
 - initial seeding only when a household is explicitly created;
 - no recurring startup category seeding;
-- no deterministic category-ID hashing as identity.
+- no deterministic category-ID hashing as identity;
+- household-scoped CSV Category/SubCategory resolution and reuse: existing Category/SubCategory entities belonging to the active household must be reused during CSV import, preserving stable IDs and preventing duplicate entity creation;
+- Expense vs Income separation and parent Category separation during CSV import matching;
+- CSV import duplicate prevention does not automatically clean or alter existing duplicate records already stored in the database (historical duplicates preserved).
 
 Do not broaden transaction permissions into category or member management permissions.
 
@@ -227,8 +230,8 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: 1bef33f (Step 12.3 baseline) / Step 12.3G CSV Import Context Propagation & PermissionDenied Fix
-Android test baseline: 360/360 PASS (0 failed, 0 errors, 0 skipped; 21/21 focused CSV import orchestrator/importer tests)
+Git baseline: Step 12.3M CSV Category Deduplication / Step 12.3L Deduplication Implementation
+Android test baseline: 76/76 PASS (76 JVM/Robolectric test suites passing, 0 failed, 0 errors, 0 skipped; CsvCategoryDeduplicationTest 12/12 PASS, CsvImportOrchestratorTest 18/18 PASS, CsvImporterTest 4/4 PASS)
 Firestore rules test baseline: 95/95 test cases preserved in tests/firestore.rules.test.ts
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
 Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS (33/33 transactions imported, BNR converted, visible in UI, persisted in Room, synced to Firestore without PermissionDenied)
@@ -237,6 +240,14 @@ Remote branch: origin/main
 Working tree: clean / synchronized
 ```
 
+### CSV Category & SubCategory Deduplication (Step 12.3L — COMPLETE)
+- **Root Cause Resolved:** `CsvImportOrchestrator` now passes the active `householdId` when querying existing categories via `CategoryRepository.getAllCategoriesList(householdId)`.
+- **Existing Category & SubCategory Reuse:** `CsvImporter.parseAndValidate()` accurately identifies existing household categories and subcategories, reusing their stable UUIDs instead of flagging them as missing.
+- **Duplicate Prevention:** Prevents creating duplicate `CategoryEntity` records and sync outbox mutations on repeated CSV imports.
+- **Strict Isolation & Scoping:** Preserves household isolation (categories in household A cannot be reused in household B), Expense vs. Income separation (same-name categories with different types remain distinct), and parent category hierarchy separation.
+- **Step 12.3G Protection:** Preserves authenticated UID propagation, active `householdId`, immutable `createdByUid`, Room persistence, outbox queueing, and Firestore synchronization.
+- **Existing Data Safety:** Prevents new duplicates on import; existing historical duplicate records in the database are not altered/deleted (tracked for separate cleanup audit).
+
 ### CSV Import Authenticated Context Propagation & PermissionDenied Fix (Step 12.3G)
 - **Authenticated Context Propagation:** The CSV import pipeline propagates the authenticated user and active household context through `MainViewModel` → `CsvImportOrchestrator` → `CsvImporter` → `TransactionRepository` → `RoomTransactionRepository` → `Room` → `SyncOutbox` → `OutboundSyncEngine` → `Firestore`.
 - **Preserved Transaction Attributes:** Imported transactions explicitly receive `householdId = activeHouseholdId`, `userId = authenticatedUserUid`, and `createdByUid = authenticatedUserUid`.
@@ -244,7 +255,6 @@ Working tree: clean / synchronized
 - **No Rule Weakening:** Firestore security rules remain strictly enforced without modification.
 - **Local Persistence Resilience:** Room persistence operates atomically; local transactions remain valid and queryable even if outbound network sync fails or encounters transient errors.
 - **Real-Device Verification:** Verified on physical hardware with 33 transactions imported, BNR EUR rates converted, visible in UI, queryable in export, and synced cleanly to Firestore.
-- **Open Investigation (Step 12.3K):** Repeated import of CSV transactions creates duplicate categories and subcategories (e.g. repeated "Gaz", "Digi"). Cause is under investigation (potential whitespace, normalization, or exact matching differences).
 
 ### CSV Import & Automatic BNR EUR Conversion (Step 12.3 — 1bef33f)
 - **Automatic RON → EUR Conversion:** When importing RON transactions via CSV, `CsvImportOrchestrator` automatically resolves official BNR exchange rates and calculates `amountEUR` during pre-import validation/preview.

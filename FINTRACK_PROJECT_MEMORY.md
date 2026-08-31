@@ -2,8 +2,8 @@
 
 > Canonical compact operational memory for the FinTrack project.
 > Last reconciled: 2026-08-31
-> Current verified Git checkpoint: `7a8b6bf`
-> Previous functional baseline: `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Current verified Git checkpoint: Step 12.3M CSV Category Deduplication / Step 12.3L Deduplication Implementation
+> Previous functional baseline: `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ---
 
@@ -52,17 +52,16 @@ Repository state verified on 2026-08-31:
 
 ```text
 Branch:       main
-HEAD:         7a8b6bf
-origin/main:  7a8b6bf
-Working tree: clean
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
-Commit:
+Current implementation baseline:
 
-`7a8b6bf docs: update project memory after step 12.1I`
+Step 12.3M (`fix: deduplicate CSV categories and subcategories`)
 
-The repository contains a chronological Git history from the initial commit through `873017a`, `baf2f70`, `a739400`, `32fc27b`, `37155bc`, `1ed28ec`, `4ed7894`, `0da6b96`, `14f5338`, `aed996f` to `7a8b6bf`.
+Previous functional baseline:
+
+`1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ### Relationship to Previous Baseline:
 
@@ -114,6 +113,21 @@ ci: enable Firebase-configured online APK builds (Step 12.1I)
 
 7a8b6bf
 docs: update project memory after step 12.1I (Step 12.1J)
+
+        ↓
+
+1bef33f
+feat: automate BNR EUR conversion for CSV imports (Step 12.3)
+
+        ↓
+
+Step 12.3G
+fix: propagate authenticated context for CSV imports
+
+        ↓
+
+Step 12.3L / Step 12.3M
+fix: deduplicate CSV categories and subcategories
 ```
 
 ---
@@ -568,6 +582,15 @@ At checkpoint `baf2f70` the following have been addressed:
   - Real-device physical verification: 33/33 transactions imported, official BNR EUR rates converted, visible in UI, queryable in export, outbox processed to Firestore, SyncStatus = `Synced`. Repeated import verified PASS.
   - 360/360 Android unit tests PASS (21/21 focused orchestrator/importer tests), 95/95 Firestore rules test cases preserved, assembleDebug PASS.
 
+- CSV Category & SubCategory Deduplication (Step 12.3L / Step 12.3M — COMPLETE):
+  - Root cause diagnosed and resolved: `CsvImportOrchestrator` now passes the active `householdId` when querying existing categories via `CategoryRepository.getAllCategoriesList(householdId)`.
+  - Existing category and subcategory reuse: `CsvImporter.parseAndValidate()` identifies existing household categories and subcategories, reusing their stable UUIDs instead of flagging them as missing and generating new random UUIDs.
+  - Duplicate creation prevention: Prevents creating duplicate `CategoryEntity` instances and outbox mutations on repeated CSV imports.
+  - Strict isolation and scoping: Preserves household isolation (categories in household A cannot be reused in household B), Expense vs. Income separation (same-name categories with different types remain distinct), and parent category hierarchy separation.
+  - Step 12.3G protection: Authenticated UID propagation, active `householdId`, immutable `createdByUid`, Room persistence, outbox queueing, and Firestore synchronization remain strictly preserved.
+  - Existing duplicates status: Duplicate creation is prevented going forward during imports; existing historical duplicate records in the database are not altered/deleted (tracked for separate cleanup audit).
+  - 76/76 Android unit/Robolectric test suites PASS (12/12 focused deduplication tests, 18/18 orchestrator tests, 4/4 importer tests, 33-transaction real-world regression PASS).
+
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
 ---
@@ -581,7 +604,7 @@ These statements mean the corresponding implementation work exists at the curren
 4. **Phase 4 — COMPLETED:** Incremental Architecture Cleanup (`37155bc`).
 5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission, Data Integrity & CI Baseline Synchronization (`4ed7894` / `14f5338` / `aed996f`).
 6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression on Physical Hardware.
-7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation (`1bef33f` / Step 12.3G).
+7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication (`1bef33f` / Step 12.3G / Step 12.3L).
    - *12.3A:* CSV Automatic BNR EUR Conversion Architectural Audit
    - *12.3B:* CSV Automatic BNR EUR Conversion Implementation & Tests
    - *12.3C:* Regression & Commit Readiness Audit
@@ -592,13 +615,17 @@ These statements mean the corresponding implementation work exists at the curren
    - *12.3H:* CSV Import Regression & Commit Readiness Audit (READY)
    - *12.3I:* CSV Import Fix Commit & Push
    - *12.3J:* Project Memory Update & CSV Import Fix Baseline Synchronization
+   - *12.3K:* CSV Category & SubCategory Matching/Deduplication Audit (COMPLETE — Root cause confirmed: `CsvImportOrchestrator` omitted `householdId` parameter in category lookup)
+   - *12.3L:* CSV Category & SubCategory Deduplication Implementation (COMPLETE — Household-scoped lookup & reuse, stable IDs preserved, duplicate creation prevented)
+   - *12.3M:* CSV Category Deduplication Commit & Push (`fix: deduplicate CSV categories and subcategories`)
+   - *12.3N:* Project Memory Update & Deduplication Baseline Synchronization
    - *Physical Device Verification:* 33/33 transactions imported, BNR EUR rates converted, Room UI visible, export visible, outbox synced, zero PermissionDenied errors.
-8. **Phase 8 (Step 12.3K) — OPEN INVESTIGATION:** CSV Category & SubCategory Matching/Deduplication Audit.
-   - *Symptom:* Repeated CSV import creates duplicate categories/subcategories (e.g. repeated "Gaz", "Digi" under the same parent).
-   - *Status:* Investigation pending (evaluating whitespace trimming, unicode normalization, or case sensitivity).
+8. **Phase 8 — Beta Release Polish & Housekeeping:**
+   - *Next Roadmap Item:* Prepare Beta Release Polish & Housekeeping.
+   - *Open Data-Integrity Item (Separate Task):* Audit and cleanup of historical duplicate Category/SubCategory records that already exist in the database from earlier imports prior to Step 12.3L (duplicate creation is prevented going forward, but existing duplicates remain preserved until an explicit cleanup task is conducted).
 
 ## Verification Layer Policy:
-- **Automated Verification:** PASS (360/360 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
+- **Automated Verification:** PASS (76/76 JVM/Robolectric test suites passing, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
 - **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import and re-import completed with 0 errors across BNR conversion, Room UI visibility, CSV export, and Firestore sync).
 
 ## Reconciled Open Items:
@@ -840,18 +867,17 @@ Foundation
 → GitHub Online APK & Firebase Configuration (Step 12.1I — aed996f)
 → Two-Device Beta Smoke Test Regression (Step 12.2)
 → CSV Import & Automatic BNR EUR Conversion (Step 12.3 — 1bef33f)
+→ CSV Import Context Propagation & PermissionDenied Fix (Step 12.3G)
+→ CSV Category & SubCategory Deduplication (Step 12.3L / Step 12.3M)
 ```
 
 The current baseline is:
 
-```text
-1bef33f
-feat: automate BNR EUR conversion for CSV imports
-```
+Step 12.3M (`fix: deduplicate CSV categories and subcategories`)
 
-Previous functional baseline: `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
+Previous functional baseline: `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
 
-Step 12.3 (CSV Import & Automatic BNR EUR Conversion) has been verified and committed (1bef33f). The next development task is Beta Release Polish & Housekeeping (Pending Roadmap Review).
+Step 12.3 (CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication) has been verified and committed. The next development task is Phase 8 — Beta Release Polish & Housekeeping, alongside a separate future task for historical duplicate category/subcategory record cleanup.
 
 ---
 
@@ -890,11 +916,12 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 |---|---|---|
 | Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; cross-user transaction edit/delete verified; 95/95 emulator rules test cases preserved |
 | Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, foreground reconnection recovery, exponential retry backoff, max retries threshold, FAILED outbox shielding, and SyncStatus alignment verified |
-| Full Android Regression Gate | **PASS** | 360/360 unit/Robolectric tests passing (0 failures, 0 skipped; 21/21 focused CSV import orchestrator/importer tests) |
+| Full Android Regression Gate | **PASS** | 76/76 unit/Robolectric test suites passing (0 failures, 0 skipped; 12/12 deduplication, 18/18 orchestrator, 4/4 importer tests) |
 | Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
 | Online Firebase APK Gate | **PASS** | assembleDebug PASS; safe secret injection and JSON validation in CI; Google Services integration PASS |
 | Multi-Device Production Smoke | **PASS** | Physical Device A & Device B smoke regression verified with GitHub release APK, real Firebase auth, cross-user mutations, category sync, offline recovery, and app restarts (Step 12.2) |
 | CSV BNR & Sync Gate | **PASS** | Automatic RON → EUR conversion during CSV preview/import with historical BNR rate resolution, distinct-date caching, authenticated context propagation, and real-device physical verification (Step 12.3 — 1bef33f / Step 12.3G) |
+| CSV Category Deduplication Gate | **PASS** | Household-scoped category lookup & reuse, stable UUID preservation, duplicate entity prevention during import, and 12/12 dedicated tests passing (Step 12.3L / Step 12.3M) |
 
 **Overall Beta Status: READY FOR BETA RELEASE / BETA SMOKE TEST COMPLETE**
-*Details:* All core functional, security, automated testing (360/360), physical multi-device smoke, and CSV BNR conversion + sync context propagation gates have passed. Ready for roadmap transition / release polish. Category deduplication is tracked as a separate open audit (Step 12.3K).
+*Details:* All core functional, security, automated testing (76/76 suites), physical multi-device smoke, CSV BNR conversion + sync context propagation, and category deduplication gates have passed. Duplicate creation during import is resolved. Existing historical duplicates in database are preserved for a separate cleanup task. Ready for roadmap transition / release polish.

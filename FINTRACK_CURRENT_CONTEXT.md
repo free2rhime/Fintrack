@@ -2,8 +2,8 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-08-31
-> Git baseline: `1bef33f` / Step 12.3G CSV Import Context Propagation & PermissionDenied Fix
-> Previous baseline: `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Git baseline: Step 12.3M CSV Category Deduplication / Step 12.3L Deduplication Implementation
+> Previous baseline: `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -21,20 +21,18 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         1bef33f
-origin/main:  1bef33f
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
 At the time this context was verified, the repository working tree was synchronized.
 
-Current commit:
+Current implementation baseline:
 
-`1bef33f feat: automate BNR EUR conversion for CSV imports`
+Step 12.3M (`fix: deduplicate CSV categories and subcategories`)
 
 Previous functional baseline:
 
-`7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+`1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -145,6 +143,15 @@ Environments:
 - **Sync & Outbox:** Inbound, outbound, and bidirectional sync PASS with no `PermissionDenied` errors during valid operations; local persistence, outbox queueing, reconnection, pending mutation recovery, and foreground recovery PASS.
 - **Session & App Lifecycle:** App restart, FirebaseAuth session restoration, sync recovery, and sign-out/sign-in PASS.
 
+### CSV Category & SubCategory Deduplication (Step 12.3L — COMPLETE)
+- **Defect Resolution:** Resolved category/subcategory duplication during repeated CSV imports caused by `CsvImportOrchestrator` retrieving categories without specifying active `householdId`.
+- **Household-Scoped Lookup & Reuse:** `CsvImportOrchestrator` passes active `householdId` to `CategoryRepository.getAllCategoriesList(householdId)`. `CsvImporter.parseAndValidate()` reuses existing household categories and subcategories with their stable UUIDs instead of flagging them as missing.
+- **Duplicate Prevention:** Prevents creating new duplicate `CategoryEntity` records and outbox sync items on CSV import.
+- **Strict Isolation & Scoping:** Preserves household isolation (no cross-household category reuse), Expense vs. Income type separation, and parent category hierarchy separation.
+- **Step 12.3G Protection:** Authenticated UID propagation, active `householdId`, immutable `createdByUid`, Room persistence, outbox queueing, and Firestore synchronization remain strictly intact.
+- **Existing Data Safety:** Prevents new duplicates on import; existing historical duplicate records in the database are not altered/deleted (tracked for separate cleanup audit).
+- **Test Baseline:** 76/76 Android unit/Robolectric test suites PASS (12/12 focused deduplication tests, 18/18 orchestrator tests, 4/4 importer tests, 33-transaction real-world regression PASS).
+
 ### CSV Import Authenticated Context Propagation & PermissionDenied Fix (Step 12.3G)
 - **Defect Resolution:** Resolved the real-device CSV import failure where transactions passed preview and BNR conversion but failed to appear in Room UI / export and triggered `PERMISSION_DENIED` in Firestore sync.
 - **Context Propagation:** `MainViewModel` resolves authenticated user UID (`activeUserUid.value ?: authRepository.getCurrentUserUid()`) and active household ID (`activeHouseholdId.value`) and passes them through `CsvImportOrchestrator` → `CsvImporter` → `RoomTransactionRepository`.
@@ -176,6 +183,7 @@ Environments:
 - Startup/repeated category seeding loops were removed.
 - Deterministic category-ID hashing is not used.
 - Duplicate default-category creation/reconciliation was addressed.
+- CSV import reuses existing household categories/subcategories and prevents creating duplicate entities.
 - Historical transactions must remain protected when categories are deleted.
 
 ### Transactions
@@ -231,7 +239,7 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression (Physical Device A & Device B).
    - *12.2:* Two-Device Beta Smoke Test Regression Execution (PASS on Device A & Device B)
    - *12.2B:* Project Memory Update + Commit + Push
-7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation (`1bef33f` / Step 12.3G).
+7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication (`1bef33f` / Step 12.3G / Step 12.3L).
    - *12.3A:* CSV Automatic BNR EUR Conversion Architectural Audit
    - *12.3B:* CSV Automatic BNR EUR Conversion Implementation & Tests
    - *12.3C:* Regression & Commit Readiness Audit
@@ -242,13 +250,17 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
    - *12.3H:* CSV Import Regression & Commit Readiness Audit (READY)
    - *12.3I:* CSV Import Fix Commit & Push
    - *12.3J:* Project Memory Update & CSV Import Fix Baseline Synchronization
+   - *12.3K:* CSV Category & SubCategory Matching/Deduplication Audit (COMPLETE — Root cause confirmed: `CsvImportOrchestrator` omitted `householdId` parameter in category lookup)
+   - *12.3L:* CSV Category & SubCategory Deduplication Implementation (COMPLETE — Household-scoped lookup & reuse, stable IDs preserved, duplicate creation prevented)
+   - *12.3M:* CSV Category Deduplication Commit & Push (`fix: deduplicate CSV categories and subcategories`)
+   - *12.3N:* Project Memory Update & Deduplication Baseline Synchronization
    - *Physical Device Verification:* 33/33 transactions imported, BNR EUR rates converted, Room UI visible, export visible, outbox synced, zero PermissionDenied errors.
-8. **Phase 8 (Step 12.3K) — OPEN INVESTIGATION:** CSV Category & SubCategory Matching/Deduplication Audit.
-   - *Symptom:* Repeated CSV import creates duplicate categories/subcategories (e.g. repeated "Gaz", "Digi" under the same parent).
-   - *Status:* Investigation pending (evaluating whitespace trimming, unicode normalization, or case sensitivity).
+8. **Phase 8 — Beta Release Polish & Housekeeping:**
+   - *Next Roadmap Item:* Prepare Beta Release Polish & Housekeeping.
+   - *Open Data-Integrity Item (Separate Task):* Audit and cleanup of historical duplicate Category/SubCategory records that already exist in the database from earlier imports prior to Step 12.3L (duplicate creation is prevented going forward, but existing duplicates remain preserved until an explicit cleanup task is conducted).
 
 ### Verification Layer Status:
-- **Automated Verification:** PASS (360/360 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
+- **Automated Verification:** PASS (76/76 JVM/Robolectric test suites passing, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
 - **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import and re-import completed with 0 errors across BNR conversion, Room UI visibility, CSV export, and Firestore sync).
 
 ### Open Housekeeping Areas:
