@@ -37,9 +37,14 @@ jobs:
           fi
 
       - name: Create temporary debug keystore
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
           if [ -f "./debug.keystore" ]; then
             echo "debug.keystore already exists."
+          elif [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "Decoding debug.keystore from secret..."
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ./debug.keystore
           else
             echo "Generating temporary debug.keystore..."
             keytool -genkey -v \
@@ -60,16 +65,57 @@ jobs:
             exit 1
           fi
 
+      - name: Inject Firebase configuration
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "ERROR: GOOGLE_SERVICES_JSON secret is empty or not configured."
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+
+      - name: Validate Google Services configuration
+        run: |
+          if [ ! -f "app/google-services.json" ]; then
+            echo "ERROR: app/google-services.json not found."
+            exit 1
+          fi
+          python3 -c '
+          import json, sys
+          try:
+              with open("app/google-services.json", "r") as f:
+                  data = json.load(f)
+              if not isinstance(data, dict):
+                  raise ValueError("Root must be a JSON object")
+              project_info = data.get("project_info")
+              if not project_info or not isinstance(project_info, dict):
+                  print("ERROR: Missing or invalid project_info in google-services.json", file=sys.stderr)
+                  sys.exit(1)
+              client_list = data.get("client")
+              if not client_list or not isinstance(client_list, list) or len(client_list) == 0:
+                  print("ERROR: Missing or empty client array in google-services.json", file=sys.stderr)
+                  sys.exit(1)
+          except Exception as e:
+              print(f"ERROR: Failed to validate google-services.json: {e}", file=sys.stderr)
+              sys.exit(1)
+          '
+          echo "Firebase configuration:"
+          echo "PRESENT"
+          echo "JSON:"
+          echo "VALID"
+
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Verify debug APK
         run: |
           APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
-          if [ -f "$APK_PATH" ]; then
-            echo "Debug APK successfully verified at $APK_PATH"
+          if [ -f "$APK_PATH" ] && [ -s "$APK_PATH" ]; then
+            APK_SIZE=$(stat -c%s "$APK_PATH" 2>/dev/null || wc -c < "$APK_PATH")
+            echo "Debug APK successfully verified at $APK_PATH (Size: $APK_SIZE bytes)"
           else
-            echo "ERROR: Expected APK not found at $APK_PATH"
+            echo "ERROR: Expected APK not found or empty at $APK_PATH"
             echo "Searching app/build/outputs/apk for any available APK files:"
             find app/build/outputs/apk -name "*.apk" || true
             exit 1
@@ -81,3 +127,18 @@ jobs:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Clean up temporary secrets
+        if: always()
+        run: |
+          if [ -f "app/google-services.json" ]; then
+            rm -f "app/google-services.json"
+            echo "Cleaned up app/google-services.json"
+          fi
+          if [ -f "debug.keystore" ]; then
+            rm -f "debug.keystore"
+            echo "Cleaned up debug.keystore"
+          fi
+          if [ ! -f "app/google-services.json" ]; then
+            echo "Cleanup verified: app/google-services.json removed"
+          fi
