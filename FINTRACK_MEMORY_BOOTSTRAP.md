@@ -227,12 +227,12 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: 4ed7894
-Commit: fix: allow cross-user transaction editing
-Previous baseline: 1ed28ec (docs: update project memory after step 11) / 37155bc (refactor: extract domain logic from MainViewModel) / 32fc27b / a739400 / baf2f70
-Android test baseline: 340/340 PASS (0 failed, 0 errors, 0 skipped)
-Focused cross-user regression baseline: 48/48 PASS
-Firestore test baseline: 95/95 PASS (0 failed)
+Git baseline: 14f5338
+Commit: ci: remove redundant GitHub workflows
+Previous baseline: 0da6b96 (docs: update project memory after step 12.1) / 4ed7894 (fix: allow cross-user transaction editing) / 1ed28ec / 37155bc / 32fc27b / a739400 / baf2f70
+Android test baseline: 343/343 PASS (0 failed, 0 errors, 0 skipped)
+Firestore rules test baseline: 95/95 test cases preserved in tests/firestore.rules.test.ts
+GitHub Actions baseline: Only Build Debug APK (.github/workflows/build-apk.yml) retained
 Branch: main
 Remote branch: origin/main
 Working tree: clean
@@ -243,6 +243,11 @@ Working tree: clean
 - **FAILED Outbox Shielding:** `SyncOutboxDao.getActiveEntityIdsByType` includes `FAILED` status, protecting local un-synced edits from destructive overwrite by stale inbound remote snapshots (`SyncOutboxDao.kt`, `Stage9OutboxShieldTest`).
 - **Active Household Preservation:** `MainViewModel.activeHouseholdId` preserves resolved household ID during `SyncStatus.PermissionDenied` and `SyncStatus.Offline` states without falsely converting error status to `Synced` (`MainViewModel.kt`, `CategoryPermissionsTest`).
 - **Preserved Boundaries:** Category/subcategory mutations remain OWNER/ADMIN-only. Household member management and invitation administration remain OWNER-only. Cross-household isolation strictly enforced.
+
+### CI Baseline Cleanup (Step 12.1G — 14f5338)
+- **GitHub Actions Workflows Removed:** Redundant workflows (`build-debug-apk.yml`, `unit-tests.yml`, `firestore-rules-tests.yml`) removed from `.github/workflows/`.
+- **Retained Workflow:** `.github/workflows/build-apk.yml` ("Build Debug APK") actively retained for release artifact generation.
+- **Testing & Security Preserved:** Android 343/343 tests passing locally; Firestore security rules test suite (`tests/firestore.rules.test.ts`) preserved; `google-services.json` strategy preserved outside Git.
 
 Always verify these values before acting; they are a baseline, not an instruction to assume the repository has not changed.
 

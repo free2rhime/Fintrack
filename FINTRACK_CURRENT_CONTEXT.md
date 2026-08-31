@@ -2,8 +2,8 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-08-31
-> Git baseline: `4ed7894`
-> Previous baseline: `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Git baseline: `14f5338`
+> Previous baseline: `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -21,8 +21,8 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         4ed7894
-origin/main:  4ed7894
+HEAD:         14f5338
+origin/main:  14f5338
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
@@ -30,11 +30,11 @@ At the time this context was verified, the repository working tree was clean.
 
 Current commit:
 
-`4ed7894 fix: allow cross-user transaction editing`
+`14f5338 ci: remove redundant GitHub workflows`
 
 Previous functional baseline:
 
-`1ed28ec` (docs: update project memory after step 11) / `37155bc` (refactor: extract domain logic from MainViewModel) / `32fc27b` / `a739400` / `baf2f70`
+`0da6b96` (docs: update project memory after step 12.1) / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -127,7 +127,12 @@ Environments:
 - **FAILED Outbox Shielding: RESOLVED.** `SyncOutboxDao.getActiveEntityIdsByType` includes `FAILED` outbox entries, shielding local un-synced or failed Room mutations from destructive overwrite by stale inbound remote snapshots (`SyncOutboxDao.kt`, `Stage9OutboxShieldTest`).
 - **Active Household Preservation: RESOLVED.** `MainViewModel.activeHouseholdId` preserves resolved household context during `SyncStatus.PermissionDenied` and `SyncStatus.Offline` states without falsely masking errors or collapsing the query scope (`MainViewModel.kt`, `CategoryPermissionsTest`).
 - **Security Boundaries Preserved:** Category/subcategory mutations remain OWNER/ADMIN-only. Household member management and invitation administration remain OWNER-only. Cross-household isolation strictly enforced.
-- **Test Baseline: 340/340 Android Unit Tests PASS (48/48 focused cross-user tests), 95/95 Firestore Emulator Tests PASS, assembleDebug PASS, 0 new regressions.**
+- **Test Baseline: 343/343 Android Unit Tests PASS, 95/95 Firestore Rules test cases preserved in `tests/firestore.rules.test.ts`, assembleDebug PASS, 0 new regressions.**
+
+### CI Baseline Cleanup (Step 12.1G — 14f5338)
+- **Redundant Workflows Removed:** `.github/workflows/build-debug-apk.yml`, `.github/workflows/unit-tests.yml`, and `.github/workflows/firestore-rules-tests.yml` were cleanly removed.
+- **Retained Workflow:** `.github/workflows/build-apk.yml` ("Build Debug APK") actively maintained for APK release artifact generation.
+- **Firebase & Credentials:** `google-services.json` strategy preserved outside Git repository for local development; Firestore security rules and test suite preserved.
 
 ### Categories
 - Categories are household-scoped.
@@ -179,11 +184,19 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 2. **Phase 2 — COMPLETED:** Android Test Suite & Migration Stabilization (`a739400`).
 3. **Phase 3 — COMPLETED:** Outbox Reliability & Recovery Polish (`32fc27b`).
 4. **Phase 4 — COMPLETED:** Architecture Cleanup (`37155bc`).
-5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission & Data Integrity (`4ed7894`).
+5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission, Data Integrity & CI Baseline Synchronization (`4ed7894` / `14f5338`).
+   - *12.1A:* Cross-User Transaction Permission & Data Integrity Audit
+   - *12.1B:* Cross-User Transaction Permission & Data Integrity Implementation
+   - *12.1C:* Cross-User Transaction Regression & Commit Readiness Audit
+   - *12.1D:* Cross-User Transaction Commit & Push
+   - *12.1E:* Project Memory Commit & Push
+   - *12.1F:* GitHub Firestore Action Removal & CI Baseline Cleanup
+   - *12.1G:* GitHub Actions Redundancy Cleanup
+   - *12.1H:* Project Memory Update & CI Baseline Synchronization
 6. **Phase 6 (Step 12.2) — NEXT (P1):** Two-Device Beta Smoke Test Regression.
 
 ### Automated vs. Real-Device Verification:
-- **Automated Verification:** PASS (340/340 Android unit/Robolectric tests, 95/95 Firestore emulator rules tests, 48/48 focused cross-user tests).
+- **Automated Verification:** PASS (343/343 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved).
 - **Real-Device Verification:** STILL REQUIRED (Physical two-device smoke testing under real multi-device network conditions).
 
 ### Critical Two-Device Real-Device Test Scenario (Step 12.2):
