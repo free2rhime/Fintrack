@@ -159,7 +159,7 @@ interface SyncOutboxDao {
     @Query("SELECT * FROM sync_outbox WHERE entityType = :entityType AND entityId = :entityId AND status IN ('PENDING', 'IN_PROGRESS') ORDER BY createdAt DESC LIMIT 1")
     suspend fun getActiveEntry(entityType: String, entityId: String): SyncOutboxEntity?
 
-    @Query("SELECT entityId FROM sync_outbox WHERE entityType = :entityType AND status IN ('PENDING', 'IN_PROGRESS')")
+    @Query("SELECT entityId FROM sync_outbox WHERE entityType = :entityType AND status IN ('PENDING', 'IN_PROGRESS', 'FAILED')")
     suspend fun getActiveEntityIdsByType(entityType: String): List<String>
 
     @Query("DELETE FROM sync_outbox WHERE entityType = :entityType AND entityId = :entityId")

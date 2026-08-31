@@ -238,6 +238,8 @@ class MainViewModel(
         when (status) {
             is SyncStatus.Synced -> status.householdId ?: syncRepository?.activeHouseholdId
             is SyncStatus.Connecting -> syncRepository?.activeHouseholdId
+            is SyncStatus.PermissionDenied -> syncRepository?.activeHouseholdId
+            is SyncStatus.Offline -> syncRepository?.activeHouseholdId
             else -> null
         }
     }.stateIn(

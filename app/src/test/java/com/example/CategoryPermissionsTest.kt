@@ -16,6 +16,7 @@ import com.example.data.model.FilterSettings
 import com.example.data.model.HouseholdDto
 import com.example.data.model.HouseholdInviteDto
 import com.example.data.model.HouseholdMemberDto
+import com.example.data.model.SyncOutboxEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.AuthState
@@ -626,5 +627,60 @@ class CategoryPermissionsTest {
         // 2. Member must NOT enqueue any outbox mutations (zero cloud writes)
         val pendingOutbox = db.syncOutboxDao().getPendingEntries()
         assertEquals(0, pendingOutbox.size)
+    }
+
+    @Test
+    fun testActiveHouseholdIdPreservedDuringPermissionDeniedAndOfflineSyncStates() = runTest(testDispatcher) {
+        val authRepo = FakeAuthRepo(initialUid = "user_owner")
+        val householdRepo = FakeHouseholdRepo()
+        fakeSnapshotSource.setMember("hh_123", "user_owner", "OWNER", "ACTIVE")
+        syncRepo.startSync("user_owner", "hh_123")
+        advanceUntilIdle()
+
+        val vm = createViewModel(authRepo, householdRepo, backgroundScope)
+        advanceUntilIdle()
+
+        assertEquals("hh_123", vm.activeHouseholdId.value)
+
+        // Inject PermissionDenied into outbox so syncStatus updates to PermissionDenied
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "out_err_1",
+                entityType = "TRANSACTION",
+                entityId = "tx_999",
+                operation = "UPSERT",
+                status = "FAILED",
+                errorCode = "PERMISSION_DENIED",
+                errorMessage = "Missing permissions",
+                createdAt = 1000L,
+                updatedAt = 1000L
+            )
+        )
+        syncRepo.recomputeSyncStatus()
+        advanceUntilIdle()
+
+        assertTrue(vm.syncStatus.value is SyncStatus.PermissionDenied)
+        assertEquals("hh_123", vm.activeHouseholdId.value)
+
+        // Clear previous error and insert non-permission failure so syncStatus updates to Offline
+        db.syncOutboxDao().deleteAllOutboxEntries()
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "out_err_2",
+                entityType = "TRANSACTION",
+                entityId = "tx_998",
+                operation = "UPSERT",
+                status = "FAILED",
+                errorCode = "NETWORK_ERROR",
+                errorMessage = "Network connection failed",
+                createdAt = 2000L,
+                updatedAt = 2000L
+            )
+        )
+        syncRepo.recomputeSyncStatus()
+        advanceUntilIdle()
+
+        assertTrue(vm.syncStatus.value is SyncStatus.Offline)
+        assertEquals("hh_123", vm.activeHouseholdId.value)
     }
 }

@@ -457,4 +457,72 @@ class Stage9OutboxShieldTest {
         assertEquals("Local Supermarket", loaded!!.name)
         assertEquals("Groceries", loaded.subCategory)
     }
+
+    @Test
+    fun testFailedOutboxItemShieldsLocalTransactionFromInboundSnapshotOverwrite() = runTest {
+        val localTx = TransactionEntity(
+            id = "tx_failed_1",
+            householdId = "hh_1",
+            userId = "user_b",
+            createdByUid = "user_a",
+            date = "2026-08-15",
+            description = "Local User B edit",
+            amountRON = 300.0,
+            amountEUR = 60.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-15",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "Groceries",
+            createdAt = 1000L,
+            updatedAt = 2000L
+        )
+        db.transactionDao().insertTransaction(localTx)
+
+        // Outbox item for this transaction failed with PERMISSION_DENIED
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "out_tx_failed_1",
+                entityType = "TRANSACTION",
+                entityId = "tx_failed_1",
+                operation = "UPSERT",
+                status = "FAILED",
+                errorCode = "PERMISSION_DENIED",
+                errorMessage = "Missing or insufficient permissions",
+                createdAt = 2000L,
+                updatedAt = 2100L
+            )
+        )
+
+        // Inbound snapshot comes in with stale / original transaction data
+        val staleRemoteDoc = Pair(
+            "tx_failed_1",
+            mapOf(
+                "transactionId" to "tx_failed_1",
+                "householdId" to "hh_1",
+                "createdByUid" to "user_a",
+                "transactionDate" to "2026-08-15",
+                "description" to "Stale Remote User A Original",
+                "amountRon" to 100.0,
+                "amountEur" to 20.0,
+                "exchangeRate" to 5.0,
+                "type" to "Expense",
+                "account" to "Card",
+                "category" to "Food",
+                "createdAt" to 1000L,
+                "updatedAt" to 1000L,
+                "isDeleted" to false
+            )
+        )
+
+        syncRepository.processTransactionSnapshot(listOf(staleRemoteDoc))
+
+        // Shield should have prevented inbound snapshot from overwriting the local modification
+        val loaded = db.transactionDao().getTransactionById("tx_failed_1")
+        assertNotNull(loaded)
+        assertEquals("Local User B edit", loaded!!.description)
+        assertEquals(300.0, loaded.amountRON, 0.001)
+        assertEquals(60.0, loaded.amountEUR, 0.001)
+    }
 }

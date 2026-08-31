@@ -530,6 +530,7 @@ fun ExchangeRateDto.toEntity(documentId: String? = null): ExchangeRateEntity? {
 
 fun TransactionEntity.toFirestoreMap(householdId: String, userUid: String? = null, migrationId: String? = null): Map<String, Any?> {
     val effectiveUid = if (userId.isNotBlank() && userId != "local_user") userId else (userUid ?: "remote_user")
+    val serializedCreatedByUid = createdByUid?.takeIf { it.isNotBlank() } ?: effectiveUid
     val effectiveRateDate = exchangeRateDate.ifBlank { date }
     val isOfficialRate = conversionStatus == "OFFICIAL" && exchangeRate > 0.0 && exchangeRateSource == "BNR_OFFICIAL"
     val validMetadata = if (isOfficialRate) {
@@ -545,7 +546,7 @@ fun TransactionEntity.toFirestoreMap(householdId: String, userUid: String? = nul
     val baseMap = mutableMapOf<String, Any?>(
         "transactionId" to id,
         "householdId" to householdId,
-        "createdByUid" to effectiveUid,
+        "createdByUid" to serializedCreatedByUid,
         "transactionDate" to date,
         "description" to description,
         "amountRon" to amountRON,
