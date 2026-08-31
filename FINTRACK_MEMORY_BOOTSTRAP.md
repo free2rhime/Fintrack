@@ -227,10 +227,10 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: 7a8b6bf
-Commit: docs: update project memory after step 12.1I
-Previous baseline: aed996f (ci: enable Firebase-configured online APK builds) / 14f5338 / 0da6b96 / 4ed7894 / 1ed28ec / 37155bc / 32fc27b / a739400 / baf2f70
-Android test baseline: 343/343 PASS (0 failed, 0 errors, 0 skipped)
+Git baseline: 1bef33f
+Commit: feat: automate BNR EUR conversion for CSV imports
+Previous baseline: 7a8b6bf (docs: update project memory after step 12.1J) / aed996f (ci: enable Firebase-configured online APK builds) / 14f5338 / 0da6b96 / 4ed7894 / 1ed28ec / 37155bc / 32fc27b / a739400 / baf2f70
+Android test baseline: 355/355 PASS (0 failed, 0 errors, 0 skipped; 16/16 focused CsvImportOrchestrator tests)
 Firestore rules test baseline: 95/95 test cases preserved in tests/firestore.rules.test.ts
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
 Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B
@@ -238,6 +238,17 @@ Branch: main
 Remote branch: origin/main
 Working tree: clean
 ```
+
+### CSV Import & Automatic BNR EUR Conversion (Step 12.3 — 1bef33f)
+- **Automatic RON → EUR Conversion:** When importing RON transactions via CSV, `CsvImportOrchestrator` automatically resolves official BNR exchange rates and calculates `amountEUR` during pre-import validation/preview.
+- **Historical Rate Resolution & Caching:** Resolves official rate for each transaction date via `TransactionRepository.getOfficialRate()`; distinct dates reuse resolved rates; weekend and public holiday dates fall back to the preceding publishing day via existing BNR effective-date rules.
+- **Existing Service Reuse:** Reuses existing `ExchangeRateService.calculateAmountEUR` for rounding and computation consistency.
+- **Conversion Metadata:** Populates `exchangeRate`, `exchangeRateDate`, `exchangeRateSource = "BNR"`, and `conversionStatus = ConversionStatus.AUTO_CONVERTED` when an official rate is available.
+- **Safe Offline / Unavailable Fallback:** If offline or if no rate is available for a date, safely falls back to `conversionStatus = ConversionStatus.PENDING`, `amountEUR = 0.0`, `exchangeRate = 0.0`, and `exchangeRateSource = "NONE"` without failing or rejecting the import.
+- **Preview & Persistence Consistency:** The preview dialog displays the exact converted EUR amounts and resolved exchange rates; the subsequent atomic import into Room and Outbox persists identical values.
+- **Duplicate Mode Compatibility:** Fully compatible with both `SKIP_EXISTING` and `UPDATE_EXISTING` modes.
+- **Stateless Parser & Clean Separation:** `CsvImporter` remains a purely stateless CSV parser/validator; `CsvImportOrchestrator` handles rate resolution, domain orchestration, and backup generation.
+- **Security & Data Integrity:** Household isolation, cross-user transaction permissions, immutable `createdByUid`, atomic Room persistence, and Outbox generation remain strictly preserved. Direct Firestore writes are not performed.
 
 ### Cross-User Transaction Permission & Data Integrity (Step 12.1 — 4ed7894)
 - **Cross-User Transaction Mutations:** All active household members may create, update, and delete transactions in their household (`firestore.rules`). Transaction creator identity (`createdByUid`) is preserved immutably across cross-user edits (`FirestoreDtos.kt`).

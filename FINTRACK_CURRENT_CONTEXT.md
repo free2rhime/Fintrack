@@ -2,8 +2,8 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-08-31
-> Git baseline: `7a8b6bf`
-> Previous baseline: `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Git baseline: `1bef33f`
+> Previous baseline: `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -21,8 +21,8 @@ For detailed history, decisions and evidence use:
 
 ```text
 Branch:       main
-HEAD:         7a8b6bf
-origin/main:  7a8b6bf
+HEAD:         1bef33f
+origin/main:  1bef33f
 Remote:       https://github.com/free2rhime/Fintrack.git
 ```
 
@@ -30,11 +30,11 @@ At the time this context was verified, the repository working tree was clean.
 
 Current commit:
 
-`7a8b6bf docs: update project memory after step 12.1I`
+`1bef33f feat: automate BNR EUR conversion for CSV imports`
 
 Previous functional baseline:
 
-`aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` (docs: update project memory after step 12.1) / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+`7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -145,6 +145,18 @@ Environments:
 - **Sync & Outbox:** Inbound, outbound, and bidirectional sync PASS with no `PermissionDenied` errors during valid operations; local persistence, outbox queueing, reconnection, pending mutation recovery, and foreground recovery PASS.
 - **Session & App Lifecycle:** App restart, FirebaseAuth session restoration, sync recovery, and sign-out/sign-in PASS.
 
+### CSV Import & Automatic BNR EUR Conversion (Step 12.3 — 1bef33f)
+- **Automatic RON → EUR Conversion:** When importing RON transactions via CSV, `CsvImportOrchestrator` automatically resolves official BNR exchange rates and calculates `amountEUR` during pre-import validation/preview.
+- **Historical Rate Resolution & Caching:** Resolves official rate for each transaction date via `TransactionRepository.getOfficialRate()`; distinct dates reuse resolved rates; weekend and public holiday dates fall back to the preceding publishing day via existing BNR effective-date rules.
+- **Existing Service Reuse:** Reuses existing `ExchangeRateService.calculateAmountEUR` for rounding and computation consistency.
+- **Conversion Metadata:** Populates `exchangeRate`, `exchangeRateDate`, `exchangeRateSource = "BNR"`, and `conversionStatus = ConversionStatus.AUTO_CONVERTED` when an official rate is available.
+- **Safe Offline / Unavailable Fallback:** If offline or if no rate is available for a date, safely falls back to `conversionStatus = ConversionStatus.PENDING`, `amountEUR = 0.0`, `exchangeRate = 0.0`, and `exchangeRateSource = "NONE"` without failing or rejecting the import.
+- **Preview & Persistence Consistency:** The preview dialog displays the exact converted EUR amounts and resolved exchange rates; the subsequent atomic import into Room and Outbox persists identical values.
+- **Duplicate Mode Compatibility:** Fully compatible with both `SKIP_EXISTING` and `UPDATE_EXISTING` modes.
+- **Stateless Parser & Clean Separation:** `CsvImporter` remains a purely stateless CSV parser/validator; `CsvImportOrchestrator` handles rate resolution, domain orchestration, and backup generation.
+- **Security & Data Integrity:** Household isolation, cross-user transaction permissions, immutable `createdByUid`, atomic Room persistence, and Outbox generation remain strictly preserved. Direct Firestore writes are not performed.
+- **Test Baseline:** 355/355 Android Unit Tests PASS (16/16 focused orchestrator tests), 95/95 Firestore Rules test cases preserved, assembleDebug PASS, 0 new regressions.
+
 ### Categories
 - Categories are household-scoped.
 - Stable UUIDs are used as identity.
@@ -209,10 +221,16 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression (Physical Device A & Device B).
    - *12.2:* Two-Device Beta Smoke Test Regression Execution (PASS on Device A & Device B)
    - *12.2B:* Project Memory Update + Commit + Push
-7. **Phase 7 — NEXT:** Beta Release Polish & Housekeeping (Pending Roadmap Review).
+7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion (`1bef33f`).
+   - *12.3A:* CSV Automatic BNR EUR Conversion Architectural Audit
+   - *12.3B:* CSV Automatic BNR EUR Conversion Implementation & Tests
+   - *12.3C:* Regression & Commit Readiness Audit
+   - *12.3D:* Commit & Push (`1bef33f`)
+   - *12.3E:* Project Memory Update + Commit + Push
+8. **Phase 8 — NEXT:** Beta Release Polish & Housekeeping (Pending Roadmap Review).
 
 ### Verification Layer Status:
-- **Automated Verification:** PASS (343/343 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
+- **Automated Verification:** PASS (355/355 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
 - **Physical Device Verification:** PASS (Two physical devices verified for Google Sign-In, household sync, cross-user transaction edit/delete, category management, offline recovery, and app restart).
 
 ### Open Housekeeping Areas:

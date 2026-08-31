@@ -553,6 +553,17 @@ At checkpoint `baf2f70` the following have been addressed:
   - Category synchronization, OWNER/ADMIN management, and MEMBER restrictions PASS.
   - Inbound, outbound, and bidirectional sync PASS with no `PermissionDenied` errors during valid operations; local persistence, outbox queueing, network reconnection, pending mutation recovery, and foreground reconnection PASS.
   - App restart, FirebaseAuth session restoration, sync recovery after restart, and sign-out/sign-in PASS.
+- CSV Import & Automatic BNR EUR Conversion (Step 12.3 — `1bef33f`):
+  - Automatic RON → EUR conversion during CSV preview and import via `CsvImportOrchestrator`.
+  - Historical BNR rate resolution using transaction date via `TransactionRepository.getOfficialRate()` with distinct-date caching and reuse.
+  - Weekend and public holiday fallback to the preceding publishing day via existing BNR effective-date rules.
+  - Existing `ExchangeRateService.calculateAmountEUR` reused for calculation and rounding consistency.
+  - Conversion metadata populated (`exchangeRate`, `exchangeRateDate`, `exchangeRateSource = "BNR"`, `conversionStatus = ConversionStatus.AUTO_CONVERTED`).
+  - Safe offline/unavailable fallback: `conversionStatus = ConversionStatus.PENDING`, `amountEUR = 0.0`, `exchangeRate = 0.0`, `exchangeRateSource = "NONE"`.
+  - Preview dialog values and persisted Room/Outbox values are strictly identical.
+  - Full compatibility with `SKIP_EXISTING` and `UPDATE_EXISTING` duplicate modes.
+  - `CsvImporter` remains stateless; `CsvImportOrchestrator` handles orchestration and rate resolution.
+  - 355/355 Android unit tests PASS (16/16 focused orchestrator tests), 95/95 Firestore rules test cases preserved, assembleDebug PASS.
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -567,12 +578,16 @@ These statements mean the corresponding implementation work exists at the curren
 4. **Phase 4 — COMPLETED:** Incremental Architecture Cleanup (`37155bc`).
 5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission, Data Integrity & CI Baseline Synchronization (`4ed7894` / `14f5338` / `aed996f`).
 6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression on Physical Hardware.
-   - *12.2:* Physical Two-Device Smoke Test Execution (PASS on Device A & Device B)
-   - *12.2B:* Project Memory Update + Commit + Push
-7. **Phase 7 — NEXT:** Beta Release Polish & Housekeeping (Pending Roadmap Review).
+7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion (`1bef33f`).
+   - *12.3A:* CSV Automatic BNR EUR Conversion Architectural Audit
+   - *12.3B:* CSV Automatic BNR EUR Conversion Implementation & Tests
+   - *12.3C:* Regression & Commit Readiness Audit
+   - *12.3D:* Commit & Push (`1bef33f`)
+   - *12.3E:* Project Memory Update + Commit + Push
+8. **Phase 8 — NEXT:** Beta Release Polish & Housekeeping (Pending Roadmap Review).
 
 ## Verification Layer Policy:
-- **Automated Verification:** PASS (343/343 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
+- **Automated Verification:** PASS (355/355 Android unit/Robolectric tests, 95/95 Firestore rules test cases preserved, assembleDebug PASS).
 - **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed with 0 errors across Google Sign-In, household sync, cross-user transactions, offline recovery, and app restart).
 
 ## Reconciled Open Items:
@@ -813,18 +828,19 @@ Foundation
 → CI Baseline Cleanup (Step 12.1G — 14f5338)
 → GitHub Online APK & Firebase Configuration (Step 12.1I — aed996f)
 → Two-Device Beta Smoke Test Regression (Step 12.2)
+→ CSV Import & Automatic BNR EUR Conversion (Step 12.3 — 1bef33f)
 ```
 
 The current baseline is:
 
 ```text
-7a8b6bf
-docs: update project memory after step 12.1I
+1bef33f
+feat: automate BNR EUR conversion for CSV imports
 ```
 
-Previous functional baseline: `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
+Previous functional baseline: `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
 
-Step 12.2 (Two-Device Beta Smoke Test Regression) has been verified and completed on physical hardware. The next development task is Beta Release Polish & Housekeeping (Pending Roadmap Review).
+Step 12.3 (CSV Import & Automatic BNR EUR Conversion) has been verified and committed (1bef33f). The next development task is Beta Release Polish & Housekeeping (Pending Roadmap Review).
 
 ---
 
@@ -863,10 +879,11 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 |---|---|---|
 | Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; cross-user transaction edit/delete verified; 95/95 emulator rules test cases preserved |
 | Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, foreground reconnection recovery, exponential retry backoff, max retries threshold, FAILED outbox shielding, and SyncStatus alignment verified |
-| Full Android Regression Gate | **PASS** | 343/343 unit/Robolectric tests passing (0 failures, 0 skipped) |
+| Full Android Regression Gate | **PASS** | 355/355 unit/Robolectric tests passing (0 failures, 0 skipped; 16/16 focused CSV import orchestrator tests) |
 | Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
 | Online Firebase APK Gate | **PASS** | assembleDebug PASS; safe secret injection and JSON validation in CI; Google Services integration PASS |
 | Multi-Device Production Smoke | **PASS** | Physical Device A & Device B smoke regression verified with GitHub release APK, real Firebase auth, cross-user mutations, category sync, offline recovery, and app restarts (Step 12.2) |
+| CSV BNR Conversion Gate | **PASS** | Automatic RON → EUR conversion during CSV preview/import with historical BNR rate resolution, distinct-date caching, and safe PENDING fallback (Step 12.3 — 1bef33f) |
 
 **Overall Beta Status: READY FOR BETA RELEASE / BETA SMOKE TEST COMPLETE**
-*Details:* All core functional, security, automated testing, and physical multi-device smoke verification gates have passed. Ready for roadmap transition / release polish.
+*Details:* All core functional, security, automated testing, physical multi-device smoke, and CSV BNR conversion gates have passed. Ready for roadmap transition / release polish.
