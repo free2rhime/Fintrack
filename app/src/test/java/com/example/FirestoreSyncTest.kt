@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.db.FinTrackDatabase
+import com.example.data.model.CategoryEntity
 import com.example.data.model.SyncOutboxEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.HouseholdResolutionResult
@@ -36,6 +37,7 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
     var catListenerRemoveCount = 0
 
     var txCallback: ((List<Pair<String, Map<String, Any?>>>) -> Unit)? = null
+    var txCallbackWithChanges: ((List<Pair<String, Map<String, Any?>>>, List<String>) -> Unit)? = null
     var catCallback: ((List<Pair<String, Map<String, Any?>>>) -> Unit)? = null
     var txErrorCallback: ((Exception) -> Unit)? = null
     var catErrorCallback: ((Exception) -> Unit)? = null
@@ -53,9 +55,31 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
         lastTxHouseholdId = householdId
         txListenerActive = true
         txCallback = onSnapshot
+        txCallbackWithChanges = { docs, _ -> onSnapshot(docs) }
         txErrorCallback = onError
         if (autoEmitInitialSnapshot) {
             onSnapshot(emptyList())
+        }
+        return object : ListenerRegistrationHandle {
+            override fun remove() {
+                txListenerActive = false
+                txListenerRemoveCount++
+            }
+        }
+    }
+
+    override fun listenToTransactions(
+        householdId: String,
+        onSnapshotWithChanges: (docs: List<Pair<String, Map<String, Any?>>>, removedDocIds: List<String>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistrationHandle {
+        lastTxHouseholdId = householdId
+        txListenerActive = true
+        txCallback = { docs -> onSnapshotWithChanges(docs, emptyList()) }
+        txCallbackWithChanges = onSnapshotWithChanges
+        txErrorCallback = onError
+        if (autoEmitInitialSnapshot) {
+            onSnapshotWithChanges(emptyList(), emptyList())
         }
         return object : ListenerRegistrationHandle {
             override fun remove() {
@@ -202,8 +226,8 @@ class FakeSnapshotSource : FirestoreSnapshotSource {
         )
     }
 
-    fun emitTransactions(docs: List<Pair<String, Map<String, Any?>>>) {
-        txCallback?.invoke(docs)
+    fun emitTransactions(docs: List<Pair<String, Map<String, Any?>>>, removedDocIds: List<String> = emptyList()) {
+        txCallbackWithChanges?.invoke(docs, removedDocIds) ?: txCallback?.invoke(docs)
     }
 
     fun emitCategories(docs: List<Pair<String, Map<String, Any?>>>) {
@@ -781,5 +805,176 @@ class FirestoreSyncTest {
 
         // After outbound engine drains the queue -> Synced
         assertEquals(SyncStatus.Synced("hh_test_1"), syncRepository.syncStatusState.value)
+    }
+
+    @Test
+    fun test_inboundTransactionRemovedRemovesLocalRoomEntity() = testScope.runTest {
+        val tx = TransactionEntity(
+            id = "tx_rem_1",
+            userId = "user_123",
+            date = "2026-08-20",
+            description = "To be deleted remotely",
+            amountRON = 150.0,
+            amountEUR = 30.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "",
+            householdId = "hh_test_1"
+        )
+        db.transactionDao().insertTransaction(tx)
+        assertNotNull(db.transactionDao().getTransactionById("tx_rem_1"))
+
+        syncRepository.startSync("user_123", "hh_test_1")
+
+        // Remote device hard deletes tx_rem_1 -> document change REMOVED
+        fakeSnapshotSource.emitTransactions(docs = emptyList(), removedDocIds = listOf("tx_rem_1"))
+        syncRepository.processTransactionSnapshot(docs = emptyList(), removedDocIds = listOf("tx_rem_1"))
+
+        // Local Room entity must be deleted
+        assertNull(db.transactionDao().getTransactionById("tx_rem_1"))
+    }
+
+    @Test
+    fun test_inboundTransactionRemovedShieldedByActiveOutbox() = testScope.runTest {
+        val tx = TransactionEntity(
+            id = "tx_shield_1",
+            userId = "user_123",
+            date = "2026-08-20",
+            description = "Local edit shielded",
+            amountRON = 200.0,
+            amountEUR = 40.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "",
+            householdId = "hh_test_1"
+        )
+        db.transactionDao().insertTransaction(tx)
+        // Enqueue active outbox operation
+        db.syncOutboxDao().insertOutboxEntry(
+            SyncOutboxEntity(
+                id = "outbox_shield_1",
+                entityType = "TRANSACTION",
+                entityId = "tx_shield_1",
+                operation = "UPSERT",
+                status = "PENDING"
+            )
+        )
+
+        var conflictDetected = false
+        syncRepository.onConflictDetected = { conflict ->
+            if (conflict.entityId == "tx_shield_1") {
+                conflictDetected = true
+            }
+        }
+
+        syncRepository.startSync("user_123", "hh_test_1")
+
+        // Remote device hard-deletes transaction while local mutation is pending
+        fakeSnapshotSource.emitTransactions(docs = emptyList(), removedDocIds = listOf("tx_shield_1"))
+        syncRepository.processTransactionSnapshot(docs = emptyList(), removedDocIds = listOf("tx_shield_1"))
+
+        // Outbox shield must prevent deletion of local entity
+        assertNotNull(db.transactionDao().getTransactionById("tx_shield_1"))
+        assertTrue("Conflict event must be emitted for shielded outbox entity", conflictDetected)
+    }
+
+    @Test
+    fun test_inboundTransactionWithIsDeletedTombstoneRemovesLocalEntity() = testScope.runTest {
+        val tx = TransactionEntity(
+            id = "tx_tombstone_1",
+            userId = "user_123",
+            date = "2026-08-20",
+            description = "Tombstone legacy doc",
+            amountRON = 50.0,
+            amountEUR = 10.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "",
+            householdId = "hh_test_1"
+        )
+        db.transactionDao().insertTransaction(tx)
+        assertNotNull(db.transactionDao().getTransactionById("tx_tombstone_1"))
+
+        syncRepository.startSync("user_123", "hh_test_1")
+
+        val legacyDoc = mapOf(
+            "transactionId" to "tx_tombstone_1",
+            "householdId" to "hh_test_1",
+            "createdByUid" to "user_123",
+            "amountRon" to 50.0,
+            "amountEur" to 10.0,
+            "exchangeRate" to 5.0,
+            "exchangeRateDate" to "2026-08-20",
+            "transactionDate" to "2026-08-20",
+            "type" to "Expense",
+            "account" to "Card",
+            "category" to "Food",
+            "isDeleted" to true,
+            "updatedAt" to 1700000000000L
+        )
+
+        val tombstoneList = listOf(Pair("tx_tombstone_1", legacyDoc))
+        fakeSnapshotSource.emitTransactions(docs = tombstoneList)
+        syncRepository.processTransactionSnapshot(docs = tombstoneList)
+
+        assertNull(db.transactionDao().getTransactionById("tx_tombstone_1"))
+    }
+
+    @Test
+    fun test_categoryHardDeleteMirrorSyncPreservesHistoricalTransactions() = testScope.runTest {
+        val cat = CategoryEntity(
+            id = "cat_test_del",
+            name = "Entertainment",
+            type = "Expense",
+            subCategory = "Movies",
+            userId = "user_123",
+            householdId = "hh_test_1",
+            createdAt = 1700000000000L,
+            updatedAt = 1700000000000L,
+            isDeleted = false
+        )
+        db.categoryDao().insertCategory(cat)
+
+        val tx = TransactionEntity(
+            id = "tx_hist_1",
+            userId = "user_123",
+            date = "2026-08-20",
+            description = "Cinema Tickets",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-20",
+            type = "Expense",
+            account = "Card",
+            category = "Entertainment",
+            subCategory = "Movies",
+            householdId = "hh_test_1"
+        )
+        db.transactionDao().insertTransaction(tx)
+
+        syncRepository.startSync("user_123", "hh_test_1")
+
+        // Remote snapshot no longer includes cat_test_del (hard deleted)
+        fakeSnapshotSource.emitCategories(emptyList())
+        syncRepository.processCategorySnapshot(emptyList())
+
+        // Local category row deleted via mirror sync
+        assertNull(db.categoryDao().getCategoryById("cat_test_del"))
+
+        // Historical transaction must survive completely intact
+        val preservedTx = db.transactionDao().getTransactionById("tx_hist_1")
+        assertNotNull(preservedTx)
+        assertEquals("Entertainment", preservedTx!!.category)
+        assertEquals("Movies", preservedTx.subCategory)
+        assertEquals(100.0, preservedTx.amountRON, 0.001)
     }
 }

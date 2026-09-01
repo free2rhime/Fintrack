@@ -10,6 +10,7 @@ import com.example.data.model.TransactionDto
 import com.example.data.model.TransactionEntity
 import com.example.data.model.toEntity
 import com.google.firebase.firestore.AggregateSource
+import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
@@ -73,6 +74,18 @@ interface FirestoreSnapshotSource {
         onSnapshot: (List<Pair<String, Map<String, Any?>>>) -> Unit,
         onError: (Exception) -> Unit
     ): ListenerRegistrationHandle
+
+    fun listenToTransactions(
+        householdId: String,
+        onSnapshotWithChanges: (docs: List<Pair<String, Map<String, Any?>>>, removedDocIds: List<String>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistrationHandle {
+        return listenToTransactions(
+            householdId = householdId,
+            onSnapshot = { docs -> onSnapshotWithChanges(docs, emptyList()) },
+            onError = onError
+        )
+    }
 
     fun listenToCategories(
         householdId: String,
@@ -201,6 +214,18 @@ class DefaultFirestoreSnapshotSource(
         onSnapshot: (List<Pair<String, Map<String, Any?>>>) -> Unit,
         onError: (Exception) -> Unit
     ): ListenerRegistrationHandle {
+        return listenToTransactions(
+            householdId = householdId,
+            onSnapshotWithChanges = { docs, _ -> onSnapshot(docs) },
+            onError = onError
+        )
+    }
+
+    override fun listenToTransactions(
+        householdId: String,
+        onSnapshotWithChanges: (docs: List<Pair<String, Map<String, Any?>>>, removedDocIds: List<String>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistrationHandle {
         val firestore = firestoreSupplier()
             ?: return object : ListenerRegistrationHandle { override fun remove() {} }
 
@@ -216,7 +241,10 @@ class DefaultFirestoreSnapshotSource(
                     val docs = snapshot.documents.map { doc ->
                         Pair(doc.id, doc.data ?: emptyMap<String, Any?>())
                     }
-                    onSnapshot(docs)
+                    val removedDocIds = snapshot.documentChanges
+                        .filter { it.type == DocumentChange.Type.REMOVED }
+                        .map { it.document.id }
+                    onSnapshotWithChanges(docs, removedDocIds)
                 }
             }
 
@@ -474,13 +502,7 @@ class DefaultFirestoreSnapshotSource(
             .document(householdId)
             .collection("transactions")
             .document(transactionId)
-            .set(
-                mapOf(
-                    "isDeleted" to true,
-                    "updatedAt" to System.currentTimeMillis()
-                ),
-                SetOptions.merge()
-            )
+            .delete()
             .await()
     }
 
@@ -746,12 +768,12 @@ class FirestoreSyncRepository(
 
         txListenerHandle = snapshotSource.listenToTransactions(
             householdId = resolvedHouseholdId,
-            onSnapshot = { docs ->
+            onSnapshotWithChanges = { docs, removedDocIds ->
                 hasReceivedTxSnapshot = true
                 checkHandshakeAndUpdateState()
                 if (!isSuppressed) {
                     syncJobs += coroutineScope.launch {
-                        processTransactionSnapshot(docs)
+                        processTransactionSnapshot(docs, removedDocIds)
                     }
                 }
             },
@@ -827,7 +849,10 @@ class FirestoreSyncRepository(
         _syncStatusState.value = SyncStatus.SignedOut
     }
 
-    suspend fun processTransactionSnapshot(docs: List<Pair<String, Map<String, Any?>>>) {
+    suspend fun processTransactionSnapshot(
+        docs: List<Pair<String, Map<String, Any?>>>,
+        removedDocIds: List<String> = emptyList()
+    ) {
         if (isSuppressed) {
             return
         }
@@ -837,6 +862,31 @@ class FirestoreSyncRepository(
             val txDao = database.transactionDao()
             val toUpsert = mutableListOf<TransactionEntity>()
 
+            // 1. Process REMOVED document changes from Firestore
+            for (removedId in removedDocIds) {
+                if (activeOutboxIds.contains(removedId)) {
+                    // Shield active local mutation from remote snapshot removal overwrite
+                    val activeEntry = database.syncOutboxDao().getActiveEntry("TRANSACTION", removedId)
+                    val conflictEvent = SyncConflictEvent(
+                        entityType = "TRANSACTION",
+                        entityId = removedId,
+                        conflictType = SyncConflictType.UPDATE_VS_DELETE,
+                        localOperation = activeEntry?.operation ?: "UPSERT",
+                        remoteIsDeleted = true,
+                        details = "Remote REMOVED change differs from local pending mutation"
+                    )
+                    Log.w(
+                        TAG,
+                        "Sync conflict detected [${conflictEvent.conflictType}] for TRANSACTION '$removedId'. " +
+                        "Resolution: LOCAL_OUTBOX_PRECEDENCE (local active mutation preserved)."
+                    )
+                    onConflictDetected?.invoke(conflictEvent)
+                    continue
+                }
+                txDao.deleteTransactionById(removedId)
+            }
+
+            // 2. Process ADDED / MODIFIED / EXISTING documents
             for ((docId, map) in docs) {
                 if (activeOutboxIds.contains(docId)) {
                     // Shield active local mutation from remote snapshot overwrite
