@@ -219,7 +219,7 @@ class RoomCategoryRepository(
                 // Expense Categories & Subcategories with Emojis
                 createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "🛒 Groceries"),
                 createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "🍔 Restaurants & Cafes"),
-                createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "💳 Meal Tickets"),
+                createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "💳 Tichete de masa"),
                 createCat(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "🔑 Rent / Mortgage"),
                 createCat(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "⚡ Utilities & Internet"),
                 createCat(name = "🚗 Transportation", type = "Expense", subCategory = "⛽ Fuel"),
