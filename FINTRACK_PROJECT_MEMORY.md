@@ -2,8 +2,8 @@
 
 > Canonical compact operational memory for the FinTrack project.
 > Last reconciled: 2026-09-01
-> Current verified Git checkpoint: Step 12.3V Project Memory Update — Hard Delete Checkpoint (Steps 12.3S–12.3U Complete)
-> Previous functional baseline: Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Current verified Git checkpoint: Step 12.3Y Real CSV Import / Transaction Visibility Verification Checkpoint (Steps 12.3S–12.3Y Complete)
+> Previous functional baseline: Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ---
 
@@ -57,11 +57,11 @@ Remote:       https://github.com/free2rhime/Fintrack.git
 
 Current implementation baseline:
 
-Step 12.3V (`docs: update project memory for hard delete checkpoint`)
+Step 12.3Y (`test: verify real-device 33-row CSV import and historical transaction period filter visibility`)
 
 Previous functional baseline:
 
-Step 12.3M (`fix: deduplicate CSV categories and subcategories`) / Step 12.3L / `1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+Step 12.3X (`feat: implement "Tichete de masa" UI display label for Account while preserving internal "Meal Tickets" value`) / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M (`fix: deduplicate CSV categories and subcategories`) / Step 12.3L / `1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ### Relationship to Previous Baseline:
 
@@ -133,6 +133,16 @@ fix: deduplicate CSV categories and subcategories
 
 Step 12.3S / Step 12.3T / Step 12.3U / Step 12.3V
 feat: permanent Firestore hard deletion for transactions and categories + inbound REMOVED sync
+
+        ↓
+
+Step 12.3W / Step 12.3X
+feat: implement "Tichete de masa" UI display label for Account while preserving internal "Meal Tickets" value
+
+        ↓
+
+Step 12.3Y
+test: verify real-device 33-row CSV import and historical transaction period filter visibility
 ```
 
 ---
@@ -598,8 +608,8 @@ At checkpoint `baf2f70` the following have been addressed:
   - 76/76 Android unit/Robolectric test suites PASS (12/12 focused deduplication tests, 18/18 orchestrator tests, 4/4 importer tests, 33-transaction real-world regression PASS).
 
 - Transaction & Category Firestore Hard Deletion (Step 12.3S / Step 12.3T / Step 12.3U / Step 12.3V — COMPLETE):
-  - **Transaction Hard Delete:** Changed outbound deletion from Firestore soft-delete (`isDeleted = true`) to permanent hard deletion via `document.delete().await()` in `DefaultFirestoreSnapshotSource.deleteTransaction()`.
-  - **Category Hard Delete:** Preserved direct permanent removal via `DefaultFirestoreSnapshotSource.deleteCategory()` (`document.delete().await()`).
+  - **Transaction Hard Delete:** Changed outbound deletion from Firestore soft-delete (`isDeleted = true`) to permanent hard deletion via `document.delete().await()` in `DefaultFirestoreSnapshotSource.deleteTransaction()` at `/households/{householdId}/transactions/{transactionId}`.
+  - **Category Hard Delete:** Preserved direct permanent removal via `DefaultFirestoreSnapshotSource.deleteCategory()` (`document.delete().await()`) at `/households/{householdId}/categories/{categoryId}`.
   - **Inbound REMOVED Change Processing:** `FirestoreSnapshotSource.listenToTransactions()` and `DefaultFirestoreSnapshotSource.listenToTransactions()` track `DocumentChange.Type.REMOVED`. `FirestoreSyncRepository.processTransactionSnapshot()` permanently deletes corresponding local Room entities.
   - **Outbox Shielding on Remote Deletion:** `processTransactionSnapshot()` inspects `activeOutboxIds` prior to local entity deletion; if an active local mutation is pending in the outbox, the local Room entity is protected from deletion, a conflict event (`UPDATE_VS_DELETE`) is recorded, and `onConflictDetected` is invoked.
   - **Category Mirror Reconciliation & Data Safety:** Category mirror sync via `processCategorySnapshot()` and `deleteCategoriesNotIn()` deletes removed categories locally without foreign-key cascade; existing transaction category and subcategory string attributes remain intact.
@@ -608,6 +618,33 @@ At checkpoint `baf2f70` the following have been addressed:
   - **Regression Verification (Step 12.3T):** Comprehensive audit verified 0 regressions across CSV import, BNR EUR conversion, security rules, and sync lifecycle. 380/380 full Android JVM/Robolectric tests PASS, 100/100 Firestore tests PASS.
   - **Physical Device Verification (Step 12.3U):** Verified hard-delete behavior on physical hardware. Verified transactions and categories are permanently deleted from Firestore without leaving soft-delete tombstones; verified local Room rows are removed and SyncStatus remains `SYNCED`.
   - **Historical Firestore Data:** Existing historical documents with `isDeleted == true` created prior to Step 12.3S were not deleted and remain untouched in Firestore, requiring separate administrative cleanup.
+
+- Account / Payment Method UI Label Localization (Step 12.3W / Step 12.3X — COMPLETE):
+  - **Internal Account Value vs UI Display Label:** Maintained strict architectural decoupling between internal domain enum/string value `"Meal Tickets"` and localized Romanian UI display label `"Tichete de masa"`.
+  - **Data Model Compatibility:** Internal value `"Meal Tickets"` remains unchanged across Room, `TransactionEntity`, `TransactionDao`, Firestore DTOs, Firestore security rules, and CSV import format.
+  - **UI Localization:** UI components (selection dropdowns, filter chips, transaction cards, creation forms) display `"Tichete de masa"` for the Meal Tickets payment method. Card remains `"Card"`, Cash remains `"Cash"`.
+  - **No Database / Firestore Migration:** No database migration or Firestore schema modification was performed; the change is strictly an architectural UI layer mapping.
+  - **Category vs Account Distinction:** Preserved the distinct category rename (`💳 Meal Tickets` → `💳 Tichete de masa`), clarifying that category identity is separate from the Account internal value.
+  - **Test Baseline:** 8/8 targeted UI label tests PASS, full Android JVM/Robolectric test suite PASS.
+
+- Real CSV Import & Historical Transaction Visibility Resolution (Step 12.3Y — COMPLETE):
+  - **Real-Device 33-Row CSV Import:** Verified successful import of a 33-row historical CSV dataset on physical hardware:
+    - 33 transactions parsed, BNR exchange rates calculated/assigned, and persisted atomically to Room.
+    - Outbox synchronized 33 documents to Firestore successfully (SyncStatus = `Synced`).
+    - Zero duplicate categories or subcategories created; existing category hierarchy accurately reused.
+    - Account value `"Meal Tickets"` in CSV accepted cleanly and rendered as `"Tichete de masa"` in UI.
+  - **12.3Y Visibility Finding & Period Filter Diagnosis:**
+    - The 33 imported historical transactions initially appeared missing from the Transactions screen tab.
+    - Comprehensive forensic analysis confirmed Room persistence, Firestore synchronization, authenticated UID context, and Category/SubCategory UUID links were 100% healthy and intact (`isDeleted = false`, valid `householdId`).
+    - Root cause was the user-facing period filter defaulting to `"Last Month"`, which excluded historical records outside the date window.
+    - Switching the period filter to an appropriate historical/all-time range immediately made all 33 imported transactions visible.
+    - No defects existed in `FinancialAnalyticsEngine` or CSV import pipeline; no unnecessary production or CSV engine modifications introduced.
+  - **CSV Data Integrity Baseline:**
+    - 33 historical transactions: SUCCESSFULLY IMPORTED & PERSISTED.
+    - Category / SubCategory deduplication: CONFIRMED (0 duplicates created).
+    - Manual category/subcategory UUIDs in CSV: NOT REQUIRED (identity accurately resolved via household-scoped lookup).
+    - BNR RON → EUR conversion: PASS (historical rates, weekend/holiday fallback, distinct-date caching, PENDING fallback).
+    - PermissionDenied: RESOLVED (authenticated UID & active household propagated).
 
 These statements mean the corresponding implementation work exists at the current checkpoint. They do **not** imply that every possible runtime edge case has been exhaustively verified.
 
@@ -622,7 +659,7 @@ These statements mean the corresponding implementation work exists at the curren
 4. **Phase 4 — COMPLETED:** Incremental Architecture Cleanup (`37155bc`).
 5. **Phase 5 (Step 12.1) — COMPLETED:** Cross-User Transaction Permission, Data Integrity & CI Baseline Synchronization (`4ed7894` / `14f5338` / `aed996f`).
 6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression on Physical Hardware.
-7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication + Hard Delete Migration (`1bef33f` / Step 12.3G / Step 12.3L / Step 12.3S / Step 12.3U).
+7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication + Hard Delete Migration + Account UI Localization + Real CSV Verification (`1bef33f` / Step 12.3G / Step 12.3L / Step 12.3S / Step 12.3U / Step 12.3X / Step 12.3Y).
    - *12.3A:* CSV Automatic BNR EUR Conversion Architectural Audit
    - *12.3B:* CSV Automatic BNR EUR Conversion Implementation & Tests
    - *12.3C:* Regression & Commit Readiness Audit
@@ -642,15 +679,19 @@ These statements mean the corresponding implementation work exists at the curren
    - *12.3T:* Hard-Delete Regression & Commit Readiness Audit (COMPLETE — 380/380 tests PASS)
    - *12.3U:* Hard-Delete Real-Device Verification (PASS — Real hardware verification on Device A & Firestore)
    - *12.3V:* Project Memory Update — Hard Delete Checkpoint (COMPLETE)
-   - *Physical Device Verification:* 33/33 transactions imported, BNR EUR rates converted, Room UI visible, export visible, outbox synced; physical hard deletion for transactions and categories verified with permanent Firestore document removal and clean Synced status.
+   - *12.3W:* Account "Meal Tickets" UI Label Audit (COMPLETE — Distinction between internal "Meal Tickets" value and "Tichete de masa" UI display label established)
+   - *12.3X:* Account UI Label Implementation (COMPLETE — "Tichete de masa" UI display label implemented; internal value preserved; 8/8 targeted UI label tests PASS)
+   - *12.3Y:* Real CSV Import & Historical Transaction Visibility Verification (COMPLETE — 33-row historical CSV imported successfully on real physical hardware; 33 Firestore documents present; SyncStatus = Synced; 0 category/subcategory duplicates; historical transaction visibility confirmed as user-side period filter configuration)
+   - *12.3Z:* Project Memory Commit & Push (Next Step)
+   - *Physical Device Verification:* 33/33 transactions imported, BNR EUR rates converted, Room UI visible, export visible, outbox synced; physical hard deletion for transactions and categories verified with permanent Firestore document removal and clean Synced status; period filter visibility confirmed.
 8. **Phase 8 — Beta Release Polish & Housekeeping:**
    - *Next Roadmap Item:* Prepare Beta Release Polish & Housekeeping.
    - *Open Administrative Cleanup Task:* Administrative cleanup script for legacy Firestore documents with `isDeleted == true` created prior to Step 12.3S (separate execution).
    - *Open Data-Integrity Item (Separate Task):* Audit and cleanup of historical duplicate Category/SubCategory records that already exist in the database from earlier imports prior to Step 12.3L (duplicate creation is prevented going forward, but existing duplicates remain preserved until an explicit cleanup task is conducted).
 
 ## Verification Layer Policy:
-- **Automated Verification:** PASS (380/380 full Android JVM/Robolectric test cases passing, 100/100 Firestore test cases preserved, assembleDebug PASS).
-- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import completed; physical real-device transaction & category hard deletion verified with permanent Firestore document removal and clean Synced status).
+- **Automated Verification:** PASS (380/380 full Android JVM/Robolectric test cases passing, 100/100 Firestore test cases preserved, 8/8 targeted Account UI label tests PASS, assembleDebug PASS).
+- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import completed with 33 synced documents; physical real-device transaction & category hard deletion verified with permanent Firestore document removal and clean Synced status; period filter visibility confirmed).
 
 ## Reconciled Open Items:
 
@@ -894,15 +935,17 @@ Foundation
 → CSV Import Context Propagation & PermissionDenied Fix (Step 12.3G)
 → CSV Category & SubCategory Deduplication (Step 12.3L / Step 12.3M)
 → Transaction & Category Firestore Hard Deletion + Inbound REMOVED Sync (Step 12.3S / Step 12.3T / Step 12.3U / Step 12.3V)
+→ Account UI Label Localization (Step 12.3W / Step 12.3X)
+→ Real CSV 33-Row Import & Historical Transaction Period Filter Visibility (Step 12.3Y)
 ```
 
 The current baseline is:
 
-Step 12.3V (`docs: update project memory for hard delete checkpoint`)
+Step 12.3Y (`test: verify real-device 33-row CSV import and historical transaction period filter visibility`)
 
-Previous functional baseline: Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
+Previous functional baseline: Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
 
-Step 12.3 (CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication + Hard Deletion Migration) has been verified and committed. The next development task is Phase 8 — Beta Release Polish & Housekeeping, alongside separate tasks for legacy Firestore tombstone cleanup and historical duplicate category/subcategory record cleanup.
+Step 12.3 (CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication + Hard Deletion Migration + Account UI Label Localization + Real CSV Verification) has been verified. The next development task is Step 12.3Z (Project Memory Commit & Push), followed by Phase 8 — Beta Release Polish & Housekeeping, alongside separate tasks for legacy Firestore tombstone cleanup and historical duplicate category/subcategory record cleanup.
 
 ---
 
@@ -941,13 +984,15 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 |---|---|---|
 | Security Gate | **PASS** | Firestore security rules hardened; P0-1, P0-2, P1 resolved; cross-user transaction edit/delete verified; 100/100 emulator rules test cases preserved |
 | Inbound/Outbound Sync Gate | **PASS** | Handshake, outbox draining, foreground reconnection recovery, exponential retry backoff, max retries threshold, FAILED outbox shielding, and SyncStatus alignment verified |
-| Full Android Regression Gate | **PASS** | 380/380 full Android JVM/Robolectric test cases passing (0 failures, 0 skipped; 31/31 focused hard-delete/sync tests) |
+| Full Android Regression Gate | **PASS** | 380/380 full Android JVM/Robolectric test cases passing (0 failures, 0 skipped; 31/31 focused hard-delete/sync tests; 8/8 targeted Account UI label tests) |
 | Migration Verification Gate | **PASS** | Migration state, schema assets, and preview dialog safety verified |
 | Online Firebase APK Gate | **PASS** | assembleDebug PASS; safe secret injection and JSON validation in CI; Google Services integration PASS |
 | Multi-Device Production Smoke | **PASS** | Physical Device A & Device B smoke regression verified with GitHub release APK, real Firebase auth, cross-user mutations, category sync, offline recovery, and app restarts (Step 12.2) |
 | CSV BNR & Sync Gate | **PASS** | Automatic RON → EUR conversion during CSV preview/import with historical BNR rate resolution, distinct-date caching, authenticated context propagation, and real-device physical verification (Step 12.3 — 1bef33f / Step 12.3G) |
 | CSV Category Deduplication Gate | **PASS** | Household-scoped category lookup & reuse, stable UUID preservation, duplicate entity prevention during import, and 12/12 dedicated tests passing (Step 12.3L / Step 12.3M) |
 | Hard Delete Inbound/Outbound Gate | **PASS** | Permanent Firestore document deletion (`document.delete().await()`), inbound `REMOVED` change handling with outbox mutation shielding, legacy tombstone backward compatibility, and physical real-device verification PASS (Step 12.3S / 12.3T / 12.3U) |
+| Account UI Label Localization Gate | **PASS** | Clean separation of internal `"Meal Tickets"` data contract and `"Tichete de masa"` UI display label; 8/8 targeted tests PASS (Step 12.3W / 12.3X) |
+| Real CSV 33-Row Import & Visibility Gate | **PASS** | 33-row historical CSV imported on physical device; 33 Firestore documents present; SyncStatus = Synced; 0 category duplicates; historical transaction visibility confirmed as user period filter configuration (Step 12.3Y) |
 
 **Overall Beta Status: READY FOR BETA RELEASE / BETA SMOKE TEST COMPLETE**
-*Details:* All core functional, security, automated testing (380/380 tests), physical multi-device smoke, CSV BNR conversion + sync context propagation, category deduplication, and hard deletion inbound/outbound sync gates have passed. Duplicate creation during import is resolved. Permanent Firestore document removal for transactions and categories is verified on physical hardware. Legacy soft-deleted documents remain preserved in Firestore for separate administrative cleanup. Ready for roadmap transition / release polish.
+*Details:* All core functional, security, automated testing (380/380 tests), physical multi-device smoke, CSV BNR conversion + sync context propagation, category deduplication, hard deletion inbound/outbound sync, Account UI label localization, and real-device 33-row CSV import gates have passed. Duplicate creation during import is resolved. Permanent Firestore document removal for transactions and categories is verified on physical hardware. Historical transaction visibility confirmed. Legacy soft-deleted documents remain preserved in Firestore for separate administrative cleanup. Ready for roadmap transition / release polish.

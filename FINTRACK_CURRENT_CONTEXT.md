@@ -2,8 +2,8 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-09-01
-> Git baseline: Step 12.3V Project Memory Update — Hard Delete Checkpoint (Steps 12.3S–12.3U Complete)
-> Previous baseline: Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Git baseline: Step 12.3Y Real CSV Import / Transaction Visibility Verification Checkpoint (Steps 12.3S–12.3Y Complete)
+> Previous baseline: Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -28,11 +28,11 @@ At the time this context was verified, the repository working tree was synchroni
 
 Current implementation baseline:
 
-Step 12.3V (`docs: update project memory for hard delete checkpoint`)
+Step 12.3Y (`test: verify real-device 33-row CSV import and historical transaction period filter visibility`)
 
 Previous functional baseline:
 
-Step 12.3M (`fix: deduplicate CSV categories and subcategories`) / Step 12.3L / `1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+Step 12.3X (`feat: implement "Tichete de masa" UI display label for Account while preserving internal "Meal Tickets" value`) / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M (`fix: deduplicate CSV categories and subcategories`) / Step 12.3L / `1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -176,14 +176,41 @@ Environments:
 
 ### Transaction & Category Firestore Hard Deletion (Step 12.3S / 12.3T / 12.3U — COMPLETE)
 - **Transaction Outbound Hard Delete:** `DefaultFirestoreSnapshotSource.deleteTransaction()` permanently removes the document from Firestore via `document.delete().await()` at `/households/{householdId}/transactions/{transactionId}`, replacing the legacy soft-delete (`isDeleted = true`).
-- **Category Outbound Hard Delete:** Preserved direct permanent removal via `DefaultFirestoreSnapshotSource.deleteCategory()` (`document.delete().await()`).
+- **Category Outbound Hard Delete:** Preserved direct permanent removal via `DefaultFirestoreSnapshotSource.deleteCategory()` (`document.delete().await()`) at `/households/{householdId}/categories/{categoryId}`.
 - **Inbound REMOVED Change Processing:** `FirestoreSnapshotSource.listenToTransactions()` and `DefaultFirestoreSnapshotSource.listenToTransactions()` track `DocumentChange.Type.REMOVED`. `FirestoreSyncRepository.processTransactionSnapshot()` deletes local Room entities when remote transactions are deleted.
 - **Outbox Shielding for Removals:** `processTransactionSnapshot()` checks `activeOutboxIds` before deleting local entities; if a local mutation is pending, it shields the local Room record, logs a conflict event (`UPDATE_VS_DELETE`), and invokes `onConflictDetected`.
-- **Category Mirror Reconciliation & Data Safety:** Category mirror sync via `processCategorySnapshot()` and `deleteCategoriesNotIn()` physically deletes removed categories locally without cascading to historical transactions; existing transaction category and subcategory string attributes remain intact.
+- **Category Mirror Reconciliation & Data Safety:** Category mirror sync via `processCategorySnapshot()` and `deleteCategoriesNotIn()` physically deletes removed categories locally without cascading to historical transactions; existing transaction category and subcategory string attributes remain intact (no foreign-key cascade).
 - **Backward Compatibility for Legacy Tombstones:** Inbound documents with `isDeleted == true` continue to be parsed safely and remove local Room entities.
 - **Real-Device Physical Verification (Step 12.3U):** Real-device verification on physical hardware confirmed transaction hard deletion, category hard deletion, and clean `SyncStatus.Synced` state without creating soft-delete tombstones in Firestore.
-- **Historical Firestore Data:** Existing historical documents with `isDeleted == true` created prior to Step 12.3S were not deleted and remain untouched, requiring separate administrative cleanup.
+- **Historical Firestore Data:** Existing historical documents with `isDeleted == true` created prior to Step 12.3S were not deleted and remain untouched in Firestore, requiring separate administrative cleanup.
 - **Test Baseline:** 380/380 full Android JVM/Robolectric test cases PASS (31/31 focused hard-delete/sync tests, 100/100 Firestore tests), 0 failures, 0 errors.
+
+### Account / Payment Method UI Label Localization (Step 12.3W / 12.3X — COMPLETE)
+- **Internal Account Value vs UI Display Label:** Established strict separation between internal domain value `"Meal Tickets"` and Romanian localized UI display label `"Tichete de masa"`.
+- **Internal Data Contract Intact:** The internal Account value MUST remain `"Meal Tickets"` for compatibility with Room, `TransactionEntity`, `TransactionDao`, Firestore DTOs, Firestore security rules, and CSV import format.
+- **UI Localization:** UI components (dropdowns, chips, transaction cards, forms) display `"Tichete de masa"` for the Meal Tickets account. Card remains `"Card"`, Cash remains `"Cash"`.
+- **No Database / Firestore Migration:** No database migration or Firestore schema modification was performed; the change is strictly an architectural UI layer mapping.
+- **Category vs Account Distinction:** Preserved the distinct category rename (`💳 Meal Tickets` → `💳 Tichete de masa`), clarifying that category identity is separate from the Account internal enum/string value.
+- **Test Baseline:** 8/8 targeted UI label tests PASS, full Android JVM/Robolectric test suite PASS.
+
+### Real CSV Import & Historical Transaction Visibility Resolution (Step 12.3Y — COMPLETE)
+- **Real-Device 33-Row CSV Import:** Verified successful import of a 33-row historical CSV dataset on physical hardware:
+  - 33 transactions parsed, BNR exchange rates calculated/assigned, and persisted atomically to Room.
+  - Outbox synchronized 33 documents to Firestore successfully (SyncStatus = `Synced`).
+  - Zero duplicate categories or subcategories created; existing category hierarchy accurately reused.
+  - Account value `"Meal Tickets"` in CSV accepted cleanly and rendered as `"Tichete de masa"` in UI.
+- **12.3Y Visibility Finding & Period Filter Diagnosis:**
+  - The 33 imported historical transactions initially appeared missing from the Transactions screen tab.
+  - Comprehensive forensic analysis confirmed Room persistence, Firestore synchronization, authenticated UID context, and Category/SubCategory UUID links were 100% healthy and intact (`isDeleted = false`, valid `householdId`).
+  - Root cause was the user-facing period filter defaulting to `"Last Month"`, which excluded historical records outside the date window.
+  - Switching the period filter to an appropriate historical/all-time range immediately made all 33 imported transactions visible.
+  - No defects existed in `FinancialAnalyticsEngine` or CSV import pipeline; no unnecessary production or CSV engine modifications introduced.
+- **CSV Data Integrity Baseline:**
+  - 33 historical transactions: SUCCESSFULLY IMPORTED & PERSISTED.
+  - Category / SubCategory deduplication: CONFIRMED (0 duplicates created).
+  - Manual category/subcategory UUIDs in CSV: NOT REQUIRED (identity accurately resolved via household-scoped lookup).
+  - BNR RON → EUR conversion: PASS (historical rates, weekend/holiday fallback, distinct-date caching, PENDING fallback).
+  - PermissionDenied: RESOLVED (authenticated UID & active household propagated).
 
 ### Categories
 - Categories are household-scoped.
@@ -251,7 +278,7 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
 6. **Phase 6 (Step 12.2) — COMPLETED:** Two-Device Beta Smoke Test Regression (Physical Device A & Device B).
    - *12.2:* Two-Device Beta Smoke Test Regression Execution (PASS on Device A & Device B)
    - *12.2B:* Project Memory Update + Commit + Push
-7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication + Hard Delete Migration (`1bef33f` / Step 12.3G / Step 12.3L / Step 12.3S / Step 12.3U).
+7. **Phase 7 (Step 12.3) — COMPLETED:** CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication + Hard Delete Migration + Account UI Localization + Real CSV Verification (`1bef33f` / Step 12.3G / Step 12.3L / Step 12.3S / Step 12.3U / Step 12.3X / Step 12.3Y).
    - *12.3A:* CSV Automatic BNR EUR Conversion Architectural Audit
    - *12.3B:* CSV Automatic BNR EUR Conversion Implementation & Tests
    - *12.3C:* Regression & Commit Readiness Audit
@@ -271,14 +298,18 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
    - *12.3T:* Hard-Delete Regression & Commit Readiness Audit (COMPLETE — 380/380 tests PASS)
    - *12.3U:* Hard-Delete Real-Device Verification (PASS — Real hardware verification on Device A & Firestore)
    - *12.3V:* Project Memory Update — Hard Delete Checkpoint (COMPLETE)
+   - *12.3W:* Account "Meal Tickets" UI Label Audit (COMPLETE — Distinction between internal "Meal Tickets" value and "Tichete de masa" UI display label established)
+   - *12.3X:* Account UI Label Implementation (COMPLETE — "Tichete de masa" UI display label implemented; internal value preserved; 8/8 targeted UI label tests PASS)
+   - *12.3Y:* Real CSV Import & Historical Transaction Visibility Verification (COMPLETE — 33-row historical CSV imported successfully on real physical hardware; 33 Firestore documents present; SyncStatus = Synced; 0 category/subcategory duplicates; historical transaction visibility confirmed as user-side period filter configuration)
+   - *12.3Z:* Project Memory Commit & Push (Next Step)
 8. **Phase 8 — Beta Release Polish & Housekeeping:**
    - *Next Roadmap Item:* Prepare Beta Release Polish & Housekeeping.
    - *Open Administrative Cleanup Task:* Administrative cleanup script for legacy Firestore documents with `isDeleted == true` created prior to Step 12.3S (separate execution).
    - *Open Data-Integrity Item (Separate Task):* Audit and cleanup of historical duplicate Category/SubCategory records that already exist in the database from earlier imports prior to Step 12.3L.
 
 ### Verification Layer Status:
-- **Automated Verification:** PASS (380/380 full Android JVM/Robolectric test cases passing, 100/100 Firestore test cases preserved, assembleDebug PASS).
-- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import completed; physical real-device transaction & category hard deletion verified with permanent Firestore document removal and clean Synced status).
+- **Automated Verification:** PASS (380/380 full Android JVM/Robolectric test cases passing, 100/100 Firestore test cases preserved, 8/8 targeted Account UI label tests PASS, assembleDebug PASS).
+- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import completed with 33 synced documents; physical real-device transaction & category hard deletion verified with permanent Firestore document removal and clean Synced status; period filter visibility confirmed).
 
 ### Open Housekeeping Areas:
 1. Periodic cleanup of old `SUCCESS` outbox records (P2 housekeeping).

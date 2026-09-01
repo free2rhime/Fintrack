@@ -230,11 +230,11 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: Step 12.3V Project Memory Update — Hard Delete Checkpoint (Steps 12.3S–12.3U Complete)
-Android test baseline: 380/380 PASS (Full Android JVM/Robolectric test cases passing, 0 failed, 0 errors, 0 skipped; 31/31 focused hard-delete/sync tests PASS)
+Git baseline: Step 12.3Y Real CSV Import / Transaction Visibility Verification Checkpoint (Steps 12.3S–12.3Y Complete)
+Android test baseline: 380/380 PASS (Full Android JVM/Robolectric test cases passing, 0 failed, 0 errors, 0 skipped; 31/31 focused hard-delete/sync tests PASS; 8/8 targeted Account UI label tests PASS)
 Firestore rules test baseline: 100/100 test cases preserved in tests/firestore.rules.test.ts and Firestore test suites
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
-Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS (Transaction & Category permanent deletion verified on physical device and Firestore, SyncStatus = Synced, no tombstones created)
+Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS (Transaction & Category permanent deletion verified on physical device and Firestore, SyncStatus = Synced, no tombstones created); Step 12.3Y Real 33-Row CSV Import & Period Filter Visibility Resolution PASS
 Branch: main
 Remote branch: origin/main
 Working tree: clean / synchronized
@@ -242,13 +242,40 @@ Working tree: clean / synchronized
 
 ### Transaction & Category Firestore Hard Deletion (Step 12.3S / 12.3T / 12.3U — COMPLETE)
 - **Transaction Outbound Hard Delete:** `DefaultFirestoreSnapshotSource.deleteTransaction()` permanently removes the document from Firestore via `document.delete().await()` at `/households/{householdId}/transactions/{transactionId}`, replacing the legacy soft-delete (`isDeleted = true`).
-- **Category Outbound Hard Delete:** Preserved direct permanent removal via `DefaultFirestoreSnapshotSource.deleteCategory()` (`document.delete().await()`).
+- **Category Outbound Hard Delete:** Preserved direct permanent removal via `DefaultFirestoreSnapshotSource.deleteCategory()` (`document.delete().await()`) at `/households/{householdId}/categories/{categoryId}`.
 - **Inbound REMOVED Change Processing:** `FirestoreSnapshotSource.listenToTransactions()` and `DefaultFirestoreSnapshotSource.listenToTransactions()` track `DocumentChange.Type.REMOVED`. `FirestoreSyncRepository.processTransactionSnapshot()` deletes local Room entities when remote transactions are deleted.
 - **Outbox Shielding for Removals:** `processTransactionSnapshot()` checks `activeOutboxIds` before deleting local entities; if a local mutation is pending, it shields the local Room record, logs a conflict event (`UPDATE_VS_DELETE`), and invokes `onConflictDetected`.
-- **Category Mirror Reconciliation & Data Safety:** Category mirror sync via `processCategorySnapshot()` and `deleteCategoriesNotIn()` physically deletes removed categories locally without cascading to historical transactions; existing transaction category and subcategory string attributes remain intact.
+- **Category Mirror Reconciliation & Data Safety:** Category mirror sync via `processCategorySnapshot()` and `deleteCategoriesNotIn()` physically deletes removed categories locally without cascading to historical transactions; existing transaction category and subcategory string attributes remain intact (no foreign-key cascade).
 - **Backward Compatibility for Legacy Tombstones:** Inbound documents with `isDeleted == true` continue to be parsed safely and remove local Room entities.
 - **Real-Device Physical Verification (Step 12.3U):** Real-device verification on physical hardware confirmed transaction hard deletion, category hard deletion, and clean `SyncStatus.Synced` state without creating soft-delete tombstones in Firestore.
-- **Historical Firestore Data:** Existing historical documents with `isDeleted == true` created prior to Step 12.3S were not deleted and remain untouched, requiring separate administrative cleanup.
+- **Historical Firestore Data:** Existing historical documents with `isDeleted == true` created prior to Step 12.3S were not deleted and remain untouched in Firestore, requiring separate administrative cleanup.
+
+### Account / Payment Method UI Label Localization (Step 12.3W / 12.3X — COMPLETE)
+- **Internal Account Value vs UI Display Label:** Maintained strict decoupling between internal domain enum/string value `"Meal Tickets"` and localized Romanian UI display label `"Tichete de masa"`.
+- **Data Model Compatibility:** Internal value `"Meal Tickets"` remains unchanged across Room, `TransactionEntity`, `TransactionDao`, Firestore DTOs, Firestore security rules, and CSV import format.
+- **UI Localization:** UI components (selection dropdowns, filter chips, transaction cards, creation forms) display `"Tichete de masa"` for the Meal Tickets payment method. Card remains `"Card"`, Cash remains `"Cash"`.
+- **No Database / Firestore Migration:** No database migration or Firestore schema modification was performed; the change is strictly an architectural UI layer mapping.
+- **Category vs Account Distinction:** Preserved the distinct category rename (`💳 Meal Tickets` → `💳 Tichete de masa`), clarifying that category identity is separate from the Account internal value.
+- **Test Baseline:** 8/8 targeted UI label tests PASS, full Android JVM/Robolectric test suite PASS.
+
+### Real CSV Import & Historical Transaction Visibility Resolution (Step 12.3Y — COMPLETE)
+- **Real-Device 33-Row CSV Import:** Verified successful import of a 33-row historical CSV dataset on physical hardware:
+  - 33 transactions parsed, BNR exchange rates calculated/assigned, and persisted atomically to Room.
+  - Outbox synchronized 33 documents to Firestore successfully (SyncStatus = `Synced`).
+  - Zero duplicate categories or subcategories created; existing category hierarchy accurately reused.
+  - Account value `"Meal Tickets"` in CSV accepted cleanly and rendered as `"Tichete de masa"` in UI.
+- **12.3Y Visibility Finding & Period Filter Diagnosis:**
+  - The 33 imported historical transactions initially appeared missing from the Transactions screen tab.
+  - Comprehensive forensic analysis confirmed Room persistence, Firestore synchronization, authenticated UID context, and Category/SubCategory UUID links were 100% healthy and intact (`isDeleted = false`, valid `householdId`).
+  - Root cause was the user-facing period filter defaulting to `"Last Month"`, which excluded historical records outside the date window.
+  - Switching the period filter to an appropriate historical/all-time range immediately made all 33 imported transactions visible.
+  - No defects existed in `FinancialAnalyticsEngine` or CSV import pipeline; no unnecessary production or CSV engine modifications introduced.
+- **CSV Data Integrity Baseline:**
+  - 33 historical transactions: SUCCESSFULLY IMPORTED & PERSISTED.
+  - Category / SubCategory deduplication: CONFIRMED (0 duplicates created).
+  - Manual category/subcategory UUIDs in CSV: NOT REQUIRED (identity accurately resolved via household-scoped lookup).
+  - BNR RON → EUR conversion: PASS (historical rates, weekend/holiday fallback, distinct-date caching, PENDING fallback).
+  - PermissionDenied: RESOLVED (authenticated UID & active household propagated).
 
 ### CSV Category & SubCategory Deduplication (Step 12.3L — COMPLETE)
 - **Root Cause Resolved:** `CsvImportOrchestrator` now passes the active `householdId` when querying existing categories via `CategoryRepository.getAllCategoriesList(householdId)`.
