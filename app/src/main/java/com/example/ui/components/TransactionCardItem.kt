@@ -136,7 +136,7 @@ fun TransactionCardItem(
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         ) {
                             Text(
-                                text = transaction.account,
+                                text = getAccountDisplayLabel(transaction.account),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),

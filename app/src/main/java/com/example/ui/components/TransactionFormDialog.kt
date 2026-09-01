@@ -57,6 +57,12 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+fun getAccountDisplayLabel(account: String): String =
+    when (account) {
+        "Meal Tickets" -> "Tichete de masa"
+        else -> account
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionFormDialog(
@@ -391,7 +397,7 @@ fun TransactionFormDialog(
                     onExpandedChange = { accountExpanded = !accountExpanded }
                 ) {
                     OutlinedTextField(
-                        value = account,
+                        value = getAccountDisplayLabel(account),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Account") },
@@ -408,7 +414,7 @@ fun TransactionFormDialog(
                     ) {
                         accounts.forEach { acc ->
                             DropdownMenuItem(
-                                text = { Text(acc) },
+                                text = { Text(getAccountDisplayLabel(acc)) },
                                 onClick = {
                                     account = acc
                                     accountExpanded = false

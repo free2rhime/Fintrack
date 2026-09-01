@@ -5,6 +5,7 @@ import com.example.data.model.CategoryEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.RoomCategoryRepository
 import com.example.domain.analytics.FinancialAnalyticsEngine
+import com.example.ui.components.getAccountDisplayLabel
 import com.example.ui.screens.formatLocalizedDateHeader
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -161,6 +162,39 @@ class CategoryAndDashboardFixesTest {
         assertTrue("AndroidManifest.xml must exist", manifestFile.exists())
         val content = manifestFile.readText()
         assertTrue("Manifest must declare INTERNET permission", content.contains("android.permission.INTERNET"))
+    }
+
+    @Test
+    fun testAccountDisplayLabelMappingAndContract() {
+        // 1. UI Label mapping verification
+        assertEquals("Card", getAccountDisplayLabel("Card"))
+        assertEquals("Cash", getAccountDisplayLabel("Cash"))
+        assertEquals("Tichete de masa", getAccountDisplayLabel("Meal Tickets"))
+
+        // Fallback / unknown
+        assertEquals("Other", getAccountDisplayLabel("Other"))
+
+        // 2. TransactionEntity internal contract remains "Meal Tickets"
+        val transaction = TransactionEntity(
+            id = "tx-test-meal",
+            userId = "user-1",
+            date = "2026-09-01",
+            description = "Lunch",
+            amountRON = 45.0,
+            amountEUR = 9.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-09-01",
+            type = "Expense",
+            account = "Meal Tickets",
+            category = "🍉 Food & Dining",
+            subCategory = "💳 Tichete de masa",
+            createdAt = 1000L,
+            updatedAt = 1000L,
+            exchangeRateSource = "BNR_AUTO",
+            conversionStatus = "CONVERTED"
+        )
+        assertEquals("Meal Tickets", transaction.account)
+        assertEquals("Tichete de masa", getAccountDisplayLabel(transaction.account))
     }
 }
 
