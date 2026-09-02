@@ -230,15 +230,67 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: Step 12.3Y Real CSV Import / Transaction Visibility Verification Checkpoint (Steps 12.3S–12.3Y Complete)
+Git baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint (Steps 12.3S–12.3Z Complete)
 Android test baseline: 380/380 PASS (Full Android JVM/Robolectric test cases passing, 0 failed, 0 errors, 0 skipped; 31/31 focused hard-delete/sync tests PASS; 8/8 targeted Account UI label tests PASS)
 Firestore rules test baseline: 100/100 test cases preserved in tests/firestore.rules.test.ts and Firestore test suites
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
-Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS (Transaction & Category permanent deletion verified on physical device and Firestore, SyncStatus = Synced, no tombstones created); Step 12.3Y Real 33-Row CSV Import & Period Filter Visibility Resolution PASS
+Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS (Transaction & Category permanent deletion verified on physical device and Firestore, SyncStatus = Synced, no tombstones created); Step 12.3Y Real 33-Row CSV Import & Period Filter Visibility Resolution PASS; Step 12.3Z Complete Real Historical Database Import & Production Firestore Console Verification PASS
 Branch: main
 Remote branch: origin/main
 Working tree: clean / synchronized
 ```
+
+### Complete Real Database Import & Full Pipeline Verification (Step 12.3Z — COMPLETE)
+- **Complete Real Historical Database Import:** The user's complete personal historical transaction database was imported into the FinTrack application using the CSV import functionality on real physical hardware:
+  - Complete historical database: IMPORTED.
+  - Room persistence: PASS (all transactions persisted atomically to Room).
+  - Outbox processing: PASS (mutations queued and processed sequentially).
+  - Firestore synchronization: PASS (all records synchronized to Firestore without errors).
+  - SyncStatus: SYNCED.
+  - Production Firestore Console verification: VERIFIED (imported transaction data independently inspected and verified in Firebase Firestore Console).
+  - Real-Database / Real-Device Verification: This checkpoint reflects real-device and real-database execution against production Firestore, beyond automated unit/emulator testing.
+- **End-to-End CSV Pipeline Final Verification:**
+  - CSV parsing: PASS
+  - CSV validation: PASS
+  - Authenticated context propagation (`authenticatedUserUid` / `activeHouseholdId`): PASS
+  - `householdId` propagation: PASS
+  - `createdByUid` propagation: PASS
+  - Room persistence: PASS
+  - Household visibility: PASS
+  - Category / SubCategory resolution: PASS
+  - Category / SubCategory deduplication: PASS
+  - Outbox generation: PASS
+  - Firestore synchronization: PASS
+  - BNR EUR conversion: PASS (historical BNR rate resolution, distinct-date caching, weekend fallback, holiday fallback)
+  - PermissionDenied defect: RESOLVED (authenticated UID & active household propagated without weakening Firestore security rules)
+  - SyncStatus: SYNCED
+- **33-Transaction Regression Baseline Preserved:**
+  - 33 test transactions: PASS (imported and synchronized cleanly).
+  - 0 duplicate categories or subcategories created.
+  - Historical visibility resolution confirmed: initial apparent disappearance was caused by the selected date period filter in the UI defaulting to "Last Month", not a Room/sync defect.
+- **Category & SubCategory Deduplication (Step 12.3L) Re-Verified:**
+  - Existing categories and subcategories belonging to the active household are accurately matched and reused by logical identity.
+  - Household scoping remains strictly enforced (no cross-household category reuse).
+  - Expense vs. Income separation preserved.
+  - Parent category hierarchy preserved.
+  - Complete database import produced zero unexpected duplicate categories and zero unexpected duplicate subcategories.
+  - Existing historical duplicates remain preserved for separate cleanup audit.
+- **Hard Delete Architecture Preserved:**
+  - Transaction hard delete: permanent deletion in Firestore via `document.delete().await()` and local Room deletion.
+  - Category hard delete: permanent deletion in Firestore via `document.delete().await()` and local Room deletion.
+  - Inbound `REMOVED` change processing: remote deletions propagate to Room; active outbox mutations shielded (`UPDATE_VS_DELETE` conflict handling).
+  - Legacy `isDeleted == true` tombstone backward compatibility preserved.
+  - Historical legacy soft-deleted documents remain separate administrative cleanup data.
+- **Account / Payment Method UI Label Preserved:**
+  - Internal Account value: `"Meal Tickets"` across Room, DTOs, security rules, and CSV parser.
+  - UI display label: `"Tichete de masa"` across dropdowns, filters, cards, and forms.
+  - Zero database or Firestore schema migrations required.
+- **Data Integrity Summary:**
+  - Complete historical transaction dataset: IMPORTED.
+  - Room: CONSISTENT.
+  - Firestore: CONSISTENT.
+  - Household isolation: PRESERVED.
+  - Pipeline verified: `CSV → CsvImporter → CsvImportOrchestrator → Room → Outbox → OutboundSyncEngine → Firestore`.
 
 ### Transaction & Category Firestore Hard Deletion (Step 12.3S / 12.3T / 12.3U — COMPLETE)
 - **Transaction Outbound Hard Delete:** `DefaultFirestoreSnapshotSource.deleteTransaction()` permanently removes the document from Firestore via `document.delete().await()` at `/households/{householdId}/transactions/{transactionId}`, replacing the legacy soft-delete (`isDeleted = true`).
