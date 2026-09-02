@@ -212,8 +212,6 @@ fun FinTrackApp(viewModel: MainViewModel) {
                             onThemeModeChanged = { viewModel.updateThemeMode(it) },
                             onExportCsv = { CsvExporter.exportTransactionsToCsv(context, allTxs) },
                             onImportCsv = { uri -> viewModel.importCsv(context, uri) },
-                            onSeedDemoData = { viewModel.seedDemoData() },
-                            onResetData = { viewModel.resetData() },
                             onRetryPendingConversions = { viewModel.retryPendingConversions() },
                             pendingRetryResult = uiState.pendingRetryResult,
                             onDismissRetryResult = { viewModel.dismissRetryResultDialog() },

@@ -422,9 +422,7 @@ class HouseholdInvitationTest {
                 incomingInvites = listOf(pendingInvite),
                 onCurrencyChanged = {},
                 onThemeModeChanged = {},
-                onExportCsv = {},
-                onSeedDemoData = {},
-                onResetData = {}
+                onExportCsv = {}
             )
         }
 
@@ -455,9 +453,7 @@ class HouseholdInvitationTest {
                 incomingInvites = emptyList(),
                 onCurrencyChanged = {},
                 onThemeModeChanged = {},
-                onExportCsv = {},
-                onSeedDemoData = {},
-                onResetData = {}
+                onExportCsv = {}
             )
         }
 

@@ -44,8 +44,6 @@ class Stage3BUiTest {
                 onThemeModeChanged = {},
                 onExportCsv = {},
                 onImportCsv = {},
-                onSeedDemoData = {},
-                onResetData = {},
                 onStartMigration = {}
             )
         }
@@ -56,10 +54,18 @@ class Stage3BUiTest {
         composeTestRule.onNodeWithText("Cloud Household Migration").assertDoesNotExist()
         composeTestRule.onNodeWithText("Start Household Migration").assertDoesNotExist()
 
+        // Verify Backend Architecture & Database Management are NOT displayed (removed in Step 12.3AF)
+        composeTestRule.onNodeWithTag("architecture_info_card").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Backend Architecture & Sync Specification").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("seed_demo_data_button").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("reset_data_button").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Database Management").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Re-Seed Financial Demo Transactions").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Clear All Local Data").assertDoesNotExist()
+
         // Verify remaining essential settings cards are present
         composeTestRule.onNodeWithText("Preferences & System").assertIsDisplayed()
         composeTestRule.onNodeWithText("Data Export & Reports").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("Database Management").performScrollTo().assertIsDisplayed()
     }
 
     @Test

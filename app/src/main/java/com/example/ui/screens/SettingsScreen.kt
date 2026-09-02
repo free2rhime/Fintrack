@@ -97,8 +97,6 @@ fun SettingsScreen(
     onThemeModeChanged: (String) -> Unit,
     onExportCsv: () -> Unit,
     onImportCsv: (Uri) -> Unit = {},
-    onSeedDemoData: () -> Unit,
-    onResetData: () -> Unit,
     onRetryPendingConversions: () -> Unit = {},
     pendingRetryResult: PendingRetryResult? = null,
     onDismissRetryResult: () -> Unit = {},
@@ -515,78 +513,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // BACKEND ARCHITECTURE & DATA MODEL SPECIFICATION CARD
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("architecture_info_card"),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Storage,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Backend Architecture & Sync Specification",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "• Architecture Choice: Offline-First Hybrid Architecture (Room SQLite + Exchange Rate Caching + Cloud Sync Adapter)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "• Historical Currency Conversion: Every transaction permanently computes and freezes the EUR value using the exact BNR exchange rate valid on that transaction date. Historical entries are never modified by future rate changes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "• Cloud Readiness: Local database tables are modeled with UUID keys, updatedAt timestamps, and user isolation for sync adapters with Firebase Firestore, Cloud SQL, or Supabase.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(imageVector = Icons.Default.CloudDone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Status: 100% Offline-First Active with Zero Latency",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
         // CSV EXPORT DATA CARD
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -710,103 +636,6 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // DEMO DATA & MAINTENANCE
-        var showSeedDialog by remember { mutableStateOf(false) }
-        var showResetDialog by remember { mutableStateOf(false) }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Database Management",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedButton(
-                    onClick = { showSeedDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("seed_demo_data_button"),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Re-Seed Financial Demo Transactions")
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Button(
-                    onClick = { showResetDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("reset_data_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
-                ) {
-                    Icon(imageVector = Icons.Default.DeleteForever, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Clear All Local Data", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        if (showSeedDialog) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showSeedDialog = false },
-                title = { Text("Load Demo Data") },
-                text = { Text("Are you sure you want to load sample demo financial transactions? This will populate your database with representative transaction history.") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            onSeedDemoData()
-                            showSeedDialog = false
-                        }
-                    ) {
-                        Text("Load Demo Data")
-                    }
-                },
-                dismissButton = {
-                    OutlinedButton(onClick = { showSeedDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-
-        if (showResetDialog) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showResetDialog = false },
-                title = { Text("Clear All Local Data") },
-                text = { Text("Are you sure you want to delete all local transactions and data? This action cannot be undone.") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            onResetData()
-                            showResetDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
-                    ) {
-                        Text("Clear All Data", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    OutlinedButton(onClick = { showResetDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
         if (pendingRetryResult != null) {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = onDismissRetryResult,
