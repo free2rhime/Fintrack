@@ -1,9 +1,9 @@
 # FINTRACK CURRENT CONTEXT
 
 > Compact operational context for continuing FinTrack development.
-> Last verified: 2026-09-02
-> Git baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint (Steps 12.3S–12.3Z Complete)
-> Previous baseline: Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+> Last verified: 2026-09-03
+> Git baseline: Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
+> Previous baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
 
@@ -28,11 +28,11 @@ At the time this context was verified, the repository working tree was synchroni
 
 Current implementation baseline:
 
-Step 12.3Z (`docs: update project memory for real database import and full pipeline verification`)
+Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
 
 Previous functional baseline:
 
-Step 12.3Y (`test: verify real-device 33-row CSV import and historical transaction period filter visibility`) / Step 12.3X (`feat: implement "Tichete de masa" UI display label for Account while preserving internal "Meal Tickets" value`) / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M (`fix: deduplicate CSV categories and subcategories`) / Step 12.3L / `1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
+Step 12.3Z (`docs: update project memory for real database import and full pipeline verification`) / Step 12.3Y (`test: verify real-device 33-row CSV import and historical transaction period filter visibility`) / Step 12.3X (`feat: implement "Tichete de masa" UI display label for Account while preserving internal "Meal Tickets" value`) / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M (`fix: deduplicate CSV categories and subcategories`) / Step 12.3L / `1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 **GitHub/current repository is the implementation source of truth.**
 
@@ -354,8 +354,9 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
    - *12.3X:* Account UI Label Implementation (COMPLETE — "Tichete de masa" UI display label implemented; internal value preserved; 8/8 targeted UI label tests PASS)
    - *12.3Y:* Real CSV Import & Historical Transaction Visibility Verification (COMPLETE — 33-row historical CSV imported successfully on real physical hardware; 33 Firestore documents present; SyncStatus = Synced; 0 category/subcategory duplicates; historical transaction visibility confirmed as user-side period filter configuration)
    - *12.3Z:* Complete Real Database Import & Full Pipeline Verification Checkpoint (COMPLETE — User's complete historical database imported, Room persisted, Outbox processed, Firestore synchronized, SyncStatus = Synced, independently verified in Firebase Firestore Console; 0 unexpected category/subcategory duplicates; hard delete & account label preserved; Project Memory updated)
+   - *Transactions Search Bug Fix Checkpoint (2026-09-03):* COMPLETE — MainViewModel in-memory search query state integrated with filterSettings; OutlinedTextField explicit IME search handling added; case-insensitive multi-attribute search verified; Stage3AViewModelTest, FinancialAnalyticsEngineTest, and GreetingScreenshotTest PASS.
 8. **Phase 8 — Beta Release Polish & Housekeeping:**
-   - *Next Roadmap Item:* Continue FinTrack development from the verified real-database baseline / Beta Release Polish & Housekeeping.
+   - *Current Status:* Transactions Search verified & fixed. Next Roadmap Item: Continue FinTrack development from the verified baseline / Beta Release Polish & Housekeeping.
    - *Open Administrative Cleanup Task:* Administrative cleanup script for legacy Firestore documents with `isDeleted == true` created prior to Step 12.3S (separate execution).
    - *Open Data-Integrity Item (Separate Task):* Audit and cleanup of historical duplicate Category/SubCategory records that already exist in the database from earlier imports prior to Step 12.3L.
 

@@ -995,13 +995,14 @@ Foundation
 → Account UI Label Localization (Step 12.3W / Step 12.3X)
 → Real CSV 33-Row Import & Historical Transaction Period Filter Visibility (Step 12.3Y)
 → Complete Real Historical Database Import & Production Firestore Console Verification Checkpoint (Step 12.3Z)
+→ Transactions Search Bug Fix & IME Handling Checkpoint (2026-09-03)
 ```
 
 The current baseline is:
 
-Step 12.3Z (`docs: update project memory for real database import and full pipeline verification`)
+Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
 
-Previous functional baseline: Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
+Previous functional baseline: Step 12.3Z / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`.
 
 Step 12.3 (CSV Import & Automatic BNR EUR Conversion + Context Propagation + Category Deduplication + Hard Deletion Migration + Account UI Label Localization + Real CSV Verification + Real Historical Database Import Checkpoint) has been verified. The next development phase is Phase 8 — Beta Release Polish & Housekeeping, alongside separate tasks for legacy Firestore tombstone cleanup and historical duplicate category/subcategory record cleanup.
 
@@ -1052,6 +1053,387 @@ Skills are optional tools, not mandatory workflow stages. They must not alter th
 | Account UI Label Localization Gate | **PASS** | Clean separation of internal `"Meal Tickets"` data contract and `"Tichete de masa"` UI display label; 8/8 targeted tests PASS (Step 12.3W / 12.3X) |
 | Real CSV 33-Row Import & Visibility Gate | **PASS** | 33-row historical CSV imported on physical device; 33 Firestore documents present; SyncStatus = Synced; 0 category duplicates; historical transaction visibility confirmed as user period filter configuration (Step 12.3Y) |
 | Real Database Import & Production Firestore Gate | **PASS** | User's complete historical personal transaction database imported via CSV on real device; atomic Room persistence PASS; sequential outbox sync PASS; production Firestore Console verified; SyncStatus = Synced; 0 unexpected category duplicates (Step 12.3Z) |
+| Transactions Search & IME Gate | **PASS** | MainViewModel in-memory search query state integrated with filterSettings; OutlinedTextField explicit IME search handling added; case-insensitive multi-attribute search verified; Stage3AViewModelTest, FinancialAnalyticsEngineTest, and GreetingScreenshotTest PASS (2026-09-03) |
 
 **Overall Beta Status: READY FOR BETA RELEASE / BETA SMOKE TEST COMPLETE**
-*Details:* All core functional, security, automated testing (380/380 tests), physical multi-device smoke, CSV BNR conversion + sync context propagation, category deduplication, hard deletion inbound/outbound sync, Account UI label localization, real-device 33-row CSV import, and complete real historical database production Firestore verification gates have passed. Duplicate creation during import is resolved. Permanent Firestore document removal for transactions and categories is verified on physical hardware. Historical transaction visibility confirmed. Legacy soft-deleted documents remain preserved in Firestore for separate administrative cleanup. Ready for roadmap transition / release polish.
+*Details:* All core functional, security, automated testing, physical multi-device smoke, CSV BNR conversion + sync context propagation, category deduplication, hard deletion inbound/outbound sync, Account UI label localization, real-device 33-row CSV import, complete real historical database production Firestore verification gates, and Transactions Search filtering bug fix have passed. Duplicate creation during import is resolved. Permanent Firestore document removal for transactions and categories is verified on physical hardware. Historical transaction visibility confirmed. Legacy soft-deleted documents remain preserved in Firestore for separate administrative cleanup. Ready for roadmap transition / release polish.
+
+---
+
+# 18. CHECKPOINT: TRANSACTIONS SEARCH BUG FIX (2026-09-03)
+
+**STATUS: VERIFIED / BUILD PASS**
+
+## 1. CURRENT PROJECT STATE
+
+FinTrack este în dezvoltare ca aplicație Android:
+
+- Kotlin
+- Jetpack Compose
+- Room
+- Firebase / Firestore
+- Google Sign-In
+- Kotlin Coroutines / Flow
+- Gradle
+- Unit tests / Robolectric
+
+GitHub repository rămâne sursa oficială de adevăr pentru cod.
+
+Google AI Studio / Android AI Studio și Android Studio sunt medii de lucru, nu surse independente de adevăr atunci când există diferențe față de repository.
+
+## 2. FIRESTORE → GOOGLE SHEETS SYNC STATUS
+
+Faza Apps Script Firestore → Google Sheets este stabilizată.
+
+Ultimul checkpoint verificat:
+
+STEP 13.18 — PASS
+
+Rezultatul verificat:
+
+- Firestore documents read: 1371
+- Expense: 1067
+- Income: 304
+- Raw snapshot: 1371
+- Expense analytical output: 1067
+- Income analytical output: 304
+- Expense sorted by transactionDate ASC
+- Income sorted by transactionDate ASC
+- Expense reconciliation: PASS
+- Income reconciliation: PASS
+- Known transaction verified: true
+- Formulas preserved/restored
+- Firestore writes: false
+- Android writes: false
+- Manual formula modification: false
+
+STEP 13.16 și STEP 13.18 au confirmat funcționarea corectă a pipeline-ului.
+
+FinTrackSync.gs este considerat scriptul final pentru sincronizarea Firestore → Google Sheets.
+
+Architecture:
+
+```text
+Firestore
+    ↓
+Firestore REST API
+    ↓
+Native Apps Script OAuth token
+    ↓
+In-memory validation
+    ↓
+_raw transactions
+    ↓
+Expense / Income analytical output
+```
+
+Authentication model:
+
+- Native Apps Script OAuth
+- Service Account private-key authentication NU mai este utilizată.
+
+Legacy Service Account / private-key infrastructure este considerată deprecated și trebuie eliminată doar după verificarea finală că nu mai este necesară.
+
+## 3. NEW BUG INVESTIGATION — TRANSACTIONS SEARCH
+
+Bug observat:
+
+În tab-ul Transactions, câmpul Search accepta text, dar lista tranzacțiilor nu era filtrată.
+
+Celelalte filtre funcționau:
+
+- date / period filters
+- transaction type
+- category filters
+
+Investigația read-only a identificat cauza exactă.
+
+Primary root cause:
+
+`MainViewModel.updateSearchQuery(query)` primea query-ul, dar îl ignora.
+
+Problema era:
+
+```kotlin
+fun updateSearchQuery(query: String) {
+    viewModelScope.launch {
+        val current = filterSettings.value
+        settingsRepository.updateSelectedPeriod(current.selectedPeriod)
+    }
+}
+```
+
+Query-ul nu era introdus în `FilterSettings`.
+
+Ca urmare:
+
+```text
+TransactionsScreen
+    ↓
+onSearchQueryChanged(query)
+    ↓
+MainViewModel.updateSearchQuery(query)
+    ↓
+query discarded
+    ↓
+FilterSettings.searchQuery = ""
+    ↓
+FinancialAnalyticsEngine nu aplica search filtering
+    ↓
+lista rămânea neschimbată
+```
+
+## 4. SEARCH FIX IMPLEMENTED
+
+Fix-ul a fost implementat minimal și fără modificări de schemă.
+
+MainViewModel folosește acum stare temporară în memorie pentru search:
+
+```kotlin
+private val _searchQuery = MutableStateFlow("")
+```
+
+`filterSettings` combină:
+
+```text
+settingsRepository.filterSettingsFlow
++
+_searchQuery
+```
+
+Conceptual:
+
+```kotlin
+combine(
+    settingsRepository.filterSettingsFlow,
+    _searchQuery
+) { settings, query ->
+    settings.copy(searchQuery = query)
+}
+```
+
+`updateSearchQuery()`:
+
+```kotlin
+fun updateSearchQuery(query: String) {
+    _searchQuery.value = query
+}
+```
+
+Search query NU este persistat în DataStore și NU este stocat în Room.
+
+Motiv:
+
+Search-ul din Transactions este UI/session state și nu reprezintă o preferință persistentă a utilizatorului.
+
+## 5. IME / ENTER FIX
+
+TransactionsScreen a fost actualizat pentru Search/Enter handling.
+
+`OutlinedTextField` folosește explicit:
+
+```kotlin
+keyboardOptions = KeyboardOptions(
+    imeAction = ImeAction.Search
+)
+```
+
+și:
+
+```kotlin
+keyboardActions = KeyboardActions(
+    onSearch = {
+        keyboardController?.hide()
+        onSearchQueryChanged(searchQuery)
+    }
+)
+```
+
+Comportamentul final:
+
+- search-ul se actualizează reactiv la tastare
+- Enter/Search confirmă query-ul
+- tastatura este închisă la Search/Enter
+- Clear elimină query-ul
+- lista este recalculată automat
+
+Design-ul existent al TransactionsScreen a fost păstrat.
+
+## 6. EXISTING SEARCH ENGINE
+
+`FinancialAnalyticsEngine` avea deja implementarea corectă pentru text filtering.
+
+Search-ul este:
+
+- case-insensitive
+- bazat pe `contains()`
+
+Câmpuri suportate:
+
+- description
+- category
+- subCategory
+- account
+
+Nu au fost adăugate alte câmpuri precum destination sau amount.
+
+Search-ul este combinat cu filtrele existente prin logică AND:
+
+- date / period
+- transaction type
+- category
+- search query
+
+`FinancialAnalyticsEngine` nu a fost modificat inutil dacă implementarea existentă era deja corectă.
+
+## 7. TESTING — SEARCH FIX
+
+Testele au fost executate cu succes.
+
+**Stage3AViewModelTest:**
+
+- toate cele 10 teste PASS
+- `testUpdateSearchQueryFiltersTransactionsInViewModel`: PASS
+
+Acest test confirmă:
+
+`updateSearchQuery("groceries")`
+
+actualizează imediat `filteredTransactions` cu tranzacțiile corespunzătoare.
+
+Clearing search-ul restaurează lista completă.
+
+**FinancialAnalyticsEngineTest:**
+
+`testSearchFilteringSupportsDescriptionCategorySubCategoryAccountAndCaseInsensitive`: PASS
+
+Acoperă:
+
+- description
+- category
+- subCategory
+- account
+- case-insensitive search
+- empty query
+- non-matching query
+- combinații cu period filters
+- combinații cu type filters
+
+**GreetingScreenshotTest:**
+
+`transactionsScreen_screenshot`: PASS
+
+Confirmă că UI-ul TransactionsScreen și search input-ul nu au regresii vizuale.
+
+**Applet compilation:**
+
+PASS
+
+**Application build:**
+
+PASS
+
+Concluzie:
+
+**TRANSACTIONS SEARCH BUG = FIXED AND VERIFIED**
+
+## 8. MANUAL APK VERIFICATION
+
+După testele automate, fix-ul a fost verificat manual în APK.
+
+Search-ul funcționează.
+
+Comportamentul confirmat:
+
+- introducerea textului filtrează tranzacțiile
+- Search/Enter funcționează
+- Clear funcționează
+- filtrele existente continuă să funcționeze
+- combinația Search + alte filtre funcționează
+
+Nu există regresii observate.
+
+## 9. GIT CHECKPOINT
+
+Fix-ul trebuie considerat un checkpoint Git separat.
+
+Recommended commit message:
+
+```text
+fix(fintrack): restore Transactions search filtering
+```
+
+Commit description:
+
+- connect search query to MainViewModel filter state
+- add IME Search/Enter handling
+- preserve reactive filtering and clear behavior
+- add ViewModel and analytics search tests
+- verify TransactionsScreen UI regression
+- build and tests PASS
+
+Nu presupune că commit-ul sau push-ul a fost efectuat decât dacă repository history confirmă acest lucru.
+
+## 10. CURRENT NEXT DEVELOPMENT TARGET
+
+Transactions Search este considerat rezolvat.
+
+Nu mai investiga acest bug decât dacă apare o regresie.
+
+Următoarea dezvoltare trebuie pornită ca problemă separată și trebuie urmat workflow-ul:
+
+```text
+ANALIZĂ
+↓
+IPOTEZĂ
+↓
+VERIFICARE
+↓
+MODIFICARE MINIMĂ
+↓
+COMPILE
+↓
+TESTE
+↓
+INTERPRETAREA REZULTATULUI
+↓
+CHECKPOINT
+```
+
+Nu modifica sincronizarea Firestore / Apps Script pentru probleme UI fără o cauză demonstrată.
+
+## 11. IMPORTANT PROJECT MEMORY RULES
+
+Păstrează următoarele ca reguli permanente:
+
+- GitHub repository = source of truth pentru cod.
+- FinTrackSync.gs = scriptul final pentru Firestore → Google Sheets.
+- STEP 13.18 = ultimul checkpoint valid al sincronizării Apps Script.
+- Transactions Search fix = implementat și verificat.
+- Nu considera o problemă rezolvată doar pentru că aplicația compilează.
+- Pentru coroutine/test lifecycle problems, identifică job-ul/coroutine responsabil înainte de modificări.
+- Nu modifica artificial testele pentru a ascunde probleme reale.
+- Preferă modificări mici și reversibile.
+- Nu face refactoring fără legătură cu problema investigată.
+- După fiecare modificare relevantă: compile + teste + interpretarea rezultatului.
+- Nu modifica Firestore, Room, authentication sau sync architecture pentru probleme care pot fi rezolvate la nivel UI/ViewModel.
+
+## 12. MEMORY STATUS
+
+**CHECKPOINT NAME:**
+
+FinTrack — Transactions Search Fix — Verified
+
+**STATUS:**
+
+PASS
+
+- Search: FIXED
+- ViewModel: VERIFIED
+- Analytics filtering: VERIFIED
+- UI: VERIFIED
+- Tests: PASS
+- Build: PASS
+- Firestore sync: STABLE — STEP 13.18 PASS
+- Apps Script: FinTrackSync.gs = FINAL SCRIPT
+- Next work: NEW BUG / FEATURE ONLY
