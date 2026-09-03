@@ -343,7 +343,14 @@ class MainViewModel(
         initialValue = "dark"
     )
 
-    val filterSettings: StateFlow<FilterSettings> = settingsRepository.filterSettingsFlow.stateIn(
+    private val _searchQuery = MutableStateFlow("")
+
+    val filterSettings: StateFlow<FilterSettings> = combine(
+        settingsRepository.filterSettingsFlow,
+        _searchQuery
+    ) { settings, query ->
+        settings.copy(searchQuery = query)
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = FilterSettings()
@@ -575,10 +582,7 @@ class MainViewModel(
     }
 
     fun updateSearchQuery(query: String) {
-        viewModelScope.launch {
-            val current = filterSettings.value
-            settingsRepository.updateSelectedPeriod(current.selectedPeriod) // triggers flow update if needed
-        }
+        _searchQuery.value = query
     }
 
     suspend fun getDescriptionSuggestions(query: String): List<String> {
