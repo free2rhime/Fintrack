@@ -1,17 +1,16 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -21,9 +20,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -31,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,8 +40,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -51,13 +53,32 @@ import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
 import com.example.data.util.NumberFormatter
 import com.example.ui.components.CurrencyToggle
+import com.example.ui.components.FinTrackEmptyState
+import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.PeriodSelectorChipRow
 import com.example.ui.components.TransactionCardItem
-
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import com.example.ui.theme.BodyRegular
+import com.example.ui.theme.CardTitleAmount
+import com.example.ui.theme.CobaltBlue
+import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.MicroMetadata
+import com.example.ui.theme.RadiusLarge
+import com.example.ui.theme.RadiusMedium
+import com.example.ui.theme.RadiusSmall
+import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.Space12
+import com.example.ui.theme.Space16
+import com.example.ui.theme.Space2
+import com.example.ui.theme.Space24
+import com.example.ui.theme.Space4
+import com.example.ui.theme.Space8
+import com.example.ui.theme.SurfaceContainerDark
+import com.example.ui.theme.SurfaceContainerHighDark
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 
 fun formatLocalizedDateHeader(isoDate: String): String {
     return try {
@@ -69,7 +90,6 @@ fun formatLocalizedDateHeader(isoDate: String): String {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
     transactions: List<TransactionEntity>,
@@ -104,12 +124,13 @@ fun TransactionsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
+        contentWindowInsets = WindowInsets(0.dp),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddTransactionClicked,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = CobaltBlue,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(RadiusLarge),
                 modifier = Modifier.testTag("fab_add_transaction")
             ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add Transaction")
@@ -126,14 +147,15 @@ fun TransactionsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                    .padding(horizontal = Space16, vertical = Space8),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Transactions",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = SectionHeadline,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
                 )
 
                 CurrencyToggle(
@@ -149,18 +171,43 @@ fun TransactionsScreen(
                     searchQuery = it
                     onSearchQueryChanged(it)
                 },
-                placeholder = { Text("Search description, category...") },
-                leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Search") },
+                placeholder = {
+                    Text(
+                        text = "Search description, category...",
+                        style = BodyRegular,
+                        color = TextMuted
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = TextSecondary
+                    )
+                },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = {
                             searchQuery = ""
                             onSearchQueryChanged("")
                         }) {
-                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear")
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Clear search",
+                                tint = TextSecondary
+                            )
                         }
                     }
                 },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = SurfaceDark,
+                    unfocusedContainerColor = SurfaceDark,
+                    focusedBorderColor = CobaltBlue,
+                    unfocusedBorderColor = SurfaceContainerHighDark,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    cursorColor = CobaltBlue
+                ),
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Search
                 ),
@@ -172,13 +219,13 @@ fun TransactionsScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp)
+                    .padding(horizontal = Space16, vertical = Space2)
                     .testTag("search_transactions_input"),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(RadiusLarge),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Space8))
 
             // Period Selector Chips
             PeriodSelectorChipRow(
@@ -186,49 +233,37 @@ fun TransactionsScreen(
                 onPeriodSelected = onPeriodSelected
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(Space8))
 
-            // Compact Type Filter Segmented Control (All / Income / Expense)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = filterSettings.selectedType == "All",
-                        onClick = { onTypeFilterSelected("All") },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
-                    ) {
-                        Text("All")
-                    }
-                    SegmentedButton(
-                        selected = filterSettings.selectedType == "Income",
-                        onClick = { onTypeFilterSelected("Income") },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
-                    ) {
-                        Text("Income")
-                    }
-                    SegmentedButton(
-                        selected = filterSettings.selectedType == "Expense",
-                        onClick = { onTypeFilterSelected("Expense") },
-                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)
-                    ) {
-                        Text("Expense")
-                    }
-                }
-            }
+            // Type Filter Segmented Control (All / Income / Expense)
+            FinTrackSegmentedControl(
+                items = listOf("All", "Income", "Expense"),
+                selectedIndex = when (filterSettings.selectedType) {
+                    "Income" -> 1
+                    "Expense" -> 2
+                    else -> 0
+                },
+                onItemSelected = { index ->
+                    onTypeFilterSelected(
+                        when (index) {
+                            1 -> "Income"
+                            2 -> "Expense"
+                            else -> "All"
+                        }
+                    )
+                },
+                modifier = Modifier.padding(horizontal = Space16)
+            )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(Space8))
 
             // Category Filter Chips
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = Space16),
+                horizontalArrangement = Arrangement.spacedBy(Space8)
             ) {
                 val activeCategoryFilter = filterSettings.selectedExpenseCategory ?: filterSettings.selectedIncomeCategory
                 val isAllSelected = activeCategoryFilter.isNullOrBlank()
@@ -236,12 +271,19 @@ fun TransactionsScreen(
                 FilterChip(
                     selected = isAllSelected,
                     onClick = { onCategoryFilterSelected(filterSettings.selectedType, null) },
-                    label = { Text("All Categories", fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal) },
+                    shape = RoundedCornerShape(RadiusMedium),
+                    border = null,
+                    label = {
+                        Text(
+                            text = "All Categories",
+                            fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        selectedContainerColor = CobaltBlue,
+                        selectedLabelColor = Color.White,
+                        containerColor = SurfaceContainerDark,
+                        labelColor = TextSecondary
                     )
                 )
 
@@ -256,47 +298,49 @@ fun TransactionsScreen(
                                 onCategoryFilterSelected(filterSettings.selectedType, catName)
                             }
                         },
-                        label = { Text(catName, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                        shape = RoundedCornerShape(RadiusMedium),
+                        border = null,
+                        label = {
+                            Text(
+                                text = catName,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            selectedContainerColor = CobaltBlue,
+                            selectedLabelColor = Color.White,
+                            containerColor = SurfaceContainerDark,
+                            labelColor = TextSecondary
                         )
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(Space12))
 
             // Transaction Cards grouped by Date
             if (groupedByDate.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(32.dp),
+                        .padding(Space24),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "No transactions found",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Try adjusting filters or tap + to record a new transaction.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    FinTrackEmptyState(
+                        title = "No transactions found",
+                        description = "Try adjusting filters or tap + to record a new transaction.",
+                        icon = Icons.Default.ReceiptLong,
+                        iconTint = TextMuted,
+                        actionLabel = "Add Transaction",
+                        onActionClick = onAddTransactionClicked
+                    )
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .padding(horizontal = Space16),
+                    verticalArrangement = Arrangement.spacedBy(Space8)
                 ) {
                     groupedByDate.forEach { (date, dateGroupTxs) ->
                         // Calculate Daily Total
@@ -312,26 +356,46 @@ fun TransactionsScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
+                                    .padding(vertical = Space8),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = formatLocalizedDateHeader(date),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    style = CardTitleAmount,
+                                    color = TextPrimary
                                 )
 
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                    shape = RoundedCornerShape(RadiusSmall),
+                                    color = SurfaceContainerDark,
+                                    modifier = Modifier.semantics {
+                                        contentDescription = "Day total: income +${NumberFormatter.formatAmount(dayIncome)}, expense -${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}"
+                                    }
                                 ) {
-                                    Text(
-                                        text = "Day: +${NumberFormatter.formatAmount(dayIncome)} / -${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = Space8, vertical = Space4),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(Space4)
+                                    ) {
+                                        Text(
+                                            text = "+${NumberFormatter.formatAmount(dayIncome)}",
+                                            style = MicroMetadata,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = IncomeEmerald
+                                        )
+                                        Text(
+                                            text = "/",
+                                            style = MicroMetadata,
+                                            color = TextMuted
+                                        )
+                                        Text(
+                                            text = "-${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}",
+                                            style = MicroMetadata,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = ExpenseCoral
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -355,3 +419,4 @@ fun TransactionsScreen(
         }
     }
 }
+
