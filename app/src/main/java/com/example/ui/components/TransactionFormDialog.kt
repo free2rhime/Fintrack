@@ -1,13 +1,18 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,8 +20,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -27,9 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,15 +43,39 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.CategoryEntity
 import com.example.data.model.TransactionEntity
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
+import com.example.ui.theme.BodyRegular
+import com.example.ui.theme.CardTitleAmount
+import com.example.ui.theme.CobaltBlue
+import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.HeroFinancialDisplay
+import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MicroMetadata
+import com.example.ui.theme.RadiusMedium
+import com.example.ui.theme.RadiusXLarge
+import com.example.ui.theme.Space12
+import com.example.ui.theme.Space16
+import com.example.ui.theme.Space20
+import com.example.ui.theme.Space4
+import com.example.ui.theme.Space8
+import com.example.ui.theme.SurfaceContainerDark
+import com.example.ui.theme.SurfaceContainerHighDark
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -148,19 +173,42 @@ fun TransactionFormDialog(
 
     val accounts = listOf("Card", "Cash", "Meal Tickets")
 
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedContainerColor = SurfaceContainerDark,
+        unfocusedContainerColor = SurfaceContainerDark,
+        disabledContainerColor = SurfaceContainerDark,
+        errorContainerColor = SurfaceContainerDark,
+        focusedBorderColor = CobaltBlue,
+        unfocusedBorderColor = SurfaceContainerHighDark,
+        errorBorderColor = ExpenseCoral,
+        focusedLabelColor = CobaltBlue,
+        unfocusedLabelColor = TextSecondary,
+        disabledLabelColor = TextMuted,
+        errorLabelColor = ExpenseCoral,
+        focusedTextColor = TextPrimary,
+        unfocusedTextColor = TextPrimary,
+        disabledTextColor = TextPrimary,
+        errorTextColor = TextPrimary,
+        focusedTrailingIconColor = TextSecondary,
+        unfocusedTrailingIconColor = TextSecondary,
+        disabledTrailingIconColor = TextMuted,
+        cursorColor = CobaltBlue
+    )
+
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+                .widthIn(max = 520.dp)
+                .padding(vertical = Space8),
+            shape = RoundedCornerShape(RadiusXLarge),
+            color = SurfaceDark,
+            tonalElevation = 4.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(Space20)
                     .verticalScroll(rememberScrollState())
             ) {
                 // Header
@@ -169,7 +217,7 @@ fun TransactionFormDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = when {
                                 isDuplicateMode -> "Duplicate Transaction"
@@ -177,57 +225,57 @@ fun TransactionFormDialog(
                                 else -> "Add Transaction"
                             },
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
                         )
                         if (isDuplicateMode) {
+                            Spacer(modifier = Modifier.height(Space4))
                             Text(
                                 text = "Date auto-updated to today ($todayStr)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                style = MicroMetadata,
+                                color = CobaltBlue
                             )
                         }
                     }
 
-                    IconButton(onClick = onDismiss) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = TextSecondary
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // Type Toggle (Expense / Income)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = type == "Expense",
-                        onClick = {
+                FinTrackSegmentedControl(
+                    items = listOf("Expense", "Income"),
+                    selectedIndex = if (type == "Expense") 0 else 1,
+                    onItemSelected = { index ->
+                        if (index == 0) {
                             type = "Expense"
                             destination = ""
                             subCategory = ""
                             val firstMatch = categories.find { it.type == "Expense" }
                             if (firstMatch != null) category = firstMatch.name
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                    ) {
-                        Text("Expense", color = if (type == "Expense") ExpenseRed else MaterialTheme.colorScheme.onSurface)
-                    }
-
-                    SegmentedButton(
-                        selected = type == "Income",
-                        onClick = {
+                        } else {
                             type = "Income"
                             subCategory = ""
                             val firstMatch = categories.find { it.type == "Income" }
                             if (firstMatch != null) category = firstMatch.name
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                    ) {
-                        Text("Income", color = if (type == "Income") IncomeGreen else MaterialTheme.colorScheme.onSurface)
-                    }
-                }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
-                // Amount RON
+                // Amount RON — Hero Field
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = {
@@ -235,15 +283,63 @@ fun TransactionFormDialog(
                         amountError = false
                     },
                     label = { Text("Amount (RON)") },
+                    placeholder = {
+                        Text(
+                            text = "0.00",
+                            style = HeroFinancialDisplay,
+                            color = TextMuted
+                        )
+                    },
+                    leadingIcon = {
+                        Text(
+                            text = if (type == "Income") "+ " else "- ",
+                            style = HeroFinancialDisplay,
+                            color = if (type == "Income") IncomeEmerald else ExpenseCoral,
+                            modifier = Modifier.padding(start = Space12)
+                        )
+                    },
+                    trailingIcon = {
+                        Text(
+                            text = "RON",
+                            style = CardTitleAmount,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(end = Space12)
+                        )
+                    },
                     isError = amountError,
+                    supportingText = if (amountError) {
+                        {
+                            Text(
+                                text = "Please enter a valid amount greater than 0",
+                                color = ExpenseCoral,
+                                style = MicroMetadata
+                            )
+                        }
+                    } else null,
+                    textStyle = HeroFinancialDisplay.copy(
+                        color = if (type == "Income") IncomeEmerald else ExpenseCoral
+                    ),
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = SurfaceContainerDark,
+                        unfocusedContainerColor = SurfaceContainerDark,
+                        errorContainerColor = SurfaceContainerDark,
+                        focusedBorderColor = CobaltBlue,
+                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        errorBorderColor = ExpenseCoral,
+                        focusedLabelColor = CobaltBlue,
+                        unfocusedLabelColor = TextSecondary,
+                        errorLabelColor = ExpenseCoral,
+                        cursorColor = if (type == "Income") IncomeEmerald else ExpenseCoral
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("tx_input_amount"),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusMedium)
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // Description with Autocomplete suggestions
                 ExposedDropdownMenuBox(
@@ -258,11 +354,23 @@ fun TransactionFormDialog(
                         },
                         label = { Text("Description") },
                         isError = descError,
+                        supportingText = if (descError) {
+                            {
+                                Text(
+                                    text = "Description is required",
+                                    color = ExpenseCoral,
+                                    style = MicroMetadata
+                                )
+                            }
+                        } else null,
+                        singleLine = true,
+                        colors = textFieldColors,
+                        textStyle = BodyRegular.copy(color = TextPrimary),
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth()
                             .testTag("tx_input_desc"),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(RadiusMedium)
                     )
 
                     if (suggestions.isNotEmpty()) {
@@ -272,7 +380,7 @@ fun TransactionFormDialog(
                         ) {
                             suggestions.forEach { sug ->
                                 DropdownMenuItem(
-                                    text = { Text(sug) },
+                                    text = { Text(sug, color = TextPrimary, style = BodyRegular) },
                                     onClick = {
                                         description = sug
                                         suggestionsExpanded = false
@@ -283,7 +391,7 @@ fun TransactionFormDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // Date Picker trigger
                 OutlinedTextField(
@@ -292,51 +400,77 @@ fun TransactionFormDialog(
                     readOnly = true,
                     label = { Text("Date (YYYY-MM-DD)") },
                     trailingIcon = {
-                        IconButton(onClick = { showDatePicker = true }) {
-                            Icon(imageVector = Icons.Default.CalendarToday, contentDescription = "Select Date")
+                        IconButton(
+                            onClick = { showDatePicker = true },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarToday,
+                                contentDescription = "Select Date",
+                                tint = CobaltBlue
+                            )
                         }
                     },
+                    colors = textFieldColors,
+                    textStyle = BodyRegular.copy(color = TextPrimary),
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showDatePicker = true },
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusMedium)
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // Income Destination Field (Optional for Income)
                 if (type == "Income") {
                     Text(
                         text = "Destination (Optional)",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = LabelBadgeMedium,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = TextSecondary
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(Space8))
 
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        SegmentedButton(
-                            selected = destination == "Bubu",
-                            onClick = {
-                                destination = if (destination == "Bubu") "" else "Bubu"
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                        ) {
-                            Text("Bubu")
-                        }
-
-                        SegmentedButton(
-                            selected = destination == "Piticania",
-                            onClick = {
-                                destination = if (destination == "Piticania") "" else "Piticania"
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                        ) {
-                            Text("Piticania")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Space8)
+                    ) {
+                        listOf("Bubu", "Piticania").forEach { destName ->
+                            val isSelected = destination == destName
+                            Surface(
+                                onClick = {
+                                    destination = if (destination == destName) "" else destName
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .semantics {
+                                        this.selected = isSelected
+                                        this.role = Role.Tab
+                                    },
+                                shape = RoundedCornerShape(RadiusMedium),
+                                color = if (isSelected) CobaltBlue else SurfaceContainerDark,
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) CobaltBlue else SurfaceContainerHighDark
+                                )
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.padding(horizontal = Space12, vertical = Space8)
+                                ) {
+                                    Text(
+                                        text = destName,
+                                        style = LabelBadgeMedium,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (isSelected) Color.White else TextSecondary
+                                    )
+                                }
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(Space16))
                 }
 
                 // Subcategory Dropdown (Read-Only Selector)
@@ -350,10 +484,12 @@ fun TransactionFormDialog(
                         readOnly = true,
                         label = { Text("Subcategory (Select First)") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = subCategoryExpanded) },
+                        colors = textFieldColors,
+                        textStyle = BodyRegular.copy(color = TextPrimary),
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(RadiusMedium)
                     )
 
                     ExposedDropdownMenu(
@@ -362,7 +498,7 @@ fun TransactionFormDialog(
                     ) {
                         availableSubcategories.forEach { subName ->
                             DropdownMenuItem(
-                                text = { Text(subName) },
+                                text = { Text(subName, color = TextPrimary, style = BodyRegular) },
                                 onClick = {
                                     subCategory = subName
                                     subCategoryExpanded = false
@@ -376,7 +512,7 @@ fun TransactionFormDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // Auto-Completed Category Display (Read-Only)
                 OutlinedTextField(
@@ -384,12 +520,20 @@ fun TransactionFormDialog(
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Category (Auto-selected)") },
-                    supportingText = { Text("Category is auto-assigned based on selected subcategory", style = MaterialTheme.typography.labelSmall) },
+                    supportingText = {
+                        Text(
+                            text = "Category is auto-assigned based on selected subcategory",
+                            style = MicroMetadata,
+                            color = TextSecondary
+                        )
+                    },
+                    colors = textFieldColors,
+                    textStyle = BodyRegular.copy(color = TextPrimary),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusMedium)
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // Account Dropdown
                 ExposedDropdownMenuBox(
@@ -402,10 +546,12 @@ fun TransactionFormDialog(
                         readOnly = true,
                         label = { Text("Account") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded) },
+                        colors = textFieldColors,
+                        textStyle = BodyRegular.copy(color = TextPrimary),
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(RadiusMedium)
                     )
 
                     ExposedDropdownMenu(
@@ -414,7 +560,7 @@ fun TransactionFormDialog(
                     ) {
                         accounts.forEach { acc ->
                             DropdownMenuItem(
-                                text = { Text(getAccountDisplayLabel(acc)) },
+                                text = { Text(getAccountDisplayLabel(acc), color = TextPrimary, style = BodyRegular) },
                                 onClick = {
                                     account = acc
                                     accountExpanded = false
@@ -424,46 +570,55 @@ fun TransactionFormDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(Space20))
 
-                // Save / Confirm Action Button
-                Button(
-                    onClick = {
-                        val parsedAmount = amountText.toDoubleOrNull()
-                        if (parsedAmount == null || parsedAmount <= 0.0) {
-                            amountError = true
-                            return@Button
-                        }
-                        if (description.isBlank()) {
-                            descError = true
-                            return@Button
-                        }
-                        onSave(
-                            if (isDuplicateMode) null else initialTransaction?.id,
-                            date,
-                            description,
-                            parsedAmount,
-                            type,
-                            account,
-                            category,
-                            subCategory,
-                            if (type == "Income" && destination.isNotBlank()) destination else null
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("save_transaction_button"),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (type == "Income") IncomeGreen else MaterialTheme.colorScheme.primary
-                    )
+                // Save / Cancel Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Space12),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (isDuplicateMode) "Confirm Duplicated Entry" else "Save Transaction",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                    FinTrackButton(
+                        text = "Cancel",
+                        onClick = onDismiss,
+                        variant = ButtonVariant.SECONDARY,
+                        modifier = Modifier.weight(1f)
                     )
+
+                    FinTrackButton(
+                        onClick = {
+                            val parsedAmount = amountText.toDoubleOrNull()
+                            if (parsedAmount == null || parsedAmount <= 0.0) {
+                                amountError = true
+                                return@FinTrackButton
+                            }
+                            if (description.isBlank()) {
+                                descError = true
+                                return@FinTrackButton
+                            }
+                            onSave(
+                                if (isDuplicateMode) null else initialTransaction?.id,
+                                date,
+                                description,
+                                parsedAmount,
+                                type,
+                                account,
+                                category,
+                                subCategory,
+                                if (type == "Income" && destination.isNotBlank()) destination else null
+                            )
+                        },
+                        variant = ButtonVariant.PRIMARY,
+                        modifier = Modifier
+                            .weight(2f)
+                            .testTag("save_transaction_button")
+                    ) {
+                        Text(
+                            text = if (isDuplicateMode) "Confirm Duplicated Entry" else "Save Transaction",
+                            style = CardTitleAmount,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -486,12 +641,12 @@ fun TransactionFormDialog(
                         showDatePicker = false
                     }
                 ) {
-                    Text("OK")
+                    Text("OK", color = CobaltBlue)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
+                    Text("Cancel", color = TextSecondary)
                 }
             }
         ) {
@@ -499,3 +654,4 @@ fun TransactionFormDialog(
         }
     }
 }
+
