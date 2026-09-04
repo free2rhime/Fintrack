@@ -8,34 +8,45 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+// ==========================================
+// FinTrack Design System v1 — Material 3 Dark Palette
+// ==========================================
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryGreen,
+    primary = IncomeEmerald,
     onPrimary = Color.White,
     primaryContainer = Color(0xFF15803D),
     onPrimaryContainer = Color.White,
-    secondary = SecondaryBlue,
+    secondary = CobaltBlue,
     onSecondary = Color.White,
     secondaryContainer = Color(0xFF1D4ED8),
     onSecondaryContainer = Color.White,
     tertiary = TertiaryViolet,
-    background = BackgroundDark,
-    onBackground = TextPrimaryDark,
+    background = CanvasDark,
+    onBackground = TextPrimary,
     surface = SurfaceDark,
-    onSurface = TextPrimaryDark,
-    surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = TextSecondaryDark,
+    onSurface = TextPrimary,
+    surfaceVariant = SurfaceContainerHighDark,
+    onSurfaceVariant = TextSecondary,
+    surfaceContainerLowest = CanvasDark,
+    surfaceContainer = SurfaceContainerDark,
+    surfaceContainerHigh = SurfaceContainerHighDark,
+    error = ExpenseCoral,
+    onError = Color.White,
+    errorContainer = ExpenseContainer,
+    onErrorContainer = ExpenseCoral,
     outline = Color(0xFF475569)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryGreen,
+    primary = IncomeEmerald,
     onPrimary = Color.White,
     primaryContainer = Color(0xFFDCFCE7),
     onPrimaryContainer = Color(0xFF14532D),
-    secondary = SecondaryBlue,
+    secondary = CobaltBlue,
     onSecondary = Color.White,
     tertiary = TertiaryViolet,
     background = BackgroundLight,
@@ -44,6 +55,8 @@ private val LightColorScheme = lightColorScheme(
     onSurface = TextPrimaryLight,
     surfaceVariant = SurfaceVariantLight,
     onSurfaceVariant = TextSecondaryLight,
+    error = ExpenseCoral,
+    onError = Color.White,
     outline = Color(0xFFCBD5E1)
 )
 
@@ -62,9 +75,15 @@ fun FinTrackTheme(
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalFinTrackSpacing provides FinTrackSpacing()
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            shapes = Shapes,
+            content = content
+        )
+    }
 }
+
