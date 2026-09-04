@@ -8,12 +8,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -25,20 +28,14 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Subtitles
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,14 +46,47 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.CategoryEntity
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
+import com.example.ui.components.BadgeVariant
+import com.example.ui.components.ButtonVariant
+import com.example.ui.components.FinTrackButton
+import com.example.ui.components.FinTrackCard
+import com.example.ui.components.FinTrackEmptyState
+import com.example.ui.components.FinTrackSegmentedControl
+import com.example.ui.components.FinTrackStatusBadge
+import com.example.ui.components.resolveCategoryIcon
+import com.example.ui.theme.BodyRegular
+import com.example.ui.theme.CanvasDark
+import com.example.ui.theme.CardTitleAmount
+import com.example.ui.theme.CobaltBlue
+import com.example.ui.theme.ExpenseContainer
+import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.IncomeContainer
+import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MicroMetadata
+import com.example.ui.theme.RadiusLarge
+import com.example.ui.theme.RadiusMedium
+import com.example.ui.theme.RadiusXLarge
+import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.Space12
+import com.example.ui.theme.Space16
+import com.example.ui.theme.Space20
+import com.example.ui.theme.Space32
+import com.example.ui.theme.Space4
+import com.example.ui.theme.Space8
+import com.example.ui.theme.SurfaceContainerDark
+import com.example.ui.theme.SurfaceContainerHighDark
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 
 @Composable
 fun CategoriesScreen(
@@ -87,8 +117,8 @@ fun CategoriesScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
+        containerColor = CanvasDark,
+        contentWindowInsets = WindowInsets(0.dp),
         floatingActionButton = {
             if (canManageCategories) {
                 FloatingActionButton(
@@ -96,8 +126,9 @@ fun CategoriesScreen(
                         addDialogPreFilledCategory = ""
                         showAddDialog = true
                     },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = CobaltBlue,
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(RadiusLarge),
                     modifier = Modifier.testTag("fab_add_category")
                 ) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = "Add Category")
@@ -106,248 +137,338 @@ fun CategoriesScreen(
         },
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .background(CanvasDark),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Header
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Category,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Category & Subcategory Management",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Segmented Tab Toggle
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = selectedType == "Expense",
-                    onClick = { selectedType = "Expense" },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                ) {
-                    Text(
-                        "Expense Categories",
-                        color = if (selectedType == "Expense") ExpenseRed else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                SegmentedButton(
-                    selected = selectedType == "Income",
-                    onClick = { selectedType = "Income" },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                ) {
-                    Text(
-                        "Income Categories",
-                        color = if (selectedType == "Income") IncomeGreen else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Categories Grouped List
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 680.dp)
+                    .padding(horizontal = Space16)
             ) {
-                items(groupedCategories.keys.toList(), key = { it }) { catName ->
-                    val subList = groupedCategories[catName] ?: emptyList()
+                Spacer(modifier = Modifier.height(Space16))
 
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("category_card_${catName}"),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                // Header with tonal icon well and summary badge
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
-                        Column(
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(CobaltBlue.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            // MAIN CATEGORY LINE (Header)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = catName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 17.sp
-                                    )
-                                }
+                            Icon(
+                                imageVector = Icons.Default.Category,
+                                contentDescription = null,
+                                tint = CobaltBlue,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Space12))
+                        Column {
+                            Text(
+                                text = "Category & Subcategory Management",
+                                style = SectionHeadline,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Organize household transactions by type",
+                                style = MicroMetadata,
+                                color = TextSecondary
+                            )
+                        }
+                    }
 
-                                if (canManageCategories) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        // Add Subcategory Quick Action Button
-                                        Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .clickable {
-                                                    addDialogPreFilledCategory = catName
-                                                    showAddDialog = true
-                                                }
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                    if (groupedCategories.isNotEmpty()) {
+                        FinTrackStatusBadge(
+                            label = "${groupedCategories.size} ${if (groupedCategories.size == 1) "Group" else "Groups"}",
+                            variant = BadgeVariant.NEUTRAL
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Space16))
+
+                // Segmented Tab Toggle using FinTrackSegmentedControl
+                FinTrackSegmentedControl(
+                    items = listOf("Expense Categories", "Income Categories"),
+                    selectedIndex = if (selectedType == "Expense") 0 else 1,
+                    onItemSelected = { index ->
+                        selectedType = if (index == 0) "Expense" else "Income"
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(Space16))
+
+                // Categories List or Empty State
+                if (groupedCategories.isEmpty()) {
+                    FinTrackEmptyState(
+                        icon = Icons.Default.Category,
+                        iconTint = CobaltBlue,
+                        title = if (selectedType == "Expense") "No Expense Categories" else "No Income Categories",
+                        description = if (canManageCategories) {
+                            "Create category groups and subcategories to organize your transactions."
+                        } else {
+                            "No categories available in this household."
+                        },
+                        actionLabel = if (canManageCategories) "Add Category" else null,
+                        onActionClick = if (canManageCategories) {
+                            {
+                                addDialogPreFilledCategory = ""
+                                showAddDialog = true
+                            }
+                        } else null,
+                        modifier = Modifier.padding(top = Space32)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(Space12)
+                    ) {
+                        items(groupedCategories.keys.toList(), key = { it }) { catName ->
+                            val subList = groupedCategories[catName] ?: emptyList()
+                            val isIncome = selectedType == "Income"
+                            val iconVector = resolveCategoryIcon(catName, isIncome)
+                            val iconBg = if (isIncome) IncomeContainer else ExpenseContainer
+                            val iconTint = if (isIncome) IncomeEmerald else ExpenseCoral
+
+                            FinTrackCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("category_card_${catName}"),
+                                shape = RoundedCornerShape(RadiusLarge),
+                                containerColor = SurfaceDark,
+                                contentPadding = Space16
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    // MAIN CATEGORY LINE (Header)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
                                         ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                            // Tonal category icon container
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(CircleShape)
+                                                    .background(iconBg),
+                                                contentAlignment = Alignment.Center
+                                            ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.Add,
-                                                    contentDescription = "Add Subcategory",
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(16.dp)
+                                                    imageVector = iconVector,
+                                                    contentDescription = null,
+                                                    tint = iconTint,
+                                                    modifier = Modifier.size(20.dp)
                                                 )
-                                                Spacer(modifier = Modifier.width(4.dp))
+                                            }
+                                            Spacer(modifier = Modifier.width(Space12))
+                                            Column {
                                                 Text(
-                                                    text = "+ Sub",
-                                                    style = MaterialTheme.typography.labelSmall,
+                                                    text = catName,
+                                                    style = CardTitleAmount,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.primary
+                                                    color = TextPrimary
+                                                )
+                                                val validCount = subList.count { it.subCategory.isNotBlank() }
+                                                Text(
+                                                    text = if (validCount == 1) "1 subcategory" else "$validCount subcategories",
+                                                    style = MicroMetadata,
+                                                    color = TextSecondary
                                                 )
                                             }
                                         }
 
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        if (canManageCategories) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                // Add Subcategory Quick Action Button
+                                                Surface(
+                                                    shape = RoundedCornerShape(RadiusMedium),
+                                                    color = CobaltBlue.copy(alpha = 0.12f),
+                                                    modifier = Modifier
+                                                        .defaultMinSize(minHeight = 48.dp)
+                                                        .clip(RoundedCornerShape(RadiusMedium))
+                                                        .clickable {
+                                                            addDialogPreFilledCategory = catName
+                                                            showAddDialog = true
+                                                        }
+                                                        .padding(horizontal = Space8, vertical = Space4)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.padding(horizontal = Space4)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Add,
+                                                            contentDescription = "Add Subcategory",
+                                                            tint = CobaltBlue,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(Space4))
+                                                        Text(
+                                                            text = "+ Sub",
+                                                            style = LabelBadgeMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = CobaltBlue
+                                                        )
+                                                    }
+                                                }
 
-                                        IconButton(
-                                            onClick = { categoryGroupToEdit = catName },
-                                            modifier = Modifier.size(32.dp).testTag("edit_category_group_${catName}")
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = "Edit Category Group",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                                Spacer(modifier = Modifier.width(Space4))
 
-                                        IconButton(
-                                            onClick = { categoryGroupToDelete = catName },
-                                            modifier = Modifier.size(32.dp).testTag("delete_category_group_${catName}")
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete Category Group",
-                                                tint = ExpenseRed,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // SUBCATEGORIES LIST BELOW
-                            val validSubs = subList.filter { it.subCategory.isNotBlank() }
-                            if (validSubs.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Divider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                    thickness = 1.dp
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    validSubs.forEach { subEntity ->
-                                        Surface(
-                                            shape = RoundedCornerShape(12.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.weight(1f)
+                                                IconButton(
+                                                    onClick = { categoryGroupToEdit = catName },
+                                                    modifier = Modifier
+                                                        .size(48.dp)
+                                                        .testTag("edit_category_group_${catName}")
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Default.Subtitles,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.secondary,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Text(
-                                                        text = subEntity.subCategory,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        fontWeight = FontWeight.Medium
+                                                        imageVector = Icons.Default.Edit,
+                                                        contentDescription = "Edit Category Group",
+                                                        tint = TextSecondary,
+                                                        modifier = Modifier.size(18.dp)
                                                     )
                                                 }
 
-                                                if (canManageCategories) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        IconButton(
-                                                            onClick = { subcategoryToEdit = subEntity },
-                                                            modifier = Modifier.size(28.dp).testTag("edit_subcategory_${subEntity.id}")
+                                                IconButton(
+                                                    onClick = { categoryGroupToDelete = catName },
+                                                    modifier = Modifier
+                                                        .size(48.dp)
+                                                        .testTag("delete_category_group_${catName}")
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "Delete Category Group",
+                                                        tint = ExpenseCoral,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // SUBCATEGORIES LIST BELOW
+                                    val validSubs = subList.filter { it.subCategory.isNotBlank() }
+                                    if (validSubs.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(Space12))
+                                        Divider(
+                                            color = SurfaceContainerHighDark.copy(alpha = 0.6f),
+                                            thickness = 1.dp
+                                        )
+                                        Spacer(modifier = Modifier.height(Space12))
+
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(Space8)
+                                        ) {
+                                            validSubs.forEach { subEntity ->
+                                                Surface(
+                                                    shape = RoundedCornerShape(RadiusMedium),
+                                                    color = SurfaceContainerDark,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = Space12, vertical = Space8),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            modifier = Modifier.weight(1f)
                                                         ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.Edit,
-                                                                contentDescription = "Edit Subcategory",
-                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                modifier = Modifier.size(16.dp)
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(28.dp)
+                                                                    .clip(CircleShape)
+                                                                    .background(SurfaceContainerHighDark),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Subtitles,
+                                                                    contentDescription = null,
+                                                                    tint = TextSecondary,
+                                                                    modifier = Modifier.size(14.dp)
+                                                                )
+                                                            }
+                                                            Spacer(modifier = Modifier.width(Space8))
+                                                            Text(
+                                                                text = subEntity.subCategory,
+                                                                style = BodyRegular,
+                                                                color = TextPrimary,
+                                                                fontWeight = FontWeight.Medium
                                                             )
                                                         }
 
-                                                        IconButton(
-                                                            onClick = { onDeleteSubcategory(subEntity.id) },
-                                                            modifier = Modifier.size(28.dp).testTag("delete_subcategory_${subEntity.id}")
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.Delete,
-                                                                contentDescription = "Delete Subcategory",
-                                                                tint = ExpenseRed,
-                                                                modifier = Modifier.size(16.dp)
-                                                            )
+                                                        if (canManageCategories) {
+                                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                IconButton(
+                                                                    onClick = { subcategoryToEdit = subEntity },
+                                                                    modifier = Modifier
+                                                                        .size(48.dp)
+                                                                        .testTag("edit_subcategory_${subEntity.id}")
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = Icons.Default.Edit,
+                                                                        contentDescription = "Edit Subcategory",
+                                                                        tint = TextSecondary,
+                                                                        modifier = Modifier.size(16.dp)
+                                                                    )
+                                                                }
+
+                                                                IconButton(
+                                                                    onClick = { onDeleteSubcategory(subEntity.id) },
+                                                                    modifier = Modifier
+                                                                        .size(48.dp)
+                                                                        .testTag("delete_subcategory_${subEntity.id}")
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = Icons.Default.Delete,
+                                                                        contentDescription = "Delete Subcategory",
+                                                                        tint = ExpenseCoral,
+                                                                        modifier = Modifier.size(16.dp)
+                                                                    )
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
                                         }
+                                    } else {
+                                        Spacer(modifier = Modifier.height(Space8))
+                                        Text(
+                                            text = if (canManageCategories) "No subcategories yet. Tap '+ Sub' to add one." else "No subcategories.",
+                                            style = MicroMetadata,
+                                            color = TextMuted
+                                        )
                                     }
                                 }
-                            } else {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = if (canManageCategories) "No subcategories yet. Tap '+ Sub' to add one." else "No subcategories.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
                             }
                         }
-                    }
-                }
 
-                item {
-                    Spacer(modifier = Modifier.height(80.dp))
+                        item {
+                            Spacer(modifier = Modifier.height(88.dp))
+                        }
+                    }
                 }
             }
         }
@@ -383,25 +504,41 @@ fun CategoriesScreen(
     // Category Group Delete Confirmation Dialog
     if (categoryGroupToDelete != null) {
         val groupToDelete = categoryGroupToDelete!!
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { categoryGroupToDelete = null },
-            title = { Text("Delete Category Group") },
-            text = { Text("Are you sure you want to delete category group '$groupToDelete'? All subcategories under this group will be deleted. Historical transactions will be preserved.") },
+            containerColor = SurfaceDark,
+            shape = RoundedCornerShape(RadiusXLarge),
+            title = {
+                Text(
+                    text = "Delete Category Group",
+                    style = SectionHeadline,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete category group '$groupToDelete'? All subcategories under this group will be deleted. Historical transactions will be preserved.",
+                    style = BodyRegular,
+                    color = TextSecondary
+                )
+            },
             confirmButton = {
-                Button(
+                FinTrackButton(
+                    text = "Delete Group",
                     onClick = {
                         onDeleteCategoryGroup(groupToDelete, selectedType)
                         categoryGroupToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
-                ) {
-                    Text("Delete Group", fontWeight = FontWeight.Bold)
-                }
+                    variant = ButtonVariant.DESTRUCTIVE
+                )
             },
             dismissButton = {
-                androidx.compose.material3.OutlinedButton(onClick = { categoryGroupToDelete = null }) {
-                    Text("Cancel")
-                }
+                FinTrackButton(
+                    text = "Cancel",
+                    onClick = { categoryGroupToDelete = null },
+                    variant = ButtonVariant.SECONDARY
+                )
             }
         )
     }
@@ -433,48 +570,61 @@ private fun CategoryHeaderEditDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface
+                .padding(Space16),
+            shape = RoundedCornerShape(RadiusXLarge),
+            color = SurfaceDark
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(Space20)) {
                 Text(
                     text = "Rename Category Group",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = SectionHeadline,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(Space16))
                 OutlinedTextField(
                     value = name,
                     onValueChange = {
                         name = it
                         isError = false
                     },
-                    label = { Text("Category Group Name") },
+                    label = { Text("Category Group Name", color = TextSecondary) },
                     isError = isError,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusMedium),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedContainerColor = SurfaceContainerDark,
+                        unfocusedContainerColor = SurfaceContainerDark,
+                        focusedBorderColor = CobaltBlue,
+                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        cursorColor = CobaltBlue
+                    )
                 )
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(Space20))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    androidx.compose.material3.OutlinedButton(onClick = onDismiss) {
-                        Text("Cancel")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
+                    FinTrackButton(
+                        text = "Cancel",
+                        onClick = onDismiss,
+                        variant = ButtonVariant.SECONDARY
+                    )
+                    Spacer(modifier = Modifier.width(Space8))
+                    FinTrackButton(
+                        text = "Save",
                         onClick = {
                             if (name.isBlank()) {
                                 isError = true
-                                return@Button
+                                return@FinTrackButton
                             }
                             onConfirm(name.trim())
-                        }
-                    ) {
-                        Text("Save")
-                    }
+                        },
+                        variant = ButtonVariant.PRIMARY
+                    )
                 }
             }
         }
@@ -494,48 +644,61 @@ private fun SubcategoryEditDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface
+                .padding(Space16),
+            shape = RoundedCornerShape(RadiusXLarge),
+            color = SurfaceDark
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(Space20)) {
                 Text(
                     text = "Rename Subcategory",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = SectionHeadline,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(Space16))
                 OutlinedTextField(
                     value = subName,
                     onValueChange = {
                         subName = it
                         isError = false
                     },
-                    label = { Text("Subcategory Name") },
+                    label = { Text("Subcategory Name", color = TextSecondary) },
                     isError = isError,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusMedium),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedContainerColor = SurfaceContainerDark,
+                        unfocusedContainerColor = SurfaceContainerDark,
+                        focusedBorderColor = CobaltBlue,
+                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        cursorColor = CobaltBlue
+                    )
                 )
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(Space20))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    androidx.compose.material3.OutlinedButton(onClick = onDismiss) {
-                        Text("Cancel")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
+                    FinTrackButton(
+                        text = "Cancel",
+                        onClick = onDismiss,
+                        variant = ButtonVariant.SECONDARY
+                    )
+                    Spacer(modifier = Modifier.width(Space8))
+                    FinTrackButton(
+                        text = "Save",
                         onClick = {
                             if (subName.isBlank()) {
                                 isError = true
-                                return@Button
+                                return@FinTrackButton
                             }
                             onConfirm(subName.trim())
-                        }
-                    ) {
-                        Text("Save")
-                    }
+                        },
+                        variant = ButtonVariant.PRIMARY
+                    )
                 }
             }
         }
@@ -556,55 +719,45 @@ private fun CategoryFormDialog(
     var type by remember { mutableStateOf(defaultType) }
     var isError by remember { mutableStateOf(false) }
 
-    // Financial & Lifestyle Emoji Preset Picker
+    // Preset emoji icons as helper shortcuts
     val commonEmojis = listOf(
         "💸", "💹", "💼", "🍉", "🍔", "🛒", "🏠", "⚡", "🚗", "⛽", "🛍️", "👕",
         "🏥", "💊", "🏋️", "🎬", "🍿", "✈️", "🏦", "💳", "🎁", "💻", "📈", "📊",
         "💵", "🎉", "🍕", "🥗", "🎮", "🐾", "🛠️", "💡", "🏷️", "💰", "💎", "🚌", "🔑"
     )
 
-    var targetFieldForEmoji by remember { mutableStateOf("Category") } // "Category" or "Subcategory"
+    var targetFieldForEmoji by remember { mutableStateOf("Category") }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface
+                .padding(Space16),
+            shape = RoundedCornerShape(RadiusXLarge),
+            color = SurfaceDark
         ) {
             Column(
-                modifier = Modifier
-                    .padding(20.dp)
+                modifier = Modifier.padding(Space20)
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = SectionHeadline,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // Type selector
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = type == "Expense",
-                        onClick = { type = "Expense" },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                    ) {
-                        Text("Expense")
+                FinTrackSegmentedControl(
+                    items = listOf("Expense", "Income"),
+                    selectedIndex = if (type == "Expense") 0 else 1,
+                    onItemSelected = { index ->
+                        type = if (index == 0) "Expense" else "Income"
                     }
+                )
 
-                    SegmentedButton(
-                        selected = type == "Income",
-                        onClick = { type = "Income" },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                    ) {
-                        Text("Income")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // Category Text Field
                 OutlinedTextField(
@@ -614,15 +767,24 @@ private fun CategoryFormDialog(
                         isError = false
                         targetFieldForEmoji = "Category"
                     },
-                    label = { Text("Category Name (e.g. 💸 Financial & Taxes)") },
+                    label = { Text("Category Name (e.g. Food & Dining)", color = TextSecondary) },
                     isError = isError,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { targetFieldForEmoji = "Category" },
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusMedium),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedContainerColor = SurfaceContainerDark,
+                        unfocusedContainerColor = SurfaceContainerDark,
+                        focusedBorderColor = CobaltBlue,
+                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        cursorColor = CobaltBlue
+                    )
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(Space12))
 
                 // Subcategory Text Field
                 OutlinedTextField(
@@ -631,21 +793,30 @@ private fun CategoryFormDialog(
                         subCategory = it
                         targetFieldForEmoji = "Subcategory"
                     },
-                    label = { Text("Subcategory (e.g. 💹 Investments & Dividends)") },
+                    label = { Text("Subcategory (Optional)", color = TextSecondary) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { targetFieldForEmoji = "Subcategory" },
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusMedium),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedContainerColor = SurfaceContainerDark,
+                        unfocusedContainerColor = SurfaceContainerDark,
+                        focusedBorderColor = CobaltBlue,
+                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        cursorColor = CobaltBlue
+                    )
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Space12))
 
-                // EMOJI CHIP SELECTOR LIST
+                // Helper Icon Picker (Tonal styling)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                        .padding(12.dp)
+                        .background(SurfaceContainerDark, RoundedCornerShape(RadiusMedium))
+                        .padding(Space12)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -653,48 +824,47 @@ private fun CategoryFormDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Tap Emoji for ${targetFieldForEmoji}:",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = "Add Prefix to $targetFieldForEmoji:",
+                            style = MicroMetadata,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = CobaltBlue
                         )
 
                         Row {
                             Text(
                                 text = "Category",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MicroMetadata,
                                 fontWeight = if (targetFieldForEmoji == "Category") FontWeight.Bold else FontWeight.Normal,
-                                color = if (targetFieldForEmoji == "Category") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (targetFieldForEmoji == "Category") CobaltBlue else TextMuted,
                                 modifier = Modifier
                                     .clickable { targetFieldForEmoji = "Category" }
-                                    .padding(horizontal = 4.dp)
+                                    .padding(horizontal = Space4)
                             )
-                            Text("|", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("|", style = MicroMetadata, color = TextMuted)
                             Text(
                                 text = "Subcategory",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MicroMetadata,
                                 fontWeight = if (targetFieldForEmoji == "Subcategory") FontWeight.Bold else FontWeight.Normal,
-                                color = if (targetFieldForEmoji == "Subcategory") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (targetFieldForEmoji == "Subcategory") CobaltBlue else TextMuted,
                                 modifier = Modifier
                                     .clickable { targetFieldForEmoji = "Subcategory" }
-                                    .padding(horizontal = 4.dp)
+                                    .padding(horizontal = Space4)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Space8))
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Space4)
                     ) {
                         commonEmojis.forEach { emoji ->
                             Surface(
                                 shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surface,
-                                shadowElevation = 1.dp,
+                                color = SurfaceContainerHighDark,
                                 modifier = Modifier
                                     .clip(CircleShape)
                                     .clickable {
@@ -706,34 +876,43 @@ private fun CategoryFormDialog(
                                     }
                             ) {
                                 Box(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(text = emoji, fontSize = 18.sp)
+                                    Text(text = emoji, fontSize = 16.sp)
                                 }
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(Space20))
 
-                Button(
-                    onClick = {
-                        if (name.isBlank()) {
-                            isError = true
-                            return@Button
-                        }
-                        onConfirm(name.trim(), type, subCategory.trim())
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Save Category", fontWeight = FontWeight.Bold)
+                    FinTrackButton(
+                        text = "Cancel",
+                        onClick = onDismiss,
+                        variant = ButtonVariant.SECONDARY
+                    )
+                    Spacer(modifier = Modifier.width(Space8))
+                    FinTrackButton(
+                        text = "Save Category",
+                        onClick = {
+                            if (name.isBlank()) {
+                                isError = true
+                                return@FinTrackButton
+                            }
+                            onConfirm(name.trim(), type, subCategory.trim())
+                        },
+                        variant = ButtonVariant.PRIMARY
+                    )
                 }
             }
         }
     }
 }
+
