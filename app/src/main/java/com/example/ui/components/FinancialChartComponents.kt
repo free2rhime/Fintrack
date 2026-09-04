@@ -14,6 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,6 +47,7 @@ import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.PrimaryGreen
 import com.example.ui.theme.SecondaryBlue
 import com.example.ui.theme.TertiaryViolet
+import com.example.ui.theme.TextSecondary
 import kotlin.math.roundToInt
 
 @Composable
@@ -50,18 +57,16 @@ fun MonthlyCashFlowSplineChart(
     modifier: Modifier = Modifier
 ) {
     if (dataPoints.isEmpty()) {
-        Box(
+        FinTrackEmptyState(
+            title = "No Cash Flow Data",
+            description = "No financial activity recorded in this period",
+            icon = Icons.Default.ShowChart,
+            iconTint = TextSecondary,
+            compact = true,
             modifier = modifier
                 .fillMaxWidth()
-                .height(180.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No financial activity recorded in this period",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+                .height(180.dp)
+        )
         return
     }
 
@@ -252,18 +257,16 @@ fun MonthlyCashFlowBarChart(
     modifier: Modifier = Modifier
 ) {
     if (dataPoints.isEmpty()) {
-        Box(
+        FinTrackEmptyState(
+            title = "No Cash Flow Data",
+            description = "No financial activity recorded in this period",
+            icon = Icons.Default.BarChart,
+            iconTint = TextSecondary,
+            compact = true,
             modifier = modifier
                 .fillMaxWidth()
-                .height(180.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No financial activity recorded in this period",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+                .height(180.dp)
+        )
         return
     }
 
@@ -374,18 +377,16 @@ fun CategoryDistributionChart(
     modifier: Modifier = Modifier
 ) {
     if (categoryShares.isEmpty()) {
-        Box(
+        FinTrackEmptyState(
+            title = "No Category Spending",
+            description = "No category data available for this period",
+            icon = Icons.Default.PieChart,
+            iconTint = TextSecondary,
+            compact = true,
             modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No financial activity recorded in this period",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+                .padding(vertical = 16.dp)
+        )
         return
     }
 
@@ -461,34 +462,30 @@ fun SavingsTrendLineChart(
     modifier: Modifier = Modifier
 ) {
     if (dataPoints.isEmpty()) {
-        Box(
+        FinTrackEmptyState(
+            title = "No Savings Data",
+            description = "No financial activity recorded in this period",
+            icon = Icons.Default.TrendingUp,
+            iconTint = TextSecondary,
+            compact = true,
             modifier = modifier
                 .fillMaxWidth()
-                .height(140.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No financial activity recorded in this period",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+                .height(140.dp)
+        )
         return
     }
 
     if (dataPoints.size < 2) {
-        Box(
+        FinTrackEmptyState(
+            title = "Insufficient Trend Data",
+            description = "Accumulate transactions over multiple months to display savings trends",
+            icon = Icons.Default.Info,
+            iconTint = TextSecondary,
+            compact = true,
             modifier = modifier
                 .fillMaxWidth()
-                .height(140.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Accumulate transactions over multiple months to display savings trends",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+                .height(140.dp)
+        )
         return
     }
 

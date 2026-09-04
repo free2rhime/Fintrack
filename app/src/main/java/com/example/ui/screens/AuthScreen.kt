@@ -1,7 +1,9 @@
 package com.example.ui.screens
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,19 +13,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,18 +33,43 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
 import com.example.data.repository.AuthState
 import com.example.data.repository.GoogleSignInConfigProvider
+import com.example.ui.components.ButtonVariant
+import com.example.ui.components.FinTrackButton
+import com.example.ui.components.FinTrackCard
+import com.example.ui.theme.BodyRegular
+import com.example.ui.theme.CanvasDark
+import com.example.ui.theme.CobaltBlue
+import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.HeroFinancialDisplay
+import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MicroMetadata
+import com.example.ui.theme.RadiusLarge
+import com.example.ui.theme.RadiusMedium
+import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.Space12
+import com.example.ui.theme.Space16
+import com.example.ui.theme.Space20
+import com.example.ui.theme.Space24
+import com.example.ui.theme.Space32
+import com.example.ui.theme.Space4
+import com.example.ui.theme.Space8
+import com.example.ui.theme.SurfaceContainerDark
+import com.example.ui.theme.SurfaceContainerHighDark
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
@@ -68,50 +92,57 @@ fun AuthScreen(
         modifier = Modifier
             .fillMaxSize()
             .testTag("auth_screen_surface"),
-        color = MaterialTheme.colorScheme.background
+        color = CanvasDark
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(Space24),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Filled.Lock,
-                contentDescription = "Authentication Lock",
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(CobaltBlue.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Lock,
+                    contentDescription = "Authentication Lock",
+                    modifier = Modifier.size(32.dp),
+                    tint = CobaltBlue
+                )
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Space16))
 
             Text(
                 text = "FinTrack",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                style = HeroFinancialDisplay,
+                color = TextPrimary
             )
+
+            Spacer(modifier = Modifier.height(Space4))
 
             Text(
                 text = "Secure Personal Finance Manager",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = BodyRegular,
+                color = TextSecondary
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(Space32))
 
-            Card(
+            FinTrackCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("auth_card"),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                shape = RoundedCornerShape(RadiusLarge),
+                containerColor = SurfaceDark,
+                contentPadding = Space20
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     when (authState) {
@@ -119,64 +150,69 @@ fun AuthScreen(
                             CircularProgressIndicator(
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .testTag("auth_signing_in_indicator")
+                                    .testTag("auth_signing_in_indicator"),
+                                color = CobaltBlue,
+                                strokeWidth = 3.dp
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(Space16))
                             Text(
                                 text = "Signing in securely...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
+                                style = BodyRegular,
+                                fontWeight = FontWeight.Medium,
+                                color = TextPrimary
                             )
                         }
 
                         is AuthState.AuthError -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(ExpenseCoral.copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Warning,
                                     contentDescription = "Auth Error",
-                                    tint = MaterialTheme.colorScheme.error,
+                                    tint = ExpenseCoral,
                                     modifier = Modifier.size(24.dp)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Authentication Error",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.Bold
-                                )
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(Space12))
+                            Text(
+                                text = "Authentication Error",
+                                style = SectionHeadline,
+                                color = ExpenseCoral,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(Space8))
                             Text(
                                 text = authState.message,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = BodyRegular,
                                 textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = TextSecondary,
                                 modifier = Modifier.testTag("auth_error_message")
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
+                            Spacer(modifier = Modifier.height(Space20))
+                            FinTrackButton(
+                                text = "Try Again",
                                 onClick = onClearError,
+                                variant = ButtonVariant.PRIMARY,
                                 modifier = Modifier.testTag("auth_retry_button")
-                            ) {
-                                Text("Try Again")
-                            }
+                            )
                         }
 
                         else -> { // SignedOut or default
                             Text(
                                 text = "Sign in to view and manage your financial records. Your data is isolated and protected by account identity.",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = BodyRegular,
                                 textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = TextSecondary
                             )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(Space20))
 
                             // Google Sign In Button
-                            Button(
+                            FinTrackButton(
                                 onClick = {
                                     scope.launch {
                                         triggerGoogleSignIn(
@@ -188,20 +224,29 @@ fun AuthScreen(
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(50.dp)
                                     .testTag("google_sign_in_button"),
-                                shape = RoundedCornerShape(12.dp)
+                                variant = ButtonVariant.PRIMARY
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.AccountCircle,
-                                    contentDescription = "Google Icon",
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Sign in with Google", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.AccountCircle,
+                                        contentDescription = "Google Icon",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.width(Space8))
+                                    Text(
+                                        text = "Sign in with Google",
+                                        style = LabelBadgeMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(Space24))
 
                             // Test / Switch Account Section (Debug Builds Only)
                             if (com.example.BuildConfig.DEBUG) {
@@ -211,32 +256,41 @@ fun AuthScreen(
                                 ) {
                                     Text(
                                         text = "Direct Account Sign-In (UID Testing & Cache Isolation)",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.outline
+                                        style = MicroMetadata,
+                                        color = TextSecondary
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(Space8))
                                     OutlinedTextField(
                                         value = testUidInput,
                                         onValueChange = { testUidInput = it },
-                                        label = { Text("Account UID") },
+                                        label = { Text("Account UID", color = TextSecondary) },
                                         singleLine = true,
+                                        shape = RoundedCornerShape(RadiusMedium),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = CobaltBlue,
+                                            unfocusedBorderColor = SurfaceContainerHighDark,
+                                            focusedTextColor = TextPrimary,
+                                            unfocusedTextColor = TextPrimary,
+                                            focusedContainerColor = SurfaceContainerDark,
+                                            unfocusedContainerColor = SurfaceContainerDark
+                                        ),
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .testTag("test_uid_input_field")
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    OutlinedButton(
+                                    Spacer(modifier = Modifier.height(Space8))
+                                    FinTrackButton(
+                                        text = "Sign In as $testUidInput",
                                         onClick = {
                                             if (testUidInput.isNotBlank()) {
                                                 onSignInWithTestUid(testUidInput.trim())
                                             }
                                         },
+                                        variant = ButtonVariant.SECONDARY,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .testTag("test_uid_sign_in_button")
-                                    ) {
-                                        Text("Sign In as $testUidInput")
-                                    }
+                                    )
                                 }
                             }
                         }

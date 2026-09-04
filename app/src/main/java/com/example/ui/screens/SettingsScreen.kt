@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FileDownload
@@ -67,6 +68,7 @@ import com.example.ui.components.CreateHouseholdDialog
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackButton
 import com.example.ui.components.FinTrackCard
+import com.example.ui.components.FinTrackEmptyState
 import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.HouseholdOverviewCard
@@ -76,6 +78,7 @@ import com.example.ui.theme.CanvasDark
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusLarge
@@ -936,10 +939,13 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(Space8)
                 ) {
                     if (diagnosticRecord == null) {
-                        Text(
-                            text = "No sync errors currently recorded in this session.",
-                            style = BodyRegular,
-                            color = TextSecondary
+                        FinTrackEmptyState(
+                            title = "No Sync Errors",
+                            description = "No sync errors currently recorded in this session.",
+                            icon = Icons.Default.CheckCircle,
+                            iconTint = IncomeEmerald,
+                            compact = true,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = Space16)
                         )
                     } else {
                         val record = diagnosticRecord!!
