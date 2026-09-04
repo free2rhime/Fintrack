@@ -58,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.example.ui.components.CategoryDistributionChart
 import com.example.ui.components.CurrencyToggle
+import com.example.ui.components.FinTrackSyncStatus
 import com.example.ui.components.MonthlyCashFlowBarChart
 import com.example.ui.components.MonthlyCashFlowSplineChart
 import com.example.ui.components.PeriodSelectorChipRow
@@ -91,55 +92,14 @@ fun DashboardScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-                .testTag("sync_status_indicator"),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End
         ) {
-            val (statusText, containerColor, contentColor) = when (syncStatus) {
-                is SyncStatus.SignedOut -> Triple(
-                    "Signed out",
-                    MaterialTheme.colorScheme.surfaceVariant,
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                is SyncStatus.NoHousehold -> Triple(
-                    "No active household",
-                    MaterialTheme.colorScheme.secondaryContainer,
-                    MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                is SyncStatus.Connecting -> Triple(
-                    "Syncing...",
-                    MaterialTheme.colorScheme.tertiaryContainer,
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                )
-                is SyncStatus.Synced -> Triple(
-                    "Synced",
-                    MaterialTheme.colorScheme.primaryContainer,
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                is SyncStatus.PermissionDenied -> Triple(
-                    "Permission denied",
-                    MaterialTheme.colorScheme.error,
-                    MaterialTheme.colorScheme.onError
-                )
-                is SyncStatus.Offline -> Triple(
-                    "Offline",
-                    MaterialTheme.colorScheme.errorContainer,
-                    MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = containerColor
-            ) {
-                Text(
-                    text = "Sync: $statusText",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
+            FinTrackSyncStatus(
+                syncStatus = syncStatus,
+                modifier = Modifier.testTag("sync_status_indicator")
+            )
         }
 
         // Period Filter Chips

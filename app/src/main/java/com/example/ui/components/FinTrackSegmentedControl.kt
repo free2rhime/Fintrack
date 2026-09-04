@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -17,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -31,77 +31,65 @@ import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.Space2
 import com.example.ui.theme.Space4
 import com.example.ui.theme.SurfaceContainerDark
+import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
 /**
- * Reusable currency selector for FinTrack Design System v1.
- * Supports RON and EUR with 200ms pill transition, CobaltBlue selection,
+ * Reusable segmented control for mutually exclusive choices in FinTrack Design System v1.
+ * Provides a tonal container, CobaltBlue selected state with subtle 200ms color transition,
  * 48dp minimum touch target, and accessible selected semantics.
  */
 @Composable
-fun FinTrackCurrencySelector(
-    selectedCurrency: String,
-    onCurrencyChanged: (String) -> Unit,
+fun FinTrackSegmentedControl(
+    items: List<String>,
+    selectedIndex: Int,
+    onItemSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
+            .fillMaxWidth()
             .clip(RoundedCornerShape(RadiusMedium))
             .background(SurfaceContainerDark)
             .padding(Space4),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val currencies = listOf("RON", "EUR")
-        currencies.forEach { curr ->
-            val isSelected = curr == selectedCurrency
-            val bgBgColor by animateColorAsState(
+        items.forEachIndexed { index, item ->
+            val isSelected = index == selectedIndex
+
+            val pillBgColor by animateColorAsState(
                 targetValue = if (isSelected) CobaltBlue else Color.Transparent,
                 animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                label = "currency_selector_bg"
+                label = "segmented_control_pill_bg"
             )
+
             val textColor by animateColorAsState(
                 targetValue = if (isSelected) Color.White else TextSecondary,
                 animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                label = "currency_selector_text"
+                label = "segmented_control_text_color"
             )
 
             Box(
                 modifier = Modifier
-                    .defaultMinSize(minWidth = 56.dp, minHeight = 48.dp)
+                    .weight(1f)
+                    .defaultMinSize(minHeight = 48.dp)
                     .clip(RoundedCornerShape(RadiusSmall))
-                    .background(bgBgColor)
-                    .clickable(role = Role.Tab) { onCurrencyChanged(curr) }
+                    .background(pillBgColor)
+                    .clickable(role = Role.Tab) { onItemSelected(index) }
                     .semantics {
                         this.selected = isSelected
                         this.role = Role.Tab
                     }
-                    .padding(horizontal = 14.dp, vertical = Space2)
-                    .testTag("currency_toggle_$curr"),
+                    .padding(horizontal = Space4, vertical = Space2),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = curr,
+                    text = item,
                     style = LabelBadgeMedium,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     color = textColor
                 )
             }
         }
     }
-}
-
-/**
- * Backward-compatibility wrapper for existing screens and callers.
- */
-@Composable
-fun CurrencyToggle(
-    selectedCurrency: String,
-    onCurrencyChanged: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    FinTrackCurrencySelector(
-        selectedCurrency = selectedCurrency,
-        onCurrencyChanged = onCurrencyChanged,
-        modifier = modifier
-    )
 }
