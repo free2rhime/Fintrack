@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.sp
 import com.example.data.util.NumberFormatter
 import com.example.domain.analytics.CategoryExpenseShare
 import com.example.domain.analytics.MonthlyDataPoint
+import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.ExpenseRed
+import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.PrimaryGreen
 import com.example.ui.theme.SecondaryBlue
@@ -372,11 +374,18 @@ fun CategoryDistributionChart(
     modifier: Modifier = Modifier
 ) {
     if (categoryShares.isEmpty()) {
-        Text(
-            text = "No category expense data available for selected filter",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "No financial activity recorded in this period",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         return
     }
 
@@ -403,7 +412,10 @@ fun CategoryDistributionChart(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(12.dp)
@@ -448,6 +460,22 @@ fun SavingsTrendLineChart(
     currency: String,
     modifier: Modifier = Modifier
 ) {
+    if (dataPoints.isEmpty()) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(140.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "No financial activity recorded in this period",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        return
+    }
+
     if (dataPoints.size < 2) {
         Box(
             modifier = modifier
@@ -469,67 +497,120 @@ fun SavingsTrendLineChart(
     val minBal = balances.minOrNull() ?: 0.0
     val range = (maxBal - minBal).coerceAtLeast(10.0)
 
-    Canvas(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(140.dp)
-    ) {
-        val width = size.width
-        val height = size.height
+    Column(modifier = modifier.fillMaxWidth()) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+        ) {
+            val width = size.width
+            val height = size.height
 
-        val path = Path()
-        val areaPath = Path()
-        val stepX = width / (dataPoints.size - 1)
+            val gridColor = Color.Gray.copy(alpha = 0.15f)
+            for (i in 1..3) {
+                val y = height * (i / 4f)
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, y),
+                    end = Offset(width, y),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
 
-        val points = mutableListOf<Offset>()
+            val path = Path()
+            val areaPath = Path()
+            val stepX = width / (dataPoints.size - 1)
 
-        dataPoints.forEachIndexed { index, dp ->
-            val x = index * stepX
-            val normalizedY = ((dp.balance - minBal) / range).toFloat()
-            val y = height - (normalizedY * (height - 30.dp.toPx())) - 15.dp.toPx()
-            points.add(Offset(x, y))
+            val points = mutableListOf<Offset>()
+
+            dataPoints.forEachIndexed { index, dp ->
+                val x = index * stepX
+                val normalizedY = ((dp.balance - minBal) / range).toFloat()
+                val y = height - (normalizedY * (height - 30.dp.toPx())) - 15.dp.toPx()
+                points.add(Offset(x, y))
+            }
+
+            if (points.isNotEmpty()) {
+                path.moveTo(points[0].x, points[0].y)
+                areaPath.moveTo(points[0].x, height)
+                areaPath.lineTo(points[0].x, points[0].y)
+
+                for (i in 0 until points.size - 1) {
+                    val p1 = points[i]
+                    val p2 = points[i + 1]
+                    val controlX1 = p1.x + (p2.x - p1.x) / 2f
+                    val controlX2 = p1.x + (p2.x - p1.x) / 2f
+
+                    path.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
+                    areaPath.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
+                }
+
+                areaPath.lineTo(points.last().x, height)
+                areaPath.close()
+
+                // Draw Area Gradient Fill
+                drawPath(
+                    path = areaPath,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(IncomeEmerald.copy(alpha = 0.25f), Color.Transparent),
+                        startY = 0f,
+                        endY = height
+                    )
+                )
+
+                // Draw Smooth Spline Stroke
+                drawPath(
+                    path = path,
+                    color = IncomeEmerald,
+                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                )
+
+                // Draw Glowing Dots
+                points.forEach { pt ->
+                    drawCircle(color = IncomeEmerald.copy(alpha = 0.30f), radius = 6.dp.toPx(), center = pt)
+                    drawCircle(color = IncomeEmerald, radius = 3.5.dp.toPx(), center = pt)
+                }
+            }
         }
 
-        if (points.isNotEmpty()) {
-            path.moveTo(points[0].x, points[0].y)
-            areaPath.moveTo(points[0].x, height)
-            areaPath.lineTo(points[0].x, points[0].y)
+        Spacer(modifier = Modifier.height(8.dp))
 
-            for (i in 0 until points.size - 1) {
-                val p1 = points[i]
-                val p2 = points[i + 1]
-                val controlX1 = p1.x + (p2.x - p1.x) / 2f
-                val controlX2 = p1.x + (p2.x - p1.x) / 2f
-
-                path.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
-                areaPath.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
-            }
-
-            areaPath.lineTo(points.last().x, height)
-            areaPath.close()
-
-            // Draw Area Gradient Fill
-            drawPath(
-                path = areaPath,
-                brush = Brush.verticalGradient(
-                    colors = listOf(PrimaryGreen.copy(alpha = 0.30f), Color.Transparent),
-                    startY = 0f,
-                    endY = height
+        // Month X-Axis labels
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            dataPoints.forEach { dp ->
+                Text(
+                    text = dp.monthYearLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            )
-
-            // Draw Smooth Spline Stroke
-            drawPath(
-                path = path,
-                color = PrimaryGreen,
-                style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
-            )
-
-            // Draw Glowing Dots
-            points.forEach { pt ->
-                drawCircle(color = PrimaryGreen.copy(alpha = 0.35f), radius = 6.dp.toPx(), center = pt)
-                drawCircle(color = PrimaryGreen, radius = 3.5.dp.toPx(), center = pt)
             }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Legend
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(IncomeEmerald)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Net Savings Trend",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
