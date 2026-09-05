@@ -102,7 +102,7 @@ class CsvImportOrchestratorTest {
         override suspend fun getTransactionById(id: String): TransactionEntity? = existingTransactions.find { it.id == id }
         override suspend fun saveTransaction(id: String?, date: String, description: String, amountRON: Double, type: String, account: String, category: String, subCategory: String, destination: String?, userId: String, householdId: String?): TransactionEntity = throw UnsupportedOperationException()
         override suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity = source
-        override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
+        override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> = emptyList()
         override suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) { existingTransactions.addAll(transactions) }
         override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
         override suspend fun getAllTransactionsList(): List<TransactionEntity> = existingTransactions.toList()
