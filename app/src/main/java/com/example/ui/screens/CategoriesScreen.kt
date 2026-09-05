@@ -31,8 +31,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Divider
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -306,7 +306,7 @@ fun CategoriesScreen(
                                                     shape = RoundedCornerShape(RadiusMedium),
                                                     color = CobaltBlue.copy(alpha = 0.12f),
                                                     modifier = Modifier
-                                                        .defaultMinSize(minHeight = 48.dp)
+                                                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                         .clip(RoundedCornerShape(RadiusMedium))
                                                         .clickable {
                                                             addDialogPreFilledCategory = catName
@@ -371,7 +371,7 @@ fun CategoriesScreen(
                                     val validSubs = subList.filter { it.subCategory.isNotBlank() }
                                     if (validSubs.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(Space12))
-                                        Divider(
+                                        HorizontalDivider(
                                             color = SurfaceContainerHighDark.copy(alpha = 0.6f),
                                             thickness = 1.dp
                                         )
@@ -918,6 +918,7 @@ private fun CategoryFormDialog(
                                 shape = CircleShape,
                                 color = SurfaceContainerHighDark,
                                 modifier = Modifier
+                                    .defaultMinSize(minWidth = 40.dp, minHeight = 40.dp)
                                     .clip(CircleShape)
                                     .clickable {
                                         if (targetFieldForEmoji == "Category") {
