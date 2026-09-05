@@ -58,6 +58,7 @@ import com.example.ui.components.BadgeVariant
 import com.example.ui.components.CategoryDistributionChart
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackCard
+import com.example.ui.components.FinTrackPeriodDropdown
 import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.FinTrackSyncStatus
@@ -120,7 +121,7 @@ fun DashboardScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 80.dp)
         ) {
-        // Dashboard Header Region: Title + Sync Status
+        // Dashboard Header Region: Title + Currency Toggle ([ RON ] [ EUR ])
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -133,31 +134,23 @@ fun DashboardScreen(
                 style = SectionHeadline,
                 color = TextPrimary
             )
-            FinTrackSyncStatus(
-                syncStatus = syncStatus,
-                modifier = Modifier.testTag("sync_status_indicator")
+            CurrencyToggle(
+                selectedCurrency = filterSettings.selectedCurrency,
+                onCurrencyChanged = onCurrencyChanged
             )
         }
 
-        // Context Controls: Period Selector + Currency Selector
+        // Context Controls: Compact Period Selector Dropdown
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = Space4),
+                .padding(horizontal = Space16, vertical = Space4),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.weight(1f)) {
-                PeriodSelectorChipRow(
-                    selectedPeriod = filterSettings.selectedPeriod,
-                    onPeriodSelected = onPeriodSelected
-                )
-            }
-            Box(modifier = Modifier.padding(end = Space16)) {
-                CurrencyToggle(
-                    selectedCurrency = filterSettings.selectedCurrency,
-                    onCurrencyChanged = onCurrencyChanged
-                )
-            }
+            FinTrackPeriodDropdown(
+                selectedPeriod = filterSettings.selectedPeriod,
+                onPeriodSelected = onPeriodSelected
+            )
         }
 
         // Optional EUR / BNR Incomplete Warning
@@ -222,7 +215,7 @@ fun DashboardScreen(
                 )
                 Spacer(modifier = Modifier.height(Space8))
                 AnimatedContent(
-                    targetState = NumberFormatter.formatCurrency(metrics.balance, metrics.currency),
+                    targetState = formatCeilNetBalance(metrics.balance, metrics.currency),
                     transitionSpec = { FinTrackMotion.contentFade() },
                     label = "dashboard_balance_amount"
                 ) { formattedBalance ->
@@ -235,143 +228,86 @@ fun DashboardScreen(
 
                 Spacer(modifier = Modifier.height(Space24))
 
-                // Income & Expense Split
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    if (maxWidth < 320.dp) {
-                        Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
-                            // Total Income
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(IncomeContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDownward,
-                                        contentDescription = "Income",
-                                        tint = IncomeEmerald,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(Space12))
-                                Column {
-                                    Text(
-                                        text = "Income",
-                                        style = LabelBadgeMedium,
-                                        color = TextSecondary
-                                    )
-                                    Spacer(modifier = Modifier.height(Space2))
-                                    Text(
-                                        text = "+${NumberFormatter.formatCurrency(metrics.totalIncome, metrics.currency)}",
-                                        style = CardTitleAmount,
-                                        color = IncomeEmerald
-                                    )
-                                }
-                            }
-
-                            // Total Expense
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(ExpenseContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowUpward,
-                                        contentDescription = "Expense",
-                                        tint = ExpenseCoral,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(Space12))
-                                Column {
-                                    Text(
-                                        text = "Expense",
-                                        style = LabelBadgeMedium,
-                                        color = TextSecondary
-                                    )
-                                    Spacer(modifier = Modifier.height(Space2))
-                                    Text(
-                                        text = "-${NumberFormatter.formatCurrency(metrics.totalExpense, metrics.currency)}",
-                                        style = CardTitleAmount,
-                                        color = ExpenseCoral
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                // Income & Expense Split — Single horizontal row: Income Left, Expense Right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Total Income (Left)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(IncomeContainer),
+                            contentAlignment = Alignment.Center
                         ) {
-                            // Total Income
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(IncomeContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDownward,
-                                        contentDescription = "Income",
-                                        tint = IncomeEmerald,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(Space12))
-                                Column {
-                                    Text(
-                                        text = "Income",
-                                        style = LabelBadgeMedium,
-                                        color = TextSecondary
-                                    )
-                                    Spacer(modifier = Modifier.height(Space2))
-                                    Text(
-                                        text = "+${NumberFormatter.formatCurrency(metrics.totalIncome, metrics.currency)}",
-                                        style = CardTitleAmount,
-                                        color = IncomeEmerald
-                                    )
-                                }
-                            }
+                            Icon(
+                                imageVector = Icons.Default.ArrowDownward,
+                                contentDescription = "Income",
+                                tint = IncomeEmerald,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Space8))
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
+                            Text(
+                                text = "Income",
+                                style = LabelBadgeMedium,
+                                color = TextSecondary
+                            )
+                            Spacer(modifier = Modifier.height(Space2))
+                            Text(
+                                text = "+${formatCeilAmount(metrics.totalIncome, metrics.currency)}",
+                                style = CardTitleAmount,
+                                color = IncomeEmerald,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
 
-                            // Total Expense
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(ExpenseContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowUpward,
-                                        contentDescription = "Expense",
-                                        tint = ExpenseCoral,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(Space12))
-                                Column {
-                                    Text(
-                                        text = "Expense",
-                                        style = LabelBadgeMedium,
-                                        color = TextSecondary
-                                    )
-                                    Spacer(modifier = Modifier.height(Space2))
-                                    Text(
-                                        text = "-${NumberFormatter.formatCurrency(metrics.totalExpense, metrics.currency)}",
-                                        style = CardTitleAmount,
-                                        color = ExpenseCoral
-                                    )
-                                }
-                            }
+                    Spacer(modifier = Modifier.width(Space12))
+
+                    // Total Expense (Right)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(ExpenseContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowUpward,
+                                contentDescription = "Expense",
+                                tint = ExpenseCoral,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Space8))
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
+                            Text(
+                                text = "Expense",
+                                style = LabelBadgeMedium,
+                                color = TextSecondary
+                            )
+                            Spacer(modifier = Modifier.height(Space2))
+                            Text(
+                                text = "-${formatCeilAmount(metrics.totalExpense, metrics.currency)}",
+                                style = CardTitleAmount,
+                                color = ExpenseCoral,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
@@ -709,3 +645,26 @@ fun DashboardScreen(
     }
     }
 }
+
+internal fun formatCeilNetBalance(balance: Double, currency: String): String {
+    val rounded = if (balance >= 0.0) {
+        kotlin.math.ceil(balance).toLong()
+    } else {
+        -kotlin.math.ceil(kotlin.math.abs(balance)).toLong()
+    }
+    val symbols = java.text.DecimalFormatSymbols(java.util.Locale.US).apply {
+        groupingSeparator = ' '
+    }
+    val df = java.text.DecimalFormat("#,##0", symbols)
+    return "${df.format(rounded)} $currency"
+}
+
+internal fun formatCeilAmount(amount: Double, currency: String): String {
+    val rounded = kotlin.math.ceil(kotlin.math.abs(amount)).toLong()
+    val symbols = java.text.DecimalFormatSymbols(java.util.Locale.US).apply {
+        groupingSeparator = ' '
+    }
+    val df = java.text.DecimalFormat("#,##0", symbols)
+    return "${df.format(rounded)} $currency"
+}
+

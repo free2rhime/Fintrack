@@ -193,6 +193,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         val invitationError by viewModel.invitationError.collectAsStateWithLifecycle()
                         val householdCreationUiState by viewModel.householdCreationUiState.collectAsStateWithLifecycle()
                         SettingsScreen(
+                            syncStatus = syncStatus,
                             filterSettings = filterSettings,
                             themeMode = themeMode,
                             currentUid = signedInState.userUid,

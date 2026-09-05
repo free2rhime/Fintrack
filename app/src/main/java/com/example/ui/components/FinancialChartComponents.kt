@@ -2,6 +2,8 @@ package com.example.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,21 +38,37 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.util.NumberFormatter
 import com.example.domain.analytics.CategoryExpenseShare
 import com.example.domain.analytics.MonthlyDataPoint
+import com.example.ui.theme.BodyRegular
+import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseCoral
-import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeEmerald
-import com.example.ui.theme.IncomeGreen
+import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.PrimaryGreen
+import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.SecondaryBlue
+import com.example.ui.theme.Space12
+import com.example.ui.theme.Space16
+import com.example.ui.theme.Space20
+import com.example.ui.theme.Space4
+import com.example.ui.theme.Space8
+import com.example.ui.theme.SurfaceContainerDark
+import com.example.ui.theme.SurfaceContainerHighDark
 import com.example.ui.theme.TertiaryViolet
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import kotlin.math.roundToInt
 
@@ -70,20 +92,94 @@ fun MonthlyCashFlowSplineChart(
         return
     }
 
+    var selectedIndex by remember(dataPoints) {
+        mutableStateOf(dataPoints.indices.lastOrNull() ?: 0)
+    }
+
     val maxVal = (dataPoints.maxOfOrNull { maxOf(it.income, it.expense) } ?: 100.0).coerceAtLeast(10.0)
+    val activePoint = dataPoints.getOrNull(selectedIndex) ?: dataPoints.lastOrNull()
 
     Column(modifier = modifier.fillMaxWidth()) {
+        // Active data point indicator exposing exact values
+        if (activePoint != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(RadiusSmall))
+                    .background(SurfaceContainerDark)
+                    .padding(horizontal = Space12, vertical = Space8),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = activePoint.monthYearLabel,
+                    style = LabelBadgeMedium,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Space16),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(IncomeEmerald)
+                        )
+                        Spacer(modifier = Modifier.width(Space4))
+                        Text(
+                            text = "+${NumberFormatter.formatAmount(activePoint.income)} $currency",
+                            style = MicroMetadata,
+                            color = IncomeEmerald,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(ExpenseCoral)
+                        )
+                        Spacer(modifier = Modifier.width(Space4))
+                        Text(
+                            text = "-${NumberFormatter.formatAmount(activePoint.expense)} $currency",
+                            style = MicroMetadata,
+                            color = ExpenseCoral,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(Space8))
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp)
+                .pointerInput(dataPoints) {
+                    detectTapGestures { offset ->
+                        if (dataPoints.isNotEmpty()) {
+                            val totalWidth = size.width.toFloat()
+                            val count = dataPoints.size
+                            val stepX = if (count > 1) totalWidth / (count - 1).toFloat() else totalWidth / 2f
+                            val tappedIndex = if (count > 1 && stepX > 0f) {
+                                ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, count - 1)
+                            } else 0
+                            selectedIndex = tappedIndex
+                        }
+                    }
+                }
         ) {
             val width = size.width
             val height = size.height
             val bottomPadding = 20.dp.toPx()
             val availableHeight = height - bottomPadding
 
-            val gridColor = Color.Gray.copy(alpha = 0.15f)
+            val gridColor = SurfaceContainerHighDark.copy(alpha = 0.6f)
             for (i in 1..3) {
                 val y = availableHeight * (i / 4f)
                 drawLine(
@@ -140,7 +236,7 @@ fun MonthlyCashFlowSplineChart(
                 drawPath(
                     path = incomeAreaPath,
                     brush = Brush.verticalGradient(
-                        colors = listOf(IncomeGreen.copy(alpha = 0.25f), Color.Transparent),
+                        colors = listOf(IncomeEmerald.copy(alpha = 0.25f), Color.Transparent),
                         startY = 0f,
                         endY = availableHeight
                     )
@@ -149,7 +245,7 @@ fun MonthlyCashFlowSplineChart(
                 // Draw Income spline line
                 drawPath(
                     path = incomePath,
-                    color = IncomeGreen,
+                    color = IncomeEmerald,
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
@@ -177,7 +273,7 @@ fun MonthlyCashFlowSplineChart(
                 drawPath(
                     path = expenseAreaPath,
                     brush = Brush.verticalGradient(
-                        colors = listOf(ExpenseRed.copy(alpha = 0.20f), Color.Transparent),
+                        colors = listOf(ExpenseCoral.copy(alpha = 0.20f), Color.Transparent),
                         startY = 0f,
                         endY = availableHeight
                     )
@@ -186,42 +282,93 @@ fun MonthlyCashFlowSplineChart(
                 // Draw Expense spline line
                 drawPath(
                     path = expensePath,
-                    color = ExpenseRed,
+                    color = ExpenseCoral,
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
 
-            // Draw data point glowing circles
-            incomePoints.forEach { pt ->
-                drawCircle(color = IncomeGreen.copy(alpha = 0.3f), radius = 6.dp.toPx(), center = pt)
-                drawCircle(color = IncomeGreen, radius = 3.5.dp.toPx(), center = pt)
+            // Vertical indicator line for selected month
+            if (selectedIndex in incomePoints.indices) {
+                val highlightX = incomePoints[selectedIndex].x
+                drawLine(
+                    color = TextSecondary.copy(alpha = 0.35f),
+                    start = Offset(highlightX, 0f),
+                    end = Offset(highlightX, availableHeight),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
+                )
             }
-            expensePoints.forEach { pt ->
-                drawCircle(color = ExpenseRed.copy(alpha = 0.3f), radius = 6.dp.toPx(), center = pt)
-                drawCircle(color = ExpenseRed, radius = 3.5.dp.toPx(), center = pt)
+
+            // Draw data points
+            incomePoints.forEachIndexed { idx, pt ->
+                val isSelected = idx == selectedIndex
+                if (isSelected) {
+                    drawCircle(color = IncomeEmerald.copy(alpha = 0.35f), radius = 9.dp.toPx(), center = pt)
+                    drawCircle(color = IncomeEmerald, radius = 5.dp.toPx(), center = pt)
+                    drawCircle(color = Color.White, radius = 2.dp.toPx(), center = pt)
+                } else {
+                    drawCircle(color = IncomeEmerald.copy(alpha = 0.25f), radius = 5.dp.toPx(), center = pt)
+                    drawCircle(color = IncomeEmerald, radius = 3.dp.toPx(), center = pt)
+                }
+            }
+
+            expensePoints.forEachIndexed { idx, pt ->
+                val isSelected = idx == selectedIndex
+                if (isSelected) {
+                    drawCircle(color = ExpenseCoral.copy(alpha = 0.35f), radius = 9.dp.toPx(), center = pt)
+                    drawCircle(color = ExpenseCoral, radius = 5.dp.toPx(), center = pt)
+                    drawCircle(color = Color.White, radius = 2.dp.toPx(), center = pt)
+                } else {
+                    drawCircle(color = ExpenseCoral.copy(alpha = 0.25f), radius = 5.dp.toPx(), center = pt)
+                    drawCircle(color = ExpenseCoral, radius = 3.dp.toPx(), center = pt)
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Space8))
 
-        // Month X-Axis labels
+        // Month X-Axis labels — wraps vertically ("Jan\n2026") to avoid horizontal overlap
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            dataPoints.forEach { dp ->
-                Text(
-                    text = dp.monthYearLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            dataPoints.forEachIndexed { index, dp ->
+                val isSelected = index == selectedIndex
+                val parts = dp.monthYearLabel.trim().split(" ")
+                val monthPart = parts.firstOrNull() ?: dp.monthYearLabel
+                val yearPart = if (parts.size > 1) parts.drop(1).joinToString(" ") else ""
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable { selectedIndex = index }
+                        .padding(horizontal = 2.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = monthPart,
+                        style = MicroMetadata,
+                        fontSize = 10.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) TextPrimary else TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                    if (yearPart.isNotEmpty()) {
+                        Text(
+                            text = yearPart,
+                            style = MicroMetadata,
+                            fontSize = 9.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) TextPrimary else TextMuted,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Space12))
 
-        // Legend
+        // Legend — High contrast light FinTrack typography
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -231,21 +378,31 @@ fun MonthlyCashFlowSplineChart(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(IncomeGreen)
+                    .background(IncomeEmerald)
             )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Income (Smoothed)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.width(Space4))
+            Text(
+                text = "Income",
+                style = LabelBadgeMedium,
+                fontWeight = FontWeight.Medium,
+                color = TextSecondary
+            )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(Space20))
 
             Box(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(ExpenseRed)
+                    .background(ExpenseCoral)
             )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Expense (Smoothed)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.width(Space4))
+            Text(
+                text = "Expense",
+                style = LabelBadgeMedium,
+                fontWeight = FontWeight.Medium,
+                color = TextSecondary
+            )
         }
     }
 }
@@ -284,7 +441,7 @@ fun MonthlyCashFlowBarChart(
             val groupWidth = width / numGroups
             val barWidth = (groupWidth * 0.3f).coerceAtMost(20.dp.toPx())
 
-            val gridColor = Color.Gray.copy(alpha = 0.15f)
+            val gridColor = SurfaceContainerHighDark.copy(alpha = 0.6f)
             for (i in 1..3) {
                 val y = height * (i / 4f)
                 drawLine(
@@ -304,17 +461,17 @@ fun MonthlyCashFlowBarChart(
                 val incLeft = centerX - barWidth - 2.dp.toPx()
                 val expLeft = centerX + 2.dp.toPx()
 
-                // Income bar (Green)
+                // Income bar (Emerald)
                 drawRoundRect(
-                    color = IncomeGreen,
+                    color = IncomeEmerald,
                     topLeft = Offset(incLeft, height - incHeight),
                     size = Size(barWidth, incHeight),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
                 )
 
-                // Expense bar (Red)
+                // Expense bar (Coral)
                 drawRoundRect(
-                    color = ExpenseRed,
+                    color = ExpenseCoral,
                     topLeft = Offset(expLeft, height - expHeight),
                     size = Size(barWidth, expHeight),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
@@ -322,26 +479,47 @@ fun MonthlyCashFlowBarChart(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Space8))
 
-        // Month X-Axis labels
+        // Month X-Axis labels — wraps vertically
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
             dataPoints.forEach { dp ->
-                Text(
-                    text = dp.monthYearLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                val parts = dp.monthYearLabel.trim().split(" ")
+                val monthPart = parts.firstOrNull() ?: dp.monthYearLabel
+                val yearPart = if (parts.size > 1) parts.drop(1).joinToString(" ") else ""
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                ) {
+                    Text(
+                        text = monthPart,
+                        style = MicroMetadata,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                    if (yearPart.isNotEmpty()) {
+                        Text(
+                            text = yearPart,
+                            style = MicroMetadata,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = TextMuted,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Space12))
 
-        // Legend
+        // Legend — High contrast light FinTrack typography
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -351,22 +529,83 @@ fun MonthlyCashFlowBarChart(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(IncomeGreen)
+                    .background(IncomeEmerald)
             )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Income", style = MaterialTheme.typography.labelSmall)
+            Spacer(modifier = Modifier.width(Space4))
+            Text(
+                text = "Income",
+                style = LabelBadgeMedium,
+                fontWeight = FontWeight.Medium,
+                color = TextSecondary
+            )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(Space20))
 
             Box(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(ExpenseRed)
+                    .background(ExpenseCoral)
             )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Expense", style = MaterialTheme.typography.labelSmall)
+            Spacer(modifier = Modifier.width(Space4))
+            Text(
+                text = "Expense",
+                style = LabelBadgeMedium,
+                fontWeight = FontWeight.Medium,
+                color = TextSecondary
+            )
         }
+    }
+}
+
+internal data class DisplayCategoryShare(
+    val categoryName: String,
+    val totalAmount: Double,
+    val displayPercentage: Int,
+    val isOther: Boolean = false
+)
+
+internal fun computeDistributionShares(items: List<CategoryExpenseShare>): List<DisplayCategoryShare> {
+    if (items.isEmpty()) return emptyList()
+
+    val aggregatedItems: List<Pair<String, Double>> = if (items.size <= 5) {
+        items.map { it.categoryName to it.totalAmount }
+    } else {
+        val top = items.take(4)
+        val rest = items.drop(4)
+        val otherSum = rest.sumOf { it.totalAmount }
+        top.map { it.categoryName to it.totalAmount } + ("Other" to otherSum)
+    }
+
+    val totalSum = aggregatedItems.sumOf { it.second }
+    if (totalSum <= 0.0) {
+        return aggregatedItems.map {
+            DisplayCategoryShare(it.first, it.second, 0, it.first == "Other")
+        }
+    }
+
+    // Largest Remainder Method (Hamilton-Hare) to guarantee sum to exactly 100%
+    val exactPercentages = aggregatedItems.map { (it.second / totalSum) * 100.0 }
+    val floorValues = exactPercentages.map { kotlin.math.floor(it).toInt() }
+    val remainders = exactPercentages.mapIndexed { idx, p -> idx to (p - floorValues[idx]) }
+        .sortedByDescending { it.second }
+
+    val currentSum = floorValues.sum()
+    val missing = (100 - currentSum).coerceIn(0, aggregatedItems.size)
+
+    val finalPercentages = floorValues.toMutableList()
+    for (i in 0 until missing) {
+        val targetIdx = remainders[i].first
+        finalPercentages[targetIdx] += 1
+    }
+
+    return aggregatedItems.mapIndexed { idx, pair ->
+        DisplayCategoryShare(
+            categoryName = pair.first,
+            totalAmount = pair.second,
+            displayPercentage = finalPercentages[idx],
+            isOther = pair.first == "Other"
+        )
     }
 }
 
@@ -390,22 +629,25 @@ fun CategoryDistributionChart(
         return
     }
 
+    val displayShares = remember(categoryShares) {
+        computeDistributionShares(categoryShares)
+    }
+
     val palette = listOf(
-        PrimaryGreen,
-        SecondaryBlue,
-        TertiaryViolet,
-        Color(0xFFF59E0B),
-        Color(0xFFEC4899),
-        Color(0xFF14B8A6),
-        Color(0xFF6366F1),
-        Color(0xFF84CC16)
+        CobaltBlue,
+        IncomeEmerald,
+        Color(0xFFF59E0B), // Amber
+        Color(0xFFEC4899), // Pink
+        Color(0xFF8B5CF6), // Purple
+        Color(0xFF14B8A6), // Teal
+        Color(0xFF6366F1), // Indigo
+        Color(0xFF84CC16)  // Lime
     )
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        categoryShares.take(6).forEachIndexed { index, share ->
-            val color = palette[index % palette.size]
+        displayShares.forEachIndexed { index, share ->
+            val color = if (share.isOther) Color(0xFF94A3B8) else palette[index % palette.size]
             val formattedAmount = NumberFormatter.formatAmount(share.totalAmount)
-            val formattedPercent = share.percentage.roundToInt()
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -423,32 +665,37 @@ fun CategoryDistributionChart(
                                 .clip(RoundedCornerShape(3.dp))
                                 .background(color)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(Space8))
                         Text(
                             text = share.categoryName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
+                            style = BodyRegular,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
+                    Spacer(modifier = Modifier.width(Space8))
+
                     Text(
-                        text = "$formattedAmount $currency ($formattedPercent%)",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "$formattedAmount $currency (${share.displayPercentage}%)",
+                        style = LabelBadgeMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = TextPrimary
                     )
                 }
 
                 Spacer(modifier = Modifier.height(5.dp))
 
                 LinearProgressIndicator(
-                    progress = { ((share.percentage / 100.0).coerceIn(0.0, 1.0)).toFloat() },
+                    progress = { (share.displayPercentage / 100f).coerceIn(0f, 1f) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(7.dp)
                         .clip(RoundedCornerShape(4.dp)),
                     color = color,
-                    trackColor = color.copy(alpha = 0.15f)
+                    trackColor = SurfaceContainerHighDark
                 )
             }
         }

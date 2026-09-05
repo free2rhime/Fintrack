@@ -196,6 +196,48 @@ class CategoryAndDashboardFixesTest {
         assertEquals("Meal Tickets", transaction.account)
         assertEquals("Tichete de masa", getAccountDisplayLabel(transaction.account))
     }
+
+    @Test
+    fun testNetBalanceAndIndicatorFormattingCeilNoDecimals() {
+        // Net balance formatting: no decimals, ceiling / round-up behavior, space separator
+        // Positive balance with decimals
+        assertEquals("86 646 RON", com.example.ui.screens.formatCeilNetBalance(86645.72, "RON"))
+        assertEquals("86 645 RON", com.example.ui.screens.formatCeilNetBalance(86645.00, "RON"))
+        assertEquals("100 EUR", com.example.ui.screens.formatCeilNetBalance(99.01, "EUR"))
+        assertEquals("0 RON", com.example.ui.screens.formatCeilNetBalance(0.0, "RON"))
+
+        // Secondary indicator formatting: ceiling behavior, no decimals
+        assertEquals("12 346 RON", com.example.ui.screens.formatCeilAmount(12345.10, "RON"))
+        assertEquals("1 500 EUR", com.example.ui.screens.formatCeilAmount(1499.50, "EUR"))
+    }
+
+    @Test
+    fun testCategoryDistributionShare100PercentAndOtherAggregation() {
+        val shares = listOf(
+            com.example.domain.analytics.CategoryExpenseShare("Housing", 3500.0, 35.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Food", 2500.0, 25.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Transport", 1500.0, 15.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Utilities", 1000.0, 10.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Entertainment", 800.0, 8.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Health", 700.0, 7.0, 1)
+        )
+
+        val result = com.example.ui.components.computeDistributionShares(shares)
+
+        // With 6 categories, top 4 are preserved and rest collapsed to "Other"
+        assertEquals(5, result.size)
+        assertEquals("Housing", result[0].categoryName)
+        assertEquals("Food", result[1].categoryName)
+        assertEquals("Transport", result[2].categoryName)
+        assertEquals("Utilities", result[3].categoryName)
+        assertEquals("Other", result[4].categoryName)
+        assertTrue(result[4].isOther)
+        assertEquals(1500.0, result[4].totalAmount, 0.001)
+
+        // Percentage distribution MUST sum to exactly 100%
+        val totalPercentage = result.sumOf { it.displayPercentage }
+        assertEquals(100, totalPercentage)
+    }
 }
 
 class FakeCategoryDao : CategoryDao {

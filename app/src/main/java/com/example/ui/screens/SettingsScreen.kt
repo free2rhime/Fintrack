@@ -60,6 +60,7 @@ import com.example.data.model.HouseholdInviteDto
 import com.example.data.model.HouseholdMemberDto
 import com.example.data.repository.PendingRetryResult
 import com.example.data.repository.SyncDiagnosticsHolder
+import com.example.data.repository.SyncStatus
 import com.example.data.service.BnrDiagnosticResult
 import com.example.ui.HouseholdCreationUiState
 import com.example.ui.components.BadgeVariant
@@ -71,6 +72,7 @@ import com.example.ui.components.FinTrackCard
 import com.example.ui.components.FinTrackEmptyState
 import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
+import com.example.ui.components.FinTrackSyncStatus
 import com.example.ui.components.HouseholdOverviewCard
 import com.example.ui.components.InviteMemberDialog
 import com.example.ui.theme.BodyRegular
@@ -133,6 +135,7 @@ fun SettingsScreen(
     householdCreationUiState: HouseholdCreationUiState = HouseholdCreationUiState.Idle,
     onCreateHousehold: (String) -> Unit = {},
     onResetHouseholdCreationState: () -> Unit = {},
+    syncStatus: SyncStatus = SyncStatus.SignedOut,
     modifier: Modifier = Modifier
 ) {
     var showInviteDialog by remember { mutableStateOf(false) }
@@ -228,6 +231,18 @@ fun SettingsScreen(
                         color = TextSecondary
                     )
                 }
+            }
+
+            // SYSTEM SYNC STATUS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                FinTrackSyncStatus(
+                    syncStatus = syncStatus,
+                    modifier = Modifier.testTag("sync_status_indicator")
+                )
             }
 
             // ACCOUNT & AUTHENTICATION CARD
