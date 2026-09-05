@@ -59,10 +59,8 @@ import com.example.ui.components.CategoryDistributionChart
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackCard
 import com.example.ui.components.FinTrackPeriodDropdown
-import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.FinTrackSyncStatus
-import com.example.ui.components.MonthlyCashFlowBarChart
 import com.example.ui.components.MonthlyCashFlowSplineChart
 import com.example.ui.components.PeriodSelectorChipRow
 import com.example.ui.theme.CanvasDark
@@ -106,8 +104,6 @@ fun DashboardScreen(
     syncStatus: SyncStatus = SyncStatus.SignedOut,
     modifier: Modifier = Modifier
 ) {
-    var isSplineChart by remember { mutableStateOf(true) }
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -499,7 +495,7 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(Space24))
 
-        // MONTHLY CASH FLOW CHART (Tonal Container, Spline & Bar Chart modes)
+        // MONTHLY CASH FLOW CHART (Tonal Container, Spline Chart only)
         FinTrackCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -509,93 +505,38 @@ fun DashboardScreen(
             contentPadding = Space16
         ) {
             Column {
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    if (maxWidth < 360.dp) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(CobaltBlue.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.TrendingUp,
-                                        contentDescription = null,
-                                        tint = CobaltBlue,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(Space8))
-                                Text(
-                                    text = "Monthly Cash Flow",
-                                    style = SectionHeadline,
-                                    color = TextPrimary
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(Space12))
-                            FinTrackSegmentedControl(
-                                items = listOf("Spline", "Bars"),
-                                selectedIndex = if (isSplineChart) 0 else 1,
-                                onItemSelected = { isSplineChart = (it == 0) },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f, fill = false)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(CobaltBlue.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.TrendingUp,
-                                        contentDescription = null,
-                                        tint = CobaltBlue,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(Space8))
-                                Text(
-                                    text = "Monthly Cash Flow",
-                                    style = SectionHeadline,
-                                    color = TextPrimary
-                                )
-                            }
-                            FinTrackSegmentedControl(
-                                items = listOf("Spline", "Bars"),
-                                selectedIndex = if (isSplineChart) 0 else 1,
-                                onItemSelected = { isSplineChart = (it == 0) },
-                                modifier = Modifier.width(150.dp)
-                            )
-                        }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(CobaltBlue.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TrendingUp,
+                            contentDescription = null,
+                            tint = CobaltBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
+                    Spacer(modifier = Modifier.width(Space8))
+                    Text(
+                        text = "Monthly Cash Flow",
+                        style = SectionHeadline,
+                        color = TextPrimary
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(Space16))
 
-                if (isSplineChart) {
-                    MonthlyCashFlowSplineChart(
-                        dataPoints = monthlyDataPoints,
-                        currency = metrics.currency
-                    )
-                } else {
-                    MonthlyCashFlowBarChart(
-                        dataPoints = monthlyDataPoints,
-                        currency = metrics.currency
-                    )
-                }
+                MonthlyCashFlowSplineChart(
+                    dataPoints = monthlyDataPoints,
+                    currency = metrics.currency
+                )
             }
         }
 
