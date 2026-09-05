@@ -1,8 +1,9 @@
 # FINTRACK CURRENT CONTEXT
 
 > Compact operational context for continuing FinTrack development.
-> Last verified: 2026-09-03
-> Git baseline: Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
+> Last verified: 2026-09-05
+> Baseline: Phase 11 Motion Foundation Clean Completion (2026-09-05)
+> Previous baseline: Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
 > Previous baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
@@ -460,3 +461,12 @@ ANALYZE
 → COMMIT/PUSH
 → MEMORY UPDATE
 ```
+
+## 12. PHASE 11 MOTION FOUNDATION (VERIFIED CLEAN)
+
+- **Status:** Complete & Audited Clean (GO — PHASE 11 CLEAN).
+- **Core Tokens:** `FinTrackMotion` (`DurationFast` 150ms, `DurationStandard` 200ms, `DurationEmphasized` 250ms, `DurationSyncSpin` 1000ms; `StandardEasing`, `LinearCurve`).
+- **Theme Integration:** `LocalFinTrackMotion` provided through `FinTrackTheme`.
+- **Migrated Components:** `DashboardScreen` (`contentFade()`), `CurrencyToggle` (`standardTween()`), `FinTrackSegmentedControl` (`standardTween()`), `FinTrackStatusBadge` (tokenized `DurationSyncSpin` & `LinearCurve`).
+- **Lifecycle & Architecture Safety:** Zero coroutine motion jobs; `SYNCING` infinite transition scoped only to active state; all locked layers (Room, Firestore, Auth, Household, Sync, ViewModels, CSV, Navigation) strictly preserved; 100% tests and assembleDebug passing.
+

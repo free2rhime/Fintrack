@@ -1,8 +1,6 @@
 package com.example.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -25,6 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CobaltBlue
+import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
@@ -59,13 +58,13 @@ fun FinTrackSegmentedControl(
 
             val pillBgColor by animateColorAsState(
                 targetValue = if (isSelected) CobaltBlue else Color.Transparent,
-                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                animationSpec = FinTrackMotion.standardTween(),
                 label = "segmented_control_pill_bg"
             )
 
             val textColor by animateColorAsState(
                 targetValue = if (isSelected) Color.White else TextSecondary,
-                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                animationSpec = FinTrackMotion.standardTween(),
                 label = "segmented_control_text_color"
             )
 

@@ -76,7 +76,8 @@ fun FinTrackTheme(
     }
 
     CompositionLocalProvider(
-        LocalFinTrackSpacing provides FinTrackSpacing()
+        LocalFinTrackSpacing provides FinTrackSpacing(),
+        LocalFinTrackMotion provides FinTrackMotionTokens()
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

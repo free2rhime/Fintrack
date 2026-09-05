@@ -1,10 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -69,6 +65,7 @@ import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseContainer
 import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.HeroFinancialDisplay
 import com.example.ui.theme.IncomeContainer
 import com.example.ui.theme.IncomeEmerald
@@ -215,9 +212,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(Space8))
                 AnimatedContent(
                     targetState = NumberFormatter.formatCurrency(metrics.balance, metrics.currency),
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(200))
-                    },
+                    transitionSpec = { FinTrackMotion.contentFade() },
                     label = "dashboard_balance_amount"
                 ) { formattedBalance ->
                     Text(

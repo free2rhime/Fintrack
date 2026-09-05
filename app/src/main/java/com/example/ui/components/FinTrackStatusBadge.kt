@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -36,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseContainer
 import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.IncomeContainer
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
@@ -117,7 +117,10 @@ fun FinTrackStatusBadge(
             initialValue = 0f,
             targetValue = 360f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1000, easing = LinearEasing),
+                animation = tween(
+                    durationMillis = FinTrackMotion.DurationSyncSpin,
+                    easing = FinTrackMotion.LinearCurve
+                ),
                 repeatMode = RepeatMode.Restart
             ),
             label = "badge_sync_rotation"
