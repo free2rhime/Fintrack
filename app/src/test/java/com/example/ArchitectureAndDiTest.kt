@@ -404,7 +404,7 @@ class FakeTransactionRepository(private val authRepo: AuthRepository? = null) : 
     }
 
     override suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity = source.copy(id = "dup_${System.currentTimeMillis()}")
-    override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
+    override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> = emptyList()
     override suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) { txList.addAll(transactions); _txListFlow.value = txList.toList() }
     override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
     override suspend fun getAllTransactionsList(): List<TransactionEntity> = txList.toList()

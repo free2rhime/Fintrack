@@ -166,7 +166,7 @@ class CategoryPermissionsTest {
             destination = destination
         )
         override suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity = source
-        override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
+        override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> = emptyList()
         override suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) {}
         override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = emptyList()
         override suspend fun getAllTransactionsList(): List<TransactionEntity> = emptyList()

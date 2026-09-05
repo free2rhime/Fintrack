@@ -45,11 +45,13 @@ interface TransactionDao {
     suspend fun getAllTransactionsList(householdId: String? = null): List<TransactionEntity>
 
     @Query("""
-        SELECT description FROM transactions 
+        SELECT description FROM transactions
         WHERE ((:householdId IS NULL AND householdId IS NULL) OR householdId = :householdId)
-        AND description IS NOT NULL AND TRIM(description) != '' AND LOWER(description) LIKE '%' || LOWER(:query) || '%' 
-        GROUP BY description 
-        ORDER BY MAX(createdAt) DESC, COUNT(*) DESC 
+        AND isDeleted = 0
+        AND description IS NOT NULL AND TRIM(description) != ''
+        AND LOWER(description) LIKE LOWER(:query) || '%' ESCAPE '\'
+        GROUP BY LOWER(description)
+        ORDER BY description COLLATE NOCASE ASC
         LIMIT :limit
     """)
     suspend fun getDescriptionSuggestions(query: String, limit: Int = 8, householdId: String? = null): List<String>

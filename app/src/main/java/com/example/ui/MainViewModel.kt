@@ -580,7 +580,12 @@ class MainViewModel(
     }
 
     suspend fun getDescriptionSuggestions(query: String): List<String> {
-        return transactionRepository.getDescriptionSuggestions(query)
+        val effectiveHouseholdId = activeHouseholdId.value ?: _uiState.value.activeTransactionForEdit?.householdId
+        return transactionRepository.getDescriptionSuggestions(
+            query = query,
+            limit = 8,
+            householdId = effectiveHouseholdId
+        )
     }
 
     fun updateSelectedTypeFilter(type: String) {

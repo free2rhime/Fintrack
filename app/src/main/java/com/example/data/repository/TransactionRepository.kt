@@ -48,7 +48,7 @@ interface TransactionRepository {
 
     suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity
 
-    suspend fun getDescriptionSuggestions(query: String, limit: Int = 8): List<String>
+    suspend fun getDescriptionSuggestions(query: String, limit: Int = 8, householdId: String? = null): List<String>
 
     suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>)
 

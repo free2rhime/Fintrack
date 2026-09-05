@@ -163,9 +163,19 @@ class RoomTransactionRepository(
         )
     }
 
-    override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> {
-        if (query.trim().length < 2) return emptyList()
-        return transactionDao.getDescriptionSuggestions(query.trim(), limit)
+    override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val escaped = escapeSqlLike(trimmed)
+        return transactionDao.getDescriptionSuggestions(escaped, limit, householdId)
+            .distinctBy { it.lowercase() }
+    }
+
+    private fun escapeSqlLike(input: String): String {
+        return input
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
     }
 
     override suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) {

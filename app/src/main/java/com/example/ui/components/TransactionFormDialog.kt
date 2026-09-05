@@ -104,11 +104,16 @@ fun TransactionFormDialog(
     // Description autocomplete suggestions
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     var suggestionsExpanded by remember { mutableStateOf(false) }
+    var isSuggestionSelected by remember { mutableStateOf(false) }
 
     LaunchedEffect(description) {
-        if (description.trim().length >= 2 && onSearchDescriptions != null) {
+        if (isSuggestionSelected) {
+            return@LaunchedEffect
+        }
+        val query = description.trim()
+        if (query.isNotEmpty() && onSearchDescriptions != null) {
             delay(200)
-            val results = onSearchDescriptions(description.trim())
+            val results = onSearchDescriptions(query)
             suggestions = results.take(8)
             suggestionsExpanded = suggestions.isNotEmpty()
         } else {
@@ -247,6 +252,7 @@ fun TransactionFormDialog(
                     OutlinedTextField(
                         value = description,
                         onValueChange = {
+                            isSuggestionSelected = false
                             description = it
                             descError = false
                         },
@@ -264,13 +270,25 @@ fun TransactionFormDialog(
                             expanded = suggestionsExpanded,
                             onDismissRequest = { suggestionsExpanded = false }
                         ) {
-                            suggestions.forEach { sug ->
+                            suggestions.forEachIndexed { index, sug ->
                                 DropdownMenuItem(
-                                    text = { Text(sug) },
+                                    text = {
+                                        Text(
+                                            text = sug,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
                                     onClick = {
+                                        isSuggestionSelected = true
                                         description = sug
+                                        suggestions = emptyList()
                                         suggestionsExpanded = false
-                                    }
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("tx_description_suggestion_$index")
                                 )
                             }
                         }

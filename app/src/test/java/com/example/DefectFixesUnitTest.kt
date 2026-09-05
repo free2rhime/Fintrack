@@ -298,9 +298,11 @@ class FakeTransactionDao : com.example.data.dao.TransactionDao {
 
     override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> {
         return list.filter { (householdId == null && it.householdId == null) || it.householdId == householdId }
+            .filter { !it.isDeleted && it.description.isNotBlank() }
             .map { it.description }
-            .filter { it.contains(query, ignoreCase = true) }
-            .distinct()
+            .filter { it.startsWith(query, ignoreCase = true) }
+            .distinctBy { it.lowercase() }
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
             .take(limit)
     }
 

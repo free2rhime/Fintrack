@@ -50,7 +50,7 @@ class HistoricalRateRepairCoordinatorTest {
         ): TransactionEntity = throw UnsupportedOperationException()
 
         override suspend fun createDuplicateTemplate(source: TransactionEntity): TransactionEntity = source
-        override suspend fun getDescriptionSuggestions(query: String, limit: Int): List<String> = emptyList()
+        override suspend fun getDescriptionSuggestions(query: String, limit: Int, householdId: String?): List<String> = emptyList()
         override suspend fun insertBatchWithTransaction(transactions: List<TransactionEntity>) { this.transactions.addAll(transactions) }
         override suspend fun getUnverifiedTransactions(): List<TransactionEntity> = transactions.filter { it.conversionStatus != "OFFICIAL" }
         override suspend fun getAllTransactionsList(): List<TransactionEntity> = transactions.toList()
