@@ -238,8 +238,7 @@ service cloud.firestore {
         allow update: if !('migrationId' in request.resource.data) &&
                          isHouseholdMember(householdId) &&
                          isTransactionUpdateValid(resource.data, request.resource.data);
-        allow delete: if isHouseholdMember(householdId) &&
-                         (resource.data.createdByUid == request.auth.uid || isHouseholdAdminOrOwner(householdId));
+        allow delete: if isHouseholdMember(householdId);
       }
 
       // Categories subcollection

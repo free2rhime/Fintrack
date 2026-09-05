@@ -23,6 +23,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.MigrationUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -492,4 +493,64 @@ class Stage3AViewModelTest {
         conflict.details
         )
 }
+
+    @Test
+    fun testUpdateSearchQueryFiltersTransactionsInViewModel() = runTest(testDispatcher) {
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        val tx1 = TransactionEntity(
+            id = "tx_1",
+            householdId = null,
+            date = today,
+            description = "Mega Image Groceries",
+            amountRON = 100.0,
+            amountEUR = 20.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = today,
+            exchangeRateSource = "BNR_OFFICIAL",
+            conversionStatus = "OFFICIAL",
+            type = "Expense",
+            account = "Checking",
+            category = "Food",
+            subCategory = "Groceries"
+        )
+        val tx2 = TransactionEntity(
+            id = "tx_2",
+            householdId = null,
+            date = today,
+            description = "Electric Utility Bill",
+            amountRON = 200.0,
+            amountEUR = 40.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = today,
+            exchangeRateSource = "BNR_OFFICIAL",
+            conversionStatus = "OFFICIAL",
+            type = "Expense",
+            account = "Checking",
+            category = "Utilities",
+            subCategory = "Power"
+        )
+        db.transactionDao().insertTransaction(tx1)
+        db.transactionDao().insertTransaction(tx2)
+
+        viewModel.updateSelectedPeriod("All Time")
+
+        val collectJob = backgroundScope.launch {
+            viewModel.filteredTransactions.collect {}
+        }
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.filteredTransactions.value.size)
+
+        viewModel.updateSearchQuery("groceries")
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.filteredTransactions.value.size)
+        assertEquals("tx_1", viewModel.filteredTransactions.value[0].id)
+        assertEquals("Mega Image Groceries", viewModel.filteredTransactions.value[0].description)
+
+        viewModel.updateSearchQuery("")
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.filteredTransactions.value.size)
+    }
 }

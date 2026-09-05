@@ -1166,4 +1166,26 @@ class CategoryHouseholdScopeTest {
         val outbox = db.syncOutboxDao().getPendingEntries()
         assertEquals(0, outbox.size)
     }
+
+    @Test
+    fun testDefaultCategories_seedTicheteDeMasaSubcategory() {
+        val defaults = RoomCategoryRepository.createDefaultCategories("HH_TEST_SEEDS")
+        val foodCats = defaults.filter { it.name == "🍉 Food & Dining" }
+        assertTrue(foodCats.isNotEmpty())
+
+        val ticheteSubCat = foodCats.find { it.subCategory == "💳 Tichete de masa" }
+        assertNotNull(ticheteSubCat)
+        assertEquals("Expense", ticheteSubCat?.type)
+        assertEquals("HH_TEST_SEEDS", ticheteSubCat?.householdId)
+
+        // Ensure old label is not present in default seed
+        val oldSubCat = foodCats.find { it.subCategory == "💳 Meal Tickets" }
+        org.junit.Assert.assertNull(oldSubCat)
+
+        // Ensure no duplicate IDs or subcategories
+        val subCatList = defaults.map { it.subCategory }
+        assertEquals(subCatList.distinct().size, subCatList.size)
+        val idList = defaults.map { it.id }
+        assertEquals(idList.distinct().size, idList.size)
+    }
 }

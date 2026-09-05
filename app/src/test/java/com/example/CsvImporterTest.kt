@@ -239,4 +239,44 @@ TX_EXISTING_1,2026-03-01,6000.0,1200.0,5.0,2026-03-01,2026-03-01,BNR_OFFICIAL,OF
 
         assertFalse(result.isValid)
     }
+
+    @Test
+    fun testParseAndValidateSetsAuthenticatedContext() {
+        val csv = """Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory,Destination
+TX_AUTH_1,2026-03-02,500.0,100.0,5.0,2026-03-02,2026-03-02,BNR_OFFICIAL,OFFICIAL,Main Job Salary,Income,Card,💼 Salary,🏢 Main Job,Bubu
+"""
+        val preview = CsvImporter.parseAndValidate(
+            csvContent = csv,
+            existingTransactions = emptyList(),
+            existingCategories = existingCategories,
+            householdId = "hh_auth_123",
+            userId = "user_auth_456",
+            createdByUid = "user_auth_456"
+        )
+
+        assertEquals(1, preview.validRowsCount)
+        val tx = preview.validTransactionsToImport.first()
+        assertEquals("hh_auth_123", tx.householdId)
+        assertEquals("user_auth_456", tx.userId)
+        assertEquals("user_auth_456", tx.createdByUid)
+        assertFalse(tx.userId == "local_user")
+    }
+
+    @Test
+    fun testParseAndValidateDefaultsForUnauthenticated() {
+        val csv = """Transaction_ID,Transaction_Date,Amount_RON,Amount_EUR,Exchange_Rate,Requested_Rate_Date,Effective_BNR_Rate_Date,Exchange_Rate_Source,Conversion_Status,Description,Type,Account,Category,SubCategory,Destination
+TX_UNAUTH_1,2026-03-02,500.0,100.0,5.0,2026-03-02,2026-03-02,BNR_OFFICIAL,OFFICIAL,Main Job Salary,Income,Card,💼 Salary,🏢 Main Job,Bubu
+"""
+        val preview = CsvImporter.parseAndValidate(
+            csvContent = csv,
+            existingTransactions = emptyList(),
+            existingCategories = existingCategories
+        )
+
+        assertEquals(1, preview.validRowsCount)
+        val tx = preview.validTransactionsToImport.first()
+        assertEquals(null, tx.householdId)
+        assertEquals("local_user", tx.userId)
+        assertEquals(null, tx.createdByUid)
+    }
 }

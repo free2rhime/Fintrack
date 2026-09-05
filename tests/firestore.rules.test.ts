@@ -16,6 +16,7 @@ describe('FinTrack Firestore Security Rules', () => {
   const OWNER_UID = 'user_owner';
   const ADMIN_UID = 'user_admin';
   const MEMBER_UID = 'user_member';
+  const MEMBER_2_UID = 'user_member_2';
   const INACTIVE_UID = 'user_inactive';
   const STRANGER_UID = 'user_stranger';
 
@@ -64,6 +65,14 @@ describe('FinTrack Firestore Security Rules', () => {
       // Regular member
       await setDoc(doc(db, `households/${HOUSEHOLD_ID}/members/${MEMBER_UID}`), {
         uid: MEMBER_UID,
+        role: 'member',
+        status: 'ACTIVE',
+        joinedAt: '2026-08-01T00:00:00Z'
+      });
+
+      // Regular member 2
+      await setDoc(doc(db, `households/${HOUSEHOLD_ID}/members/${MEMBER_2_UID}`), {
+        uid: MEMBER_2_UID,
         role: 'member',
         status: 'ACTIVE',
         joinedAt: '2026-08-01T00:00:00Z'
@@ -712,6 +721,16 @@ describe('FinTrack Firestore Security Rules', () => {
       }));
     });
 
+    it('allows cross-user transaction update preserving immutable IDs and createdByUid', async () => {
+      const member2Db = testEnv.authenticatedContext(MEMBER_2_UID).firestore();
+      await assertSucceeds(updateDoc(doc(member2Db, `households/${HOUSEHOLD_ID}/transactions/tx_existing`), {
+        amountRon: 200.0,
+        amountEur: 40.0,
+        exchangeRate: 5.0,
+        description: 'Updated by member 2'
+      }));
+    });
+
     it('allows soft-deletion (tombstone) update by active member', async () => {
       const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
       await assertSucceeds(updateDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_existing`), {
@@ -721,14 +740,26 @@ describe('FinTrack Firestore Security Rules', () => {
       }));
     });
 
-    it('allows creator or owner/admin to hard-delete transaction', async () => {
-      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
-      await assertSucceeds(deleteDoc(doc(memberDb, `households/${HOUSEHOLD_ID}/transactions/tx_existing`)));
+    it('allows regular member to delete transaction created by another member', async () => {
+      const member2Db = testEnv.authenticatedContext(MEMBER_2_UID).firestore();
+      await assertSucceeds(deleteDoc(doc(member2Db, `households/${HOUSEHOLD_ID}/transactions/tx_existing`)));
     });
 
     it('denies non-member from deleting transaction', async () => {
       const strangerDb = testEnv.authenticatedContext(STRANGER_UID).firestore();
       await assertFails(deleteDoc(doc(strangerDb, `households/${HOUSEHOLD_ID}/transactions/tx_existing`)));
+    });
+
+    it('denies cross-household transaction update', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(updateDoc(doc(memberDb, `households/other_household_999/transactions/tx_existing`), {
+        amountRon: 999.0
+      }));
+    });
+
+    it('denies cross-household transaction delete', async () => {
+      const memberDb = testEnv.authenticatedContext(MEMBER_UID).firestore();
+      await assertFails(deleteDoc(doc(memberDb, `households/other_household_999/transactions/tx_existing`)));
     });
   });
 

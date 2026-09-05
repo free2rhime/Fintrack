@@ -238,6 +238,8 @@ class MainViewModel(
         when (status) {
             is SyncStatus.Synced -> status.householdId ?: syncRepository?.activeHouseholdId
             is SyncStatus.Connecting -> syncRepository?.activeHouseholdId
+            is SyncStatus.PermissionDenied -> syncRepository?.activeHouseholdId
+            is SyncStatus.Offline -> syncRepository?.activeHouseholdId
             else -> null
         }
     }.stateIn(
@@ -341,7 +343,14 @@ class MainViewModel(
         initialValue = "dark"
     )
 
-    val filterSettings: StateFlow<FilterSettings> = settingsRepository.filterSettingsFlow.stateIn(
+    private val _searchQuery = MutableStateFlow("")
+
+    val filterSettings: StateFlow<FilterSettings> = combine(
+        settingsRepository.filterSettingsFlow,
+        _searchQuery
+    ) { settings, query ->
+        settings.copy(searchQuery = query)
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = FilterSettings()
@@ -573,10 +582,7 @@ class MainViewModel(
     }
 
     fun updateSearchQuery(query: String) {
-        viewModelScope.launch {
-            val current = filterSettings.value
-            settingsRepository.updateSelectedPeriod(current.selectedPeriod) // triggers flow update if needed
-        }
+        _searchQuery.value = query
     }
 
     suspend fun getDescriptionSuggestions(query: String): List<String> {
@@ -609,7 +615,15 @@ class MainViewModel(
 
     fun importCsv(context: android.content.Context, uri: android.net.Uri) {
         viewModelScope.launch(Dispatchers.IO) {
-            when (val result = csvImportOrchestrator.parseAndValidateFromUri(context, uri)) {
+            val currentUid = activeUserUid.value ?: authRepository.getCurrentUserUid()
+            val currentHouseholdId = activeHouseholdId.value
+            when (val result = csvImportOrchestrator.parseAndValidateFromUri(
+                context = context,
+                uri = uri,
+                householdId = currentHouseholdId,
+                userId = currentUid ?: "local_user",
+                createdByUid = currentUid
+            )) {
                 is CsvImportParseResult.Success -> {
                     _uiState.value = _uiState.value.copy(csvPreviewData = result.preview)
                 }
@@ -634,7 +648,15 @@ class MainViewModel(
     fun executeCsvImport(context: android.content.Context) {
         val preview = _uiState.value.csvPreviewData ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            val result = csvImportOrchestrator.executeImport(preview, context.cacheDir)
+            val currentUid = activeUserUid.value ?: authRepository.getCurrentUserUid()
+            val currentHouseholdId = activeHouseholdId.value
+            val result = csvImportOrchestrator.executeImport(
+                preview = preview,
+                cacheDir = context.cacheDir,
+                householdId = currentHouseholdId,
+                userId = currentUid ?: "local_user",
+                createdByUid = currentUid
+            )
             _uiState.value = _uiState.value.copy(
                 csvPreviewData = null,
                 csvImportFinalResult = result

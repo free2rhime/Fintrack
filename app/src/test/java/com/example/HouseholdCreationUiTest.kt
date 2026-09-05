@@ -41,8 +41,6 @@ class HouseholdCreationUiTest {
                 onCurrencyChanged = {},
                 onThemeModeChanged = {},
                 onExportCsv = {},
-                onSeedDemoData = {},
-                onResetData = {},
                 onCreateHousehold = { createHouseholdClicked = true }
             )
         }
@@ -84,9 +82,7 @@ class HouseholdCreationUiTest {
                 householdMembers = listOf(membership),
                 onCurrencyChanged = {},
                 onThemeModeChanged = {},
-                onExportCsv = {},
-                onSeedDemoData = {},
-                onResetData = {}
+                onExportCsv = {}
             )
         }
 

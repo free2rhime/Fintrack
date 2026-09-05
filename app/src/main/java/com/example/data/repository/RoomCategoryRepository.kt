@@ -24,7 +24,8 @@ class RoomCategoryRepository(
         return categoryDao.getAllCategories(householdId)
     }
 
-    override suspend fun getAllCategoriesList(): List<CategoryEntity> = allCategories.first()
+    override suspend fun getAllCategoriesList(householdId: String?): List<CategoryEntity> =
+        categoryDao.getAllCategoriesList(householdId)
 
     override suspend fun ensureDefaultCategoriesSeeded(householdId: String?, enqueueOutbox: Boolean) {
         val existing = categoryDao.getAllCategories(householdId).first()
@@ -218,7 +219,7 @@ class RoomCategoryRepository(
                 // Expense Categories & Subcategories with Emojis
                 createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "🛒 Groceries"),
                 createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "🍔 Restaurants & Cafes"),
-                createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "💳 Meal Tickets"),
+                createCat(name = "🍉 Food & Dining", type = "Expense", subCategory = "💳 Tichete de masa"),
                 createCat(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "🔑 Rent / Mortgage"),
                 createCat(name = "🏠 Housing & Utilities", type = "Expense", subCategory = "⚡ Utilities & Internet"),
                 createCat(name = "🚗 Transportation", type = "Expense", subCategory = "⛽ Fuel"),

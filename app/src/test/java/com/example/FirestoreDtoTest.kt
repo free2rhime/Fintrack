@@ -427,4 +427,29 @@ class FirestoreDtoTest {
         assertEquals("ACTIVE", deserializedLegacy.status)
         assertNull(deserializedLegacy.inviteId)
     }
+
+    @Test
+    fun testCrossUserTransactionSerializationPreservesCreatedByUid() {
+        val txCreatedByUserAEditedByUserB = TransactionEntity(
+            id = "tx_abc",
+            householdId = "hh_main",
+            userId = "user_b",
+            createdByUid = "user_a",
+            date = "2026-08-15",
+            description = "Edited by user B",
+            amountRON = 250.0,
+            amountEUR = 50.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-08-15",
+            type = "Expense",
+            account = "Card",
+            category = "Food",
+            subCategory = "Groceries"
+        )
+
+        val firestoreMap = txCreatedByUserAEditedByUserB.toFirestoreMap(householdId = "hh_main", userUid = "user_b")
+        assertEquals("user_a", firestoreMap["createdByUid"])
+        assertEquals("hh_main", firestoreMap["householdId"])
+        assertEquals("tx_abc", firestoreMap["transactionId"])
+    }
 }

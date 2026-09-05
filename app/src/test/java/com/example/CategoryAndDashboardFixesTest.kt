@@ -5,6 +5,7 @@ import com.example.data.model.CategoryEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.RoomCategoryRepository
 import com.example.domain.analytics.FinancialAnalyticsEngine
+import com.example.ui.components.getAccountDisplayLabel
 import com.example.ui.screens.formatLocalizedDateHeader
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -161,6 +162,81 @@ class CategoryAndDashboardFixesTest {
         assertTrue("AndroidManifest.xml must exist", manifestFile.exists())
         val content = manifestFile.readText()
         assertTrue("Manifest must declare INTERNET permission", content.contains("android.permission.INTERNET"))
+    }
+
+    @Test
+    fun testAccountDisplayLabelMappingAndContract() {
+        // 1. UI Label mapping verification
+        assertEquals("Card", getAccountDisplayLabel("Card"))
+        assertEquals("Cash", getAccountDisplayLabel("Cash"))
+        assertEquals("Tichete de masa", getAccountDisplayLabel("Meal Tickets"))
+
+        // Fallback / unknown
+        assertEquals("Other", getAccountDisplayLabel("Other"))
+
+        // 2. TransactionEntity internal contract remains "Meal Tickets"
+        val transaction = TransactionEntity(
+            id = "tx-test-meal",
+            userId = "user-1",
+            date = "2026-09-01",
+            description = "Lunch",
+            amountRON = 45.0,
+            amountEUR = 9.0,
+            exchangeRate = 5.0,
+            exchangeRateDate = "2026-09-01",
+            type = "Expense",
+            account = "Meal Tickets",
+            category = "🍉 Food & Dining",
+            subCategory = "💳 Tichete de masa",
+            createdAt = 1000L,
+            updatedAt = 1000L,
+            exchangeRateSource = "BNR_AUTO",
+            conversionStatus = "CONVERTED"
+        )
+        assertEquals("Meal Tickets", transaction.account)
+        assertEquals("Tichete de masa", getAccountDisplayLabel(transaction.account))
+    }
+
+    @Test
+    fun testNetBalanceAndIndicatorFormattingCeilNoDecimals() {
+        // Net balance formatting: no decimals, ceiling / round-up behavior, space separator
+        // Positive balance with decimals
+        assertEquals("86 646 RON", com.example.ui.screens.formatCeilNetBalance(86645.72, "RON"))
+        assertEquals("86 645 RON", com.example.ui.screens.formatCeilNetBalance(86645.00, "RON"))
+        assertEquals("100 EUR", com.example.ui.screens.formatCeilNetBalance(99.01, "EUR"))
+        assertEquals("0 RON", com.example.ui.screens.formatCeilNetBalance(0.0, "RON"))
+
+        // Secondary indicator formatting: ceiling behavior, no decimals
+        assertEquals("12 346 RON", com.example.ui.screens.formatCeilAmount(12345.10, "RON"))
+        assertEquals("1 500 EUR", com.example.ui.screens.formatCeilAmount(1499.50, "EUR"))
+    }
+
+    @Test
+    fun testCategoryDistributionShare100PercentAndOtherAggregation() {
+        val shares = listOf(
+            com.example.domain.analytics.CategoryExpenseShare("Housing", 3500.0, 35.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Food", 2500.0, 25.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Transport", 1500.0, 15.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Utilities", 1000.0, 10.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Entertainment", 800.0, 8.0, 1),
+            com.example.domain.analytics.CategoryExpenseShare("Health", 700.0, 7.0, 1)
+        )
+
+        val result = com.example.ui.components.computeDistributionShares(shares)
+
+        // With 6 categories, top 4 are preserved and rest collapsed to "Other"
+        assertEquals(5, result.size)
+        assertEquals("Housing", result[0].categoryName)
+        assertEquals("Food", result[1].categoryName)
+        assertEquals("Transport", result[2].categoryName)
+        assertEquals("Utilities", result[3].categoryName)
+        assertEquals("Other", result[4].categoryName)
+        assertTrue(result[4].isOther)
+        assertEquals(1500.0, result[4].totalAmount, 0.001)
+
+        // Percentage distribution MUST sum to exactly 100%
+        val totalPercentage = result.sumOf { it.displayPercentage }
+        assertEquals(100, totalPercentage)
     }
 }
 

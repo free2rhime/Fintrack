@@ -262,4 +262,21 @@ class FirestoreOutboundTransportTest {
             assertEquals(payload2, recorded.second.second)
         }
     }
+
+    @Test
+    fun testTransactionAndCategoryHardDeleteOutboundSemantics() = runTest {
+        val source = RecordingSnapshotSource()
+
+        // Verify transaction delete records householdId and transactionId for hard delete
+        source.deleteTransaction("hh_household_99", "tx_del_99")
+        assertEquals(1, source.transactionDeletes.size)
+        assertEquals("hh_household_99", source.transactionDeletes.first().first)
+        assertEquals("tx_del_99", source.transactionDeletes.first().second)
+
+        // Verify category delete records householdId and categoryId for hard delete
+        source.deleteCategory("hh_household_99", "cat_del_99")
+        assertEquals(1, source.categoryDeletes.size)
+        assertEquals("hh_household_99", source.categoryDeletes.first().first)
+        assertEquals("cat_del_99", source.categoryDeletes.first().second)
+    }
 }

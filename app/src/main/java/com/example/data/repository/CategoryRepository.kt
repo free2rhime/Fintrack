@@ -10,7 +10,7 @@ interface CategoryRepository {
 
     fun getCategories(householdId: String? = null): Flow<List<CategoryEntity>>
 
-    suspend fun getAllCategoriesList(): List<CategoryEntity>
+    suspend fun getAllCategoriesList(householdId: String? = null): List<CategoryEntity>
 
     suspend fun ensureDefaultCategoriesSeeded(householdId: String? = null, enqueueOutbox: Boolean = true)
 

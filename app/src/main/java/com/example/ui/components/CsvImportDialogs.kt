@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -21,13 +24,10 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -40,15 +40,42 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.util.CsvDuplicateMode
 import com.example.data.util.CsvImportFinalResult
 import com.example.data.util.CsvPreviewData
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
+import com.example.ui.theme.BodyRegular
+import com.example.ui.theme.CardTitleAmount
+import com.example.ui.theme.CobaltBlue
+import com.example.ui.theme.ExpenseContainer
+import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.IncomeContainer
+import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MicroMetadata
+import com.example.ui.theme.RadiusLarge
+import com.example.ui.theme.RadiusMedium
+import com.example.ui.theme.RadiusSmall
+import com.example.ui.theme.RadiusXLarge
+import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.Space12
+import com.example.ui.theme.Space16
+import com.example.ui.theme.Space2
+import com.example.ui.theme.Space20
+import com.example.ui.theme.Space4
+import com.example.ui.theme.Space8
+import com.example.ui.theme.SurfaceContainerDark
+import com.example.ui.theme.SurfaceContainerHighDark
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.WarningAmber
 import java.util.Locale
 
 @Composable
@@ -65,16 +92,27 @@ fun CsvImportPreviewDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
             .fillMaxWidth(0.95f)
-            .padding(16.dp),
+            .widthIn(max = 560.dp)
+            .padding(Space16),
+        containerColor = SurfaceDark,
+        shape = RoundedCornerShape(RadiusXLarge),
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = CobaltBlue,
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("CSV Import Preview", fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.width(Space8))
+                Text(
+                    text = "CSV Import Preview",
+                    style = SectionHeadline,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
             }
         },
         text = {
@@ -87,7 +125,7 @@ fun CsvImportPreviewDialog(
                 // METRICS SUMMARY GRID
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Space8)
                 ) {
                     MetricCard(
                         title = "Total Rows",
@@ -97,89 +135,109 @@ fun CsvImportPreviewDialog(
                     MetricCard(
                         title = "Valid Rows",
                         value = "${previewData.validRowsCount}",
-                        textColor = IncomeGreen,
+                        textColor = IncomeEmerald,
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
                         title = "Invalid Rows",
                         value = "${previewData.invalidRowsCount}",
-                        textColor = if (previewData.invalidRowsCount > 0) ExpenseRed else MaterialTheme.colorScheme.onSurface,
+                        textColor = if (previewData.invalidRowsCount > 0) ExpenseCoral else TextPrimary,
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(Space8))
 
                 // RON TOTALS
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Space8)
                 ) {
                     MetricCard(
                         title = "Total Income (RON)",
                         value = String.format(Locale.US, "%.2f RON", previewData.totalRonIncome),
-                        textColor = IncomeGreen,
+                        textColor = IncomeEmerald,
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
                         title = "Total Expense (RON)",
                         value = String.format(Locale.US, "%.2f RON", previewData.totalRonExpense),
-                        textColor = ExpenseRed,
+                        textColor = ExpenseCoral,
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // DUPLICATE HANDLING MODE SELECTOR
                 Text(
                     text = "Duplicate Transaction Handling:",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
+                    style = LabelBadgeMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(Space8))
 
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         selected = previewData.duplicateMode == CsvDuplicateMode.SKIP_EXISTING,
                         onClick = { onDuplicateModeChanged(CsvDuplicateMode.SKIP_EXISTING) },
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        modifier = Modifier.testTag("segmented_skip_existing")
+                        modifier = Modifier.testTag("segmented_skip_existing"),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = CobaltBlue,
+                            activeContentColor = Color.White,
+                            inactiveContainerColor = SurfaceContainerDark,
+                            inactiveContentColor = TextSecondary,
+                            activeBorderColor = CobaltBlue,
+                            inactiveBorderColor = SurfaceContainerHighDark
+                        )
                     ) {
-                        Text("Skip Existing")
+                        Text("Skip Existing", style = LabelBadgeMedium)
                     }
                     SegmentedButton(
                         selected = previewData.duplicateMode == CsvDuplicateMode.UPDATE_EXISTING,
                         onClick = { onDuplicateModeChanged(CsvDuplicateMode.UPDATE_EXISTING) },
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        modifier = Modifier.testTag("segmented_update_existing")
+                        modifier = Modifier.testTag("segmented_update_existing"),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = CobaltBlue,
+                            activeContentColor = Color.White,
+                            inactiveContainerColor = SurfaceContainerDark,
+                            inactiveContentColor = TextSecondary,
+                            activeBorderColor = CobaltBlue,
+                            inactiveBorderColor = SurfaceContainerHighDark
+                        )
                     ) {
-                        Text("Update Existing")
+                        Text("Update Existing", style = LabelBadgeMedium)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(Space8))
 
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(RadiusMedium),
+                    color = SurfaceContainerDark,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(Space12)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 text = "New Records to Insert:",
-                                style = MaterialTheme.typography.bodySmall
+                                style = BodyRegular,
+                                color = TextSecondary
                             )
                             Text(
                                 text = "${previewData.newIdsCount}",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold
+                                style = BodyRegular,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
                             )
                         }
+                        Spacer(modifier = Modifier.height(Space4))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -187,60 +245,64 @@ fun CsvImportPreviewDialog(
                             Text(
                                 text = if (previewData.duplicateMode == CsvDuplicateMode.SKIP_EXISTING)
                                     "Existing Records (To Skip):" else "Existing Records (To Update):",
-                                style = MaterialTheme.typography.bodySmall
+                                style = BodyRegular,
+                                color = TextSecondary
                             )
                             Text(
                                 text = "${previewData.existingIdsCount}",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = BodyRegular,
                                 fontWeight = FontWeight.Bold,
                                 color = if (previewData.duplicateMode == CsvDuplicateMode.UPDATE_EXISTING && previewData.existingIdsCount > 0)
-                                    MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    CobaltBlue else TextSecondary
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(Space16))
 
                 // CONVERSION STATUS BREAKDOWN
                 Text(
                     text = "Exchange Rate Conversion Breakdown:",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
+                    style = LabelBadgeMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(Space8))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Space8)
                 ) {
-                    StatusChip("OFFICIAL: ${previewData.officialCount}", IncomeGreen, Modifier.weight(1f))
-                    StatusChip("UNVERIFIED: ${previewData.unverifiedCount}", MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
-                    StatusChip("PENDING: ${previewData.pendingCount}", MaterialTheme.colorScheme.error, Modifier.weight(1f))
+                    StatusChip("OFFICIAL: ${previewData.officialCount}", IncomeEmerald, Modifier.weight(1f))
+                    StatusChip("UNVERIFIED: ${previewData.unverifiedCount}", WarningAmber, Modifier.weight(1f))
+                    StatusChip("PENDING: ${previewData.pendingCount}", ExpenseCoral, Modifier.weight(1f))
                 }
 
                 // MISSING CATEGORIES SECTION
                 if (previewData.missingCategories.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(Space16))
                     Text(
                         text = "New Categories / Subcategories to be Created (${previewData.missingCategories.size}):",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = LabelBadgeMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = CobaltBlue
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(Space8))
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
-                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceContainerDark),
+                        shape = RoundedCornerShape(RadiusMedium),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
+                        Column(modifier = Modifier.padding(Space12)) {
                             previewData.missingCategories.forEach { item ->
                                 Text(
                                     text = "• [${item.type}] ${item.name} → ${item.subCategory}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold
+                                    style = BodyRegular,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
                                 )
+                                Spacer(modifier = Modifier.height(Space2))
                             }
                         }
                     }
@@ -248,31 +310,31 @@ fun CsvImportPreviewDialog(
 
                 // ROW ERRORS SECTION
                 if (previewData.rowErrors.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(Space16))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = ExpenseRed)
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = ExpenseCoral, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Space8))
                         Text(
                             text = "Row Validation Errors / Exclusions (${previewData.rowErrors.size}):",
-                            style = MaterialTheme.typography.labelMedium,
+                            style = LabelBadgeMedium,
                             fontWeight = FontWeight.Bold,
-                            color = ExpenseRed
+                            color = ExpenseCoral
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(Space8))
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = ExpenseRed.copy(alpha = 0.1f)),
-                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = ExpenseContainer),
+                        shape = RoundedCornerShape(RadiusMedium),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
+                        Column(modifier = Modifier.padding(Space12)) {
                             previewData.rowErrors.forEach { err ->
                                 Text(
                                     text = "Row ${err.rowNumber} [${err.field}]: ${err.message}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = ExpenseRed
+                                    style = BodyRegular,
+                                    color = ExpenseCoral
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(Space4))
                             }
                         }
                     }
@@ -280,7 +342,7 @@ fun CsvImportPreviewDialog(
             }
         },
         confirmButton = {
-            Button(
+            FinTrackButton(
                 onClick = {
                     if (previewData.duplicateMode == CsvDuplicateMode.UPDATE_EXISTING && previewData.existingIdsCount > 0) {
                         showUpdateConfirmation = true
@@ -289,15 +351,18 @@ fun CsvImportPreviewDialog(
                     }
                 },
                 enabled = previewData.validRowsCount > 0,
-                modifier = Modifier.testTag("confirm_import_button")
+                modifier = Modifier.testTag("confirm_import_button"),
+                variant = ButtonVariant.PRIMARY
             ) {
-                Text("Confirm & Import (${previewData.validRowsCount})")
+                Text("Confirm & Import (${previewData.validRowsCount})", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+            FinTrackButton(
+                text = "Cancel",
+                onClick = onDismiss,
+                variant = ButtonVariant.SECONDARY
+            )
         }
     )
 
@@ -305,27 +370,36 @@ fun CsvImportPreviewDialog(
     if (showUpdateConfirmation) {
         AlertDialog(
             onDismissRequest = { showUpdateConfirmation = false },
-            title = { Text("Confirm Overwrite") },
+            containerColor = SurfaceDark,
+            shape = RoundedCornerShape(RadiusXLarge),
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
+            title = {
+                Text("Confirm Overwrite", style = SectionHeadline, fontWeight = FontWeight.Bold, color = TextPrimary)
+            },
             text = {
                 Text(
-                    "You have selected 'Update Existing' mode. Importing will overwrite data for ${previewData.existingIdsCount} matching transaction record(s) currently in your database.\n\nA backup will be created and validated before writing. Are you sure you want to proceed?"
+                    text = "You have selected 'Update Existing' mode. Importing will overwrite data for ${previewData.existingIdsCount} matching transaction record(s) currently in your database.\n\nA backup will be created and validated before writing. Are you sure you want to proceed?",
+                    style = BodyRegular,
+                    color = TextSecondary
                 )
             },
             confirmButton = {
-                Button(
+                FinTrackButton(
+                    text = "Proceed with Update",
                     onClick = {
                         showUpdateConfirmation = false
                         onConfirmImport()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Text("Proceed with Update")
-                }
+                    variant = ButtonVariant.DESTRUCTIVE
+                )
             },
             dismissButton = {
-                OutlinedButton(onClick = { showUpdateConfirmation = false }) {
-                    Text("Cancel")
-                }
+                FinTrackButton(
+                    text = "Cancel",
+                    onClick = { showUpdateConfirmation = false },
+                    variant = ButtonVariant.SECONDARY
+                )
             }
         )
     }
@@ -338,17 +412,23 @@ fun CsvImportResultDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = SurfaceDark,
+        shape = RoundedCornerShape(RadiusXLarge),
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (result.success) {
-                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = IncomeGreen)
+                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = IncomeEmerald, modifier = Modifier.size(24.dp))
                 } else {
-                    Icon(imageVector = Icons.Default.ErrorOutline, contentDescription = null, tint = ExpenseRed)
+                    Icon(imageVector = Icons.Default.ErrorOutline, contentDescription = null, tint = ExpenseCoral, modifier = Modifier.size(24.dp))
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Space8))
                 Text(
                     text = if (result.success) "Import Successful" else "Import Failed",
-                    fontWeight = FontWeight.Bold
+                    style = SectionHeadline,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
                 )
             }
         },
@@ -361,59 +441,59 @@ fun CsvImportResultDialog(
                 if (!result.errorMessage.isNullOrBlank()) {
                     Text(
                         text = result.errorMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = ExpenseRed,
+                        style = BodyRegular,
+                        color = ExpenseCoral,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(Space12))
                 }
 
                 if (result.success) {
                     Text(
                         text = "Transactions have been processed and saved into local storage.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = BodyRegular,
+                        color = TextSecondary
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(Space12))
 
                     // RESULT BREAKDOWN CARDS
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceContainerDark),
+                        shape = RoundedCornerShape(RadiusLarge),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            ResultRow("Transactions Inserted:", "${result.insertedCount}", IncomeGreen)
-                            ResultRow("Transactions Updated:", "${result.updatedCount}", MaterialTheme.colorScheme.primary)
-                            ResultRow("Transactions Skipped:", "${result.skippedCount}", MaterialTheme.colorScheme.onSurfaceVariant)
-                            ResultRow("Rows Failed / Excluded:", "${result.failedCount}", if (result.failedCount > 0) ExpenseRed else MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ResultRow("Categories Created:", "${result.categoriesCreatedCount}", MaterialTheme.colorScheme.secondary)
-                            ResultRow("Subcategories Created:", "${result.subcategoriesCreatedCount}", MaterialTheme.colorScheme.secondary)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ResultRow("Pending Conversions:", "${result.pendingCount}", MaterialTheme.colorScheme.error)
-                            ResultRow("Unverified Conversions:", "${result.unverifiedCount}", MaterialTheme.colorScheme.tertiary)
+                        Column(modifier = Modifier.padding(Space16)) {
+                            ResultRow("Transactions Inserted:", "${result.insertedCount}", IncomeEmerald)
+                            ResultRow("Transactions Updated:", "${result.updatedCount}", CobaltBlue)
+                            ResultRow("Transactions Skipped:", "${result.skippedCount}", TextSecondary)
+                            ResultRow("Rows Failed / Excluded:", "${result.failedCount}", if (result.failedCount > 0) ExpenseCoral else TextSecondary)
+                            Spacer(modifier = Modifier.height(Space8))
+                            ResultRow("Categories Created:", "${result.categoriesCreatedCount}", TextPrimary)
+                            ResultRow("Subcategories Created:", "${result.subcategoriesCreatedCount}", TextPrimary)
+                            Spacer(modifier = Modifier.height(Space8))
+                            ResultRow("Pending Conversions:", "${result.pendingCount}", ExpenseCoral)
+                            ResultRow("Unverified Conversions:", "${result.unverifiedCount}", WarningAmber)
                         }
                     }
 
                     if (!result.backupFilePath.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(Space12))
                         Text(
                             text = "Backup Verified & Saved At:\n${result.backupFilePath}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MicroMetadata,
+                            color = TextMuted
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
+            FinTrackButton(
+                text = "Close",
                 onClick = onDismiss,
-                modifier = Modifier.testTag("close_import_result_button")
-            ) {
-                Text("Close")
-            }
+                modifier = Modifier.testTag("close_import_result_button"),
+                variant = ButtonVariant.PRIMARY
+            )
         }
     )
 }
@@ -423,17 +503,17 @@ private fun MetricCard(
     title: String,
     value: String,
     modifier: Modifier = Modifier,
-    textColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
+    textColor: Color = TextPrimary
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+        shape = RoundedCornerShape(RadiusMedium),
+        colors = CardDefaults.cardColors(containerColor = SurfaceContainerDark)
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = textColor)
+        Column(modifier = Modifier.padding(Space8)) {
+            Text(title, style = MicroMetadata, color = TextSecondary)
+            Spacer(modifier = Modifier.height(Space4))
+            Text(value, style = CardTitleAmount, fontWeight = FontWeight.Bold, color = textColor)
         }
     }
 }
@@ -441,17 +521,17 @@ private fun MetricCard(
 @Composable
 private fun StatusChip(
     text: String,
-    color: androidx.compose.ui.graphics.Color,
+    color: Color,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(6.dp),
+        shape = RoundedCornerShape(RadiusSmall),
         color = color.copy(alpha = 0.15f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.4f))
+        border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp)) {
-            Text(text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = Space4, horizontal = Space4)) {
+            Text(text, style = MicroMetadata, fontWeight = FontWeight.Bold, color = color)
         }
     }
 }
@@ -460,15 +540,15 @@ private fun StatusChip(
 private fun ResultRow(
     label: String,
     value: String,
-    valueColor: androidx.compose.ui.graphics.Color
+    valueColor: Color
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = Space4),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, style = MaterialTheme.typography.bodySmall)
-        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = valueColor)
+        Text(label, style = BodyRegular, color = TextSecondary)
+        Text(value, style = BodyRegular, fontWeight = FontWeight.Bold, color = valueColor)
     }
 }

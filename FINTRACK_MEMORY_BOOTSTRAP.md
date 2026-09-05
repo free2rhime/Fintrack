@@ -143,20 +143,25 @@ Never introduce a synthetic/fallback household merely to keep synchronization mo
 
 ---
 
-## 8. CATEGORY NON-REGRESSION RULES
+## 8. CATEGORY & MEMBER NON-REGRESSION RULES
 
-Preserve the current category architecture:
+Preserve the current category and member authorization architecture:
 
 - household-scoped categories;
 - stable UUID identity;
 - shared household category structure;
-- OWNER category management;
+- OWNER category management (OWNER may create, update, delete categories/subcategories; ADMIN permissions preserved; MEMBER cannot mutate categories);
 - MEMBER consumption;
+- MEMBER MANAGEMENT is OWNER-ONLY (household member management, invitation administration, role changes, member removal);
+- invitation security (atomic token binding, pre-commit PENDING check, replay protection, household binding, email verification);
 - initial seeding only when a household is explicitly created;
 - no recurring startup category seeding;
-- no deterministic category-ID hashing as identity.
+- no deterministic category-ID hashing as identity;
+- household-scoped CSV Category/SubCategory resolution and reuse: existing Category/SubCategory entities belonging to the active household must be reused during CSV import, preserving stable IDs and preventing duplicate entity creation;
+- Expense vs Income separation and parent Category separation during CSV import matching;
+- CSV import duplicate prevention does not automatically clean or alter existing duplicate records already stored in the database (historical duplicates preserved).
 
-Do not reopen the category architecture without a demonstrated regression or explicit product decision.
+Do not broaden transaction permissions into category or member management permissions.
 
 ---
 
@@ -165,7 +170,11 @@ Do not reopen the category architecture without a demonstrated regression or exp
 Preserve:
 
 - household-scoped transactions;
+- cross-user transaction editing & deletion: all active household members may create, edit, and delete transactions within their authorized household (transaction creator is not an authorization boundary);
+- immutable `createdByUid` preservation: `createdByUid` represents original creator audit identity and must NOT be overwritten when another member edits a transaction;
 - Room/outbox synchronization;
+- FAILED outbox shielding: `SyncOutboxDao.getActiveEntityIdsByType` includes `FAILED` entries to prevent stale inbound snapshots from overwriting local un-synced/failed mutations;
+- active household preservation: `MainViewModel.activeHouseholdId` preserves resolved household context during `SyncStatus.PermissionDenied` and `SyncStatus.Offline` states;
 - bidirectional transaction synchronization;
 - deletion propagation;
 - correct Expense vs. Income semantics;
@@ -200,19 +209,15 @@ Outbox state is evaluated using direct/finite Room queries and event-driven noti
 
 ---
 
-## 11. UI SAFETY
+## 11. UI SAFETY & DESIGN SYSTEM
 
-FinTrack's current design direction includes:
+FinTrack uses **FinTrack Design System v1**, verified across the entire presentation layer (Phases 1–13):
 
-- dark-first identity;
-- green for primary/positive/income;
-- blue for navigation/selection;
-- red for expense/destructive semantics;
-- five-tab navigation;
-- visible synchronization status;
-- visible household context.
-
-UI work should not change backend or synchronization architecture unless explicitly required.
+- **Tokens**: CanvasDark, SurfaceDark, SurfaceContainerDark, SurfaceContainerHighDark, CobaltBlue (navigation/selection/focus), IncomeEmerald (income/positive), ExpenseCoral (expense/destructive), WarningAmber, TextPrimary, TextSecondary, TextMuted, Space4..Space20, RadiusSmall..RadiusXLarge.
+- **Motion Foundation**: Centralized restrained motion via `FinTrackMotion` (`DurationFast` 150ms, `DurationStandard` 200ms, `DurationEmphasized` 250ms, `DurationSyncSpin` 1000ms, `StandardEasing`, `LinearCurve`). No unmanaged coroutine motion jobs; infinite rotation strictly scoped to `BadgeVariant.SYNCING`.
+- **Responsive & Accessibility**: Responsive layouts (<340dp, <360dp, <480dp, max-width 680dp for tablets/foldables), minimum 48dp touch targets for interactive controls, financial polarity not conveyed by color alone, vertical scroll on constrained screens.
+- **Semantic Test Tag Contract**: Contractual test tags (e.g., `dashboard_top_card`, `currency_toggle_*`, `transaction_item_*`, `save_transaction_button`, `analytics_*`, `category_*`, `account_info_card`, `export_csv_button`, etc.) must never be renamed or removed.
+- **Strict Architectural Lock**: Future UI work must NOT modify the 10 locked architectural domains: Room, Firestore, Authentication, Household / RBAC, Synchronization, ViewModels, Domain, CSV / BNR, Navigation, Build.
 
 ---
 
@@ -221,31 +226,164 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: 37155bc
-Commit: refactor: extract domain logic from MainViewModel
-Previous functional baseline: 32fc27b (fix: improve outbox reliability and reconnection recovery) / a739400 (test: stabilize Android migration and UI tests) / baf2f70 (fix: harden firestore security rules)
-Android test baseline: 345/345 PASS (0 failed, 0 skipped)
-Focused Step 11 architecture baseline: 25/25 PASS
-Firestore test baseline: 92/92 PASS (0 failed)
+Git baseline: Phase 13 Final Visual QA Clean Completion Checkpoint (Phases 1–13 Complete — GO: PHASE 13 CLEAN - 2026-09-05)
+Previous baseline: Phase 12 / Phase 11 / Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03) / Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint
+Reported Phase 13 test baseline: 72 executed, 72 passed, 0 failed, 0 errors, 1 intentionally skipped (finalizeTestRoborazziDebug), BUILD SUCCESSFUL, 0 coroutine/memory leaks, 0 UncompletedCoroutinesError
+Reported Phase 13 build: gradle :app:assembleDebug -> BUILD SUCCESSFUL (Debug APK generated)
+Historical Android test baseline: 380/380 PASS (Full Android JVM/Robolectric test cases passing, 0 failed, 0 errors, 0 skipped; 31/31 focused hard-delete/sync tests PASS; 8/8 targeted Account UI label tests PASS)
+Firestore rules test baseline: 100/100 test cases preserved in tests/firestore.rules.test.ts and Firestore test suites
+GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
+Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS (Transaction & Category permanent deletion verified on physical device and Firestore, SyncStatus = Synced, no tombstones created); Step 12.3Y Real 33-Row CSV Import & Period Filter Visibility Resolution PASS; Step 12.3Z Complete Real Historical Database Import & Production Firestore Console Verification PASS
 Branch: main
 Remote branch: origin/main
-Working tree: clean
+Working tree: clean / synchronized
 ```
 
-### Architecture Cleanup (Step 11 — 37155bc)
-Domain and infrastructure responsibilities extracted from `MainViewModel` into dedicated coordinators:
-- `HistoricalRateRepairCoordinator` (historical BNR rate audit, discrepancy reporting, CSV backup creation & validation, repair execution)
-- `CsvImportOrchestrator` (ContentResolver / URI stream reading, CSV parsing & validation, duplicate mode handling, pre-import backup, atomic import execution)
-- `MigrationPreflightHelper` (mandatory preflight backup bundle creation, manifest timestamp extraction, preview state mapping, error sanitization)
+### Verified UI Baseline (Phases 7–13 Milestones)
+- **Phase 7 — Categories Visual Overhaul (COMPLETE / AUDIT GO):** CategoriesScreen aligned with FinTrack Design System v1, FinTrackCard containers, RadiusLarge geometry, tonal category icon containers, IncomeEmerald / ExpenseCoral semantic colors, FinTrackSegmentedControl for category type selection, FinTrackEmptyState, responsive 680dp constraint, form standardization, semantic test tags preserved, zero business logic changes.
+- **Phase 8 — Settings & Household Visual Overhaul (COMPLETE / AUDIT GO):** Modified `SettingsScreen.kt` and `HouseholdOverviewCard.kt`. FinTrackCard section hierarchy, Account Identity & Security, Pending Invitations, Household Setup / Overview, currency selector, theme selector, CSV Import/Export, EUR sync controls, sync diagnostics, role/status badges, owner-only invite action, 680dp constraint, 48dp minimum touch targets, test tags preserved, zero changes to Auth, RBAC, sync, repositories, or ViewModels.
+- **Phase 9 — Dialogs & Forms Polish (COMPLETE / AUDIT GO):** SurfaceDark modal surfaces, RadiusXLarge geometry, SurfaceContainerDark form fields, CobaltBlue focus states, FinTrackButton hierarchy (PRIMARY, SECONDARY, DESTRUCTIVE), dialog width constraints 480–560dp, verticalScroll keyboard safety, header dismiss actions standardized, field-level validation standardized, test tags preserved, zero business logic changes.
+- **Phase 10 — Empty / Loading / Error States (COMPLETE / AUDIT GO):** Standardized FinTrackEmptyState (compact mode for charts/dialogs), FinTrackLoadingState for unified loading presentation, chart empty states, analytics sparse-data states, categories empty state, auth loading/error, create household loading/error, invite member loading/error, sync diagnostics clean state, test tags preserved, zero business logic changes.
+- **Phase 11 — Motion Foundation (COMPLETE / AUDIT GO):** `app/src/main/java/com/example/ui/theme/Motion.kt` foundation. Tokens: DurationFast (150ms), DurationStandard (200ms), DurationEmphasized (250ms), DurationSyncSpin (1000ms), StandardEasing (FastOutSlowInEasing), LinearCurve (LinearEasing). Helpers: `fastTween()`, `standardTween()`, `emphasizedTween()`, `contentFade()`. `LocalFinTrackMotion` via `FinTrackTheme`. Components migrated: DashboardScreen, CurrencyToggle, FinTrackSegmentedControl, FinTrackStatusBadge. Infinite animation limited to SYNCING badge rotation scoped to active state. Zero coroutine leaks / UncompletedCoroutinesError. `FinTrackMotionTest.kt` passing.
+- **Phase 12 — Accessibility + Responsive QA (COMPLETE / AUDIT GO):** Dashboard chart controls use FinTrackSegmentedControl, 48dp minimum touch targets, hero metric adapts on narrow widths, centered 680dp containers, AuthScreen vertical scrolling & 480dp width constraint, high font scale hardened, semantic roles and content descriptions preserved, financial polarity not color-only, responsive checks across <340dp, <360dp, <480dp, <680dp.
+- **Phase 13 — Final Visual QA (COMPLETE / AUDIT GO — GO: CLEAN):** Final presentation-layer audit completed cleanly across all screens and components. Design System v1 tokens verified (CanvasDark, SurfaceDark, SurfaceContainerDark, SurfaceContainerHighDark, CobaltBlue, IncomeEmerald, ExpenseCoral, WarningAmber, TextPrimary, TextSecondary, TextMuted, Space4..Space20, RadiusSmall..RadiusXLarge, typography tokens, Motion tokens). Material 3 HorizontalDivider used, + Sub action minimum 48dp, category emoji picker minimum 40dp, icon content descriptions verified. All 10 architectural locks preserved. Historical sync and coroutine investigations preserved.
 
-Preserved boundaries:
-- MainViewModel public API
-- UI state ownership and all `_migrationUiState` / `_uiState` mutation points
-- `viewModelScope` coroutine lifecycle
-- Authentication lifecycle & household resolution
-- Firestore sync lifecycle & Room-backed Outbox architecture
-- Migration state machine
-- Firestore security model
+### Complete Real Database Import & Full Pipeline Verification (Step 12.3Z — COMPLETE)
+- **Complete Real Historical Database Import:** The user's complete personal historical transaction database was imported into the FinTrack application using the CSV import functionality on real physical hardware:
+  - Complete historical database: IMPORTED.
+  - Room persistence: PASS (all transactions persisted atomically to Room).
+  - Outbox processing: PASS (mutations queued and processed sequentially).
+  - Firestore synchronization: PASS (all records synchronized to Firestore without errors).
+  - SyncStatus: SYNCED.
+  - Production Firestore Console verification: VERIFIED (imported transaction data independently inspected and verified in Firebase Firestore Console).
+  - Real-Database / Real-Device Verification: This checkpoint reflects real-device and real-database execution against production Firestore, beyond automated unit/emulator testing.
+- **End-to-End CSV Pipeline Final Verification:**
+  - CSV parsing: PASS
+  - CSV validation: PASS
+  - Authenticated context propagation (`authenticatedUserUid` / `activeHouseholdId`): PASS
+  - `householdId` propagation: PASS
+  - `createdByUid` propagation: PASS
+  - Room persistence: PASS
+  - Household visibility: PASS
+  - Category / SubCategory resolution: PASS
+  - Category / SubCategory deduplication: PASS
+  - Outbox generation: PASS
+  - Firestore synchronization: PASS
+  - BNR EUR conversion: PASS (historical BNR rate resolution, distinct-date caching, weekend fallback, holiday fallback)
+  - PermissionDenied defect: RESOLVED (authenticated UID & active household propagated without weakening Firestore security rules)
+  - SyncStatus: SYNCED
+- **33-Transaction Regression Baseline Preserved:**
+  - 33 test transactions: PASS (imported and synchronized cleanly).
+  - 0 duplicate categories or subcategories created.
+  - Historical visibility resolution confirmed: initial apparent disappearance was caused by the selected date period filter in the UI defaulting to "Last Month", not a Room/sync defect.
+- **Category & SubCategory Deduplication (Step 12.3L) Re-Verified:**
+  - Existing categories and subcategories belonging to the active household are accurately matched and reused by logical identity.
+  - Household scoping remains strictly enforced (no cross-household category reuse).
+  - Expense vs. Income separation preserved.
+  - Parent category hierarchy preserved.
+  - Complete database import produced zero unexpected duplicate categories and zero unexpected duplicate subcategories.
+  - Existing historical duplicates remain preserved for separate cleanup audit.
+- **Hard Delete Architecture Preserved:**
+  - Transaction hard delete: permanent deletion in Firestore via `document.delete().await()` and local Room deletion.
+  - Category hard delete: permanent deletion in Firestore via `document.delete().await()` and local Room deletion.
+  - Inbound `REMOVED` change processing: remote deletions propagate to Room; active outbox mutations shielded (`UPDATE_VS_DELETE` conflict handling).
+  - Legacy `isDeleted == true` tombstone backward compatibility preserved.
+  - Historical legacy soft-deleted documents remain separate administrative cleanup data.
+- **Account / Payment Method UI Label Preserved:**
+  - Internal Account value: `"Meal Tickets"` across Room, DTOs, security rules, and CSV parser.
+  - UI display label: `"Tichete de masa"` across dropdowns, filters, cards, and forms.
+  - Zero database or Firestore schema migrations required.
+- **Data Integrity Summary:**
+  - Complete historical transaction dataset: IMPORTED.
+  - Room: CONSISTENT.
+  - Firestore: CONSISTENT.
+  - Household isolation: PRESERVED.
+  - Pipeline verified: `CSV → CsvImporter → CsvImportOrchestrator → Room → Outbox → OutboundSyncEngine → Firestore`.
+
+### Transaction & Category Firestore Hard Deletion (Step 12.3S / 12.3T / 12.3U — COMPLETE)
+- **Transaction Outbound Hard Delete:** `DefaultFirestoreSnapshotSource.deleteTransaction()` permanently removes the document from Firestore via `document.delete().await()` at `/households/{householdId}/transactions/{transactionId}`, replacing the legacy soft-delete (`isDeleted = true`).
+- **Category Outbound Hard Delete:** Preserved direct permanent removal via `DefaultFirestoreSnapshotSource.deleteCategory()` (`document.delete().await()`) at `/households/{householdId}/categories/{categoryId}`.
+- **Inbound REMOVED Change Processing:** `FirestoreSnapshotSource.listenToTransactions()` and `DefaultFirestoreSnapshotSource.listenToTransactions()` track `DocumentChange.Type.REMOVED`. `FirestoreSyncRepository.processTransactionSnapshot()` deletes local Room entities when remote transactions are deleted.
+- **Outbox Shielding for Removals:** `processTransactionSnapshot()` checks `activeOutboxIds` before deleting local entities; if a local mutation is pending, it shields the local Room record, logs a conflict event (`UPDATE_VS_DELETE`), and invokes `onConflictDetected`.
+- **Category Mirror Reconciliation & Data Safety:** Category mirror sync via `processCategorySnapshot()` and `deleteCategoriesNotIn()` physically deletes removed categories locally without cascading to historical transactions; existing transaction category and subcategory string attributes remain intact (no foreign-key cascade).
+- **Backward Compatibility for Legacy Tombstones:** Inbound documents with `isDeleted == true` continue to be parsed safely and remove local Room entities.
+- **Real-Device Physical Verification (Step 12.3U):** Real-device verification on physical hardware confirmed transaction hard deletion, category hard deletion, and clean `SyncStatus.Synced` state without creating soft-delete tombstones in Firestore.
+- **Historical Firestore Data:** Existing historical documents with `isDeleted == true` created prior to Step 12.3S were not deleted and remain untouched in Firestore, requiring separate administrative cleanup.
+
+### Account / Payment Method UI Label Localization (Step 12.3W / 12.3X — COMPLETE)
+- **Internal Account Value vs UI Display Label:** Maintained strict decoupling between internal domain enum/string value `"Meal Tickets"` and localized Romanian UI display label `"Tichete de masa"`.
+- **Data Model Compatibility:** Internal value `"Meal Tickets"` remains unchanged across Room, `TransactionEntity`, `TransactionDao`, Firestore DTOs, Firestore security rules, and CSV import format.
+- **UI Localization:** UI components (selection dropdowns, filter chips, transaction cards, creation forms) display `"Tichete de masa"` for the Meal Tickets payment method. Card remains `"Card"`, Cash remains `"Cash"`.
+- **No Database / Firestore Migration:** No database migration or Firestore schema modification was performed; the change is strictly an architectural UI layer mapping.
+- **Category vs Account Distinction:** Preserved the distinct category rename (`💳 Meal Tickets` → `💳 Tichete de masa`), clarifying that category identity is separate from the Account internal value.
+- **Test Baseline:** 8/8 targeted UI label tests PASS, full Android JVM/Robolectric test suite PASS.
+
+### Real CSV Import & Historical Transaction Visibility Resolution (Step 12.3Y — COMPLETE)
+- **Real-Device 33-Row CSV Import:** Verified successful import of a 33-row historical CSV dataset on physical hardware:
+  - 33 transactions parsed, BNR exchange rates calculated/assigned, and persisted atomically to Room.
+  - Outbox synchronized 33 documents to Firestore successfully (SyncStatus = `Synced`).
+  - Zero duplicate categories or subcategories created; existing category hierarchy accurately reused.
+  - Account value `"Meal Tickets"` in CSV accepted cleanly and rendered as `"Tichete de masa"` in UI.
+- **12.3Y Visibility Finding & Period Filter Diagnosis:**
+  - The 33 imported historical transactions initially appeared missing from the Transactions screen tab.
+  - Comprehensive forensic analysis confirmed Room persistence, Firestore synchronization, authenticated UID context, and Category/SubCategory UUID links were 100% healthy and intact (`isDeleted = false`, valid `householdId`).
+  - Root cause was the user-facing period filter defaulting to `"Last Month"`, which excluded historical records outside the date window.
+  - Switching the period filter to an appropriate historical/all-time range immediately made all 33 imported transactions visible.
+  - No defects existed in `FinancialAnalyticsEngine` or CSV import pipeline; no unnecessary production or CSV engine modifications introduced.
+- **CSV Data Integrity Baseline:**
+  - 33 historical transactions: SUCCESSFULLY IMPORTED & PERSISTED.
+  - Category / SubCategory deduplication: CONFIRMED (0 duplicates created).
+  - Manual category/subcategory UUIDs in CSV: NOT REQUIRED (identity accurately resolved via household-scoped lookup).
+  - BNR RON → EUR conversion: PASS (historical rates, weekend/holiday fallback, distinct-date caching, PENDING fallback).
+  - PermissionDenied: RESOLVED (authenticated UID & active household propagated).
+
+### CSV Category & SubCategory Deduplication (Step 12.3L — COMPLETE)
+- **Root Cause Resolved:** `CsvImportOrchestrator` now passes the active `householdId` when querying existing categories via `CategoryRepository.getAllCategoriesList(householdId)`.
+- **Existing Category & SubCategory Reuse:** `CsvImporter.parseAndValidate()` accurately identifies existing household categories and subcategories, reusing their stable UUIDs instead of flagging them as missing.
+- **Duplicate Prevention:** Prevents creating duplicate `CategoryEntity` records and sync outbox mutations on repeated CSV imports.
+- **Strict Isolation & Scoping:** Preserves household isolation (categories in household A cannot be reused in household B), Expense vs. Income separation (same-name categories with different types remain distinct), and parent category hierarchy separation.
+- **Step 12.3G Protection:** Preserves authenticated UID propagation, active `householdId`, immutable `createdByUid`, Room persistence, outbox queueing, and Firestore synchronization.
+- **Existing Data Safety:** Prevents new duplicates on import; existing historical duplicate records in the database are not altered/deleted (tracked for separate cleanup audit).
+
+### CSV Import Authenticated Context Propagation & PermissionDenied Fix (Step 12.3G)
+- **Authenticated Context Propagation:** The CSV import pipeline propagates the authenticated user and active household context through `MainViewModel` → `CsvImportOrchestrator` → `CsvImporter` → `TransactionRepository` → `RoomTransactionRepository` → `Room` → `SyncOutbox` → `OutboundSyncEngine` → `Firestore`.
+- **Preserved Transaction Attributes:** Imported transactions explicitly receive `householdId = activeHouseholdId`, `userId = authenticatedUserUid`, and `createdByUid = authenticatedUserUid`.
+- **Resolved Visibility & Permission Denied:** Resolves the defect where imported transactions had `householdId = null` (invisible to Room household-filtered UI queries) and serialized fallback `"remote_user"` as `createdByUid` (triggering Firestore `PERMISSION_DENIED`).
+- **No Rule Weakening:** Firestore security rules remain strictly enforced without modification.
+- **Local Persistence Resilience:** Room persistence operates atomically; local transactions remain valid and queryable even if outbound network sync fails or encounters transient errors.
+- **Real-Device Verification:** Verified on physical hardware with 33 transactions imported, BNR EUR rates converted, visible in UI, queryable in export, and synced cleanly to Firestore.
+
+### CSV Import & Automatic BNR EUR Conversion (Step 12.3 — 1bef33f)
+- **Automatic RON → EUR Conversion:** When importing RON transactions via CSV, `CsvImportOrchestrator` automatically resolves official BNR exchange rates and calculates `amountEUR` during pre-import validation/preview.
+- **Historical Rate Resolution & Caching:** Resolves official rate for each transaction date via `TransactionRepository.getOfficialRate()`; distinct dates reuse resolved rates; weekend and public holiday dates fall back to the preceding publishing day via existing BNR effective-date rules.
+- **Existing Service Reuse:** Reuses existing `ExchangeRateService.calculateAmountEUR` for rounding and computation consistency.
+- **Conversion Metadata:** Populates `exchangeRate`, `exchangeRateDate`, `exchangeRateSource = "BNR"`, and `conversionStatus = ConversionStatus.AUTO_CONVERTED` when an official rate is available.
+- **Safe Offline / Unavailable Fallback:** If offline or if no rate is available for a date, safely falls back to `conversionStatus = ConversionStatus.PENDING`, `amountEUR = 0.0`, `exchangeRate = 0.0`, and `exchangeRateSource = "NONE"` without failing or rejecting the import.
+- **Preview & Persistence Consistency:** The preview dialog displays the exact converted EUR amounts and resolved exchange rates; the subsequent atomic import into Room and Outbox persists identical values.
+- **Duplicate Mode Compatibility:** Fully compatible with both `SKIP_EXISTING` and `UPDATE_EXISTING` modes.
+- **Stateless Parser & Clean Separation:** `CsvImporter` remains a purely stateless CSV parser/validator; `CsvImportOrchestrator` handles rate resolution, domain orchestration, and backup generation.
+- **Security & Data Integrity:** Household isolation, cross-user transaction permissions, immutable `createdByUid`, atomic Room persistence, and Outbox generation remain strictly preserved. Direct Firestore writes are not performed.
+
+### Cross-User Transaction Permission & Data Integrity (Step 12.1 — 4ed7894)
+- **Cross-User Transaction Mutations:** All active household members may create, update, and delete transactions in their household (`firestore.rules`). Transaction creator identity (`createdByUid`) is preserved immutably across cross-user edits (`FirestoreDtos.kt`).
+- **FAILED Outbox Shielding:** `SyncOutboxDao.getActiveEntityIdsByType` includes `FAILED` status, protecting local un-synced edits from destructive overwrite by stale inbound remote snapshots (`SyncOutboxDao.kt`, `Stage9OutboxShieldTest`).
+- **Active Household Preservation:** `MainViewModel.activeHouseholdId` preserves resolved household ID during `SyncStatus.PermissionDenied` and `SyncStatus.Offline` states without falsely converting error status to `Synced` (`MainViewModel.kt`, `CategoryPermissionsTest`).
+- **Preserved Boundaries:** Category/subcategory mutations remain OWNER/ADMIN-only. Household member management and invitation administration remain OWNER-only. Cross-household isolation strictly enforced.
+
+### CI Baseline Cleanup & Firebase-Configured Online APK (Steps 12.1G–12.1I — 14f5338 / aed996f)
+- **GitHub Actions Workflows Removed:** Redundant workflows (`build-debug-apk.yml`, `unit-tests.yml`, `firestore-rules-tests.yml`) removed from `.github/workflows/`.
+- **Retained Workflow:** `.github/workflows/build-apk.yml` ("Build Debug APK") actively retained for release artifact generation.
+- **Firebase Secret Handling (Step 12.1I — aed996f):** Temporarily reconstructs `app/google-services.json` from `secrets.GOOGLE_SERVICES_JSON` during workflow execution; validates JSON structure safely without secret logging; cleans up the file in an `always()` post-step. `google-services.json` remains strictly outside the Git repository.
+- **Online APK Status:** PASS on CI; builds signed release-compatible debug artifact with real Firebase configuration.
+- **Testing & Security Preserved:** Android 343/343 tests passing locally; Firestore security rules test suite (`tests/firestore.rules.test.ts`) preserved.
+
+### Physical Two-Device Beta Smoke Test Regression (Step 12.2 — COMPLETE)
+- **Two-Device Setup:** Successfully verified on physical Device A and Device B.
+- **Authentication:** Google Sign-In verified on real devices with Firebase Authentication.
+- **Household & Permissions:** Household creation, member invitations, and role boundaries verified.
+- **Cross-User Transactions:** Non-creator edit/delete and real-time bidirectional sync verified PASS. Historical bug with `PermissionDenied` on cross-user edits confirmed resolved.
+- **Outbox & Offline:** Local persistence, outbox recovery on reconnection, and foreground synchronization verified PASS.
+- **Lifecycle:** App restart, FirebaseAuth session restoration, and sync recovery verified PASS.
 
 Always verify these values before acting; they are a baseline, not an instruction to assume the repository has not changed.
 

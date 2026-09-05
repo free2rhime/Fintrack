@@ -80,7 +80,14 @@ class HistoricalRateRepairCoordinatorTest {
         }
 
         override suspend fun runBnrDiagnostic(): BnrDiagnosticResult = BnrDiagnosticResult(isReachable = true, httpStatus = "200")
-        override suspend fun executeAtomicCsvImport(previewData: CsvPreviewData, backupFile: File, allExistingTransactions: List<TransactionEntity>): CsvImportFinalResult = CsvImportFinalResult(true, 0, 0, 0, 0, 0, 0, 0, 0)
+        override suspend fun executeAtomicCsvImport(
+            previewData: CsvPreviewData,
+            backupFile: File,
+            allExistingTransactions: List<TransactionEntity>,
+            householdId: String?,
+            userId: String,
+            createdByUid: String?
+        ): CsvImportFinalResult = CsvImportFinalResult(true, 0, 0, 0, 0, 0, 0, 0, 0)
     }
 
     @Before

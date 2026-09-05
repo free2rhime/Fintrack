@@ -418,7 +418,14 @@ class FakeTransactionRepository(private val authRepo: AuthRepository? = null) : 
     override suspend fun insertBatch(transactions: List<TransactionEntity>) { txList.addAll(transactions); _txListFlow.value = txList.toList() }
     override suspend fun getOfficialRate(date: String): BnrRateResult = BnrRateResult(date, date, 5.0, "BNR_OFFICIAL", "OFFICIAL", "OK")
     override suspend fun runBnrDiagnostic(): BnrDiagnosticResult = BnrDiagnosticResult(isReachable = true, httpStatus = "200")
-    override suspend fun executeAtomicCsvImport(previewData: CsvPreviewData, backupFile: File, allExistingTransactions: List<TransactionEntity>): CsvImportFinalResult {
+    override suspend fun executeAtomicCsvImport(
+        previewData: CsvPreviewData,
+        backupFile: File,
+        allExistingTransactions: List<TransactionEntity>,
+        householdId: String?,
+        userId: String,
+        createdByUid: String?
+    ): CsvImportFinalResult {
         return CsvImportFinalResult(true, 0, 0, 0, 0, 0, 0, 0, 0)
     }
 }
@@ -439,7 +446,8 @@ class FakeCategoryRepository(private val authRepo: AuthRepository? = null) : Cat
 
     override fun getCategories(householdId: String?): Flow<List<CategoryEntity>> = allCategories
 
-    override suspend fun getAllCategoriesList(): List<CategoryEntity> = catList.toList()
+    override suspend fun getAllCategoriesList(householdId: String?): List<CategoryEntity> =
+        if (householdId == null) catList.filter { it.householdId == null } else catList.filter { it.householdId == householdId }
     override suspend fun ensureDefaultCategoriesSeeded(householdId: String?, enqueueOutbox: Boolean) {}
     override suspend fun addCategory(name: String, type: String, subCategory: String, userId: String, householdId: String?) {
         catList.add(CategoryEntity(id = "cat_${catList.size + 1}", name = name, type = type, subCategory = subCategory, userId = userId, householdId = householdId))

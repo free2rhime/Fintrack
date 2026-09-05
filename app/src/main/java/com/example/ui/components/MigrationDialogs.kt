@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,13 +17,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -32,11 +28,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,8 +45,27 @@ import com.example.ui.MigrationConflictState
 import com.example.ui.MigrationPreviewState
 import com.example.ui.MigrationProgressState
 import com.example.ui.MigrationResultState
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
+import com.example.ui.theme.BodyRegular
+import com.example.ui.theme.CobaltBlue
+import com.example.ui.theme.ExpenseContainer
+import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MicroMetadata
+import com.example.ui.theme.RadiusLarge
+import com.example.ui.theme.RadiusMedium
+import com.example.ui.theme.RadiusXLarge
+import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.Space12
+import com.example.ui.theme.Space16
+import com.example.ui.theme.Space4
+import com.example.ui.theme.Space8
+import com.example.ui.theme.SurfaceContainerDark
+import com.example.ui.theme.SurfaceContainerHighDark
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -84,19 +96,24 @@ fun MigrationPreviewDialog(
     AlertDialog(
         onDismissRequest = onCancel,
         modifier = modifier.testTag("migration_preview_dialog"),
+        containerColor = SurfaceDark,
+        shape = RoundedCornerShape(RadiusXLarge),
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
         icon = {
             Icon(
                 imageVector = Icons.Default.CloudUpload,
                 contentDescription = "Cloud Migration Preview",
-                tint = MaterialTheme.colorScheme.primary,
+                tint = CobaltBlue,
                 modifier = Modifier.size(32.dp)
             )
         },
         title = {
             Text(
                 text = "Migration Preview",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                style = SectionHeadline,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
             )
         },
         text = {
@@ -104,27 +121,27 @@ fun MigrationPreviewDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(Space12)
             ) {
                 Text(
                     text = "Review the local records that will be uploaded to your household cloud repository:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = BodyRegular,
+                    color = TextSecondary
                 )
 
                 // Household & Role Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = SurfaceContainerDark
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusLarge)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(Space12),
+                        verticalArrangement = Arrangement.spacedBy(Space8)
                     ) {
                         // Household Name (Prominently displayed)
                         val displayName = previewState.householdName?.takeIf { it.isNotBlank() } ?: previewState.householdId
@@ -135,14 +152,14 @@ fun MigrationPreviewDialog(
                         ) {
                             Text(
                                 text = "Household Name:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = LabelBadgeMedium,
+                                color = TextSecondary
                             )
                             Text(
                                 text = displayName,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = BodyRegular,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = CobaltBlue,
                                 modifier = Modifier.testTag("preview_household_name")
                             )
                         }
@@ -154,14 +171,14 @@ fun MigrationPreviewDialog(
                         ) {
                             Text(
                                 text = "Household ID:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = LabelBadgeMedium,
+                                color = TextSecondary
                             )
                             Text(
                                 text = previewState.householdId,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = BodyRegular,
                                 fontWeight = FontWeight.Normal,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = TextSecondary,
                                 modifier = Modifier.testTag("preview_household_id")
                             )
                         }
@@ -173,14 +190,14 @@ fun MigrationPreviewDialog(
                         ) {
                             Text(
                                 text = "Verified Role:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = LabelBadgeMedium,
+                                color = TextSecondary
                             )
                             Text(
                                 text = previewState.userRole,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = BodyRegular,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = CobaltBlue,
                                 modifier = Modifier.testTag("preview_user_role")
                             )
                         }
@@ -191,26 +208,27 @@ fun MigrationPreviewDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = SurfaceContainerDark
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusLarge)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(Space12),
+                        verticalArrangement = Arrangement.spacedBy(Space8)
                     ) {
                         Text(
                             text = "Records to Migrate",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
+                            style = LabelBadgeMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
                         )
                         RecordCountRow(label = "Transactions", count = previewState.transactionsCount)
                         RecordCountRow(label = "Categories", count = previewState.categoriesCount)
                         RecordCountRow(label = "Exchange Rates", count = previewState.exchangeRatesCount)
-                        
-                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Spacer(modifier = Modifier.height(Space4))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -218,14 +236,15 @@ fun MigrationPreviewDialog(
                         ) {
                             Text(
                                 text = "Total Records:",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+                                style = BodyRegular,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
                             )
                             Text(
                                 text = "${previewState.totalRecords}",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = BodyRegular,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = CobaltBlue
                             )
                         }
                     }
@@ -235,15 +254,15 @@ fun MigrationPreviewDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        containerColor = SurfaceContainerDark
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusLarge)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                            .padding(Space12),
+                        verticalArrangement = Arrangement.spacedBy(Space4)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically
@@ -251,30 +270,30 @@ fun MigrationPreviewDialog(
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = "Backup Validated",
-                                tint = IncomeGreen,
+                                tint = IncomeEmerald,
                                 modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(Space8))
                             Text(
                                 text = "Preflight Backup Validated",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = LabelBadgeMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = TextPrimary
                             )
                         }
-                        
+
                         Text(
                             text = "Created: $formattedBackupTime",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = BodyRegular,
+                            color = TextSecondary,
                             modifier = Modifier.testTag("preview_backup_timestamp")
                         )
 
                         if (!previewState.backupBundlePath.isNullOrBlank()) {
                             Text(
                                 text = "Path: ${previewState.backupBundlePath}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                style = MicroMetadata,
+                                color = TextMuted,
                                 modifier = Modifier.testTag("preview_backup_path")
                             )
                         }
@@ -288,18 +307,14 @@ fun MigrationPreviewDialog(
                         .clickable { isAcknowledged = !isAcknowledged }
                         .testTag("migration_acknowledgment_card"),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isAcknowledged) {
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                        }
+                        containerColor = SurfaceContainerDark
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusLarge)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(10.dp),
+                            .padding(Space12),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
@@ -307,36 +322,39 @@ fun MigrationPreviewDialog(
                             onCheckedChange = { isAcknowledged = it },
                             modifier = Modifier.testTag("migration_acknowledgment_checkbox"),
                             colors = CheckboxDefaults.colors(
-                                checkedColor = MaterialTheme.colorScheme.primary
+                                checkedColor = CobaltBlue,
+                                uncheckedColor = SurfaceContainerHighDark,
+                                checkmarkColor = Color.White
                             )
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(Space8))
                         Text(
                             text = "I understand local FinTrack data will be uploaded to this shared household.",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = BodyRegular,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = TextPrimary
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
+            FinTrackButton(
                 onClick = onConfirm,
                 enabled = isAcknowledged,
-                modifier = Modifier.testTag("migration_preview_confirm_button")
+                modifier = Modifier.testTag("migration_preview_confirm_button"),
+                variant = ButtonVariant.PRIMARY
             ) {
-                Text("Proceed with Migration")
+                Text("Proceed with Migration", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            OutlinedButton(
+            FinTrackButton(
+                text = "Cancel",
                 onClick = onCancel,
-                modifier = Modifier.testTag("migration_preview_cancel_button")
-            ) {
-                Text("Cancel")
-            }
+                modifier = Modifier.testTag("migration_preview_cancel_button"),
+                variant = ButtonVariant.SECONDARY
+            )
         }
     )
 }
@@ -350,13 +368,14 @@ private fun RecordCountRow(label: String, count: Int) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = BodyRegular,
+            color = TextSecondary
         )
         Text(
             text = "$count",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
+            style = BodyRegular,
+            fontWeight = FontWeight.Medium,
+            color = TextPrimary
         )
     }
 }
@@ -374,19 +393,24 @@ fun MigrationConflictDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = modifier.testTag("migration_conflict_dialog"),
+        containerColor = SurfaceDark,
+        shape = RoundedCornerShape(RadiusXLarge),
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
         icon = {
             Icon(
                 imageVector = Icons.Default.Warning,
                 contentDescription = "Migration Conflict",
-                tint = ExpenseRed,
+                tint = ExpenseCoral,
                 modifier = Modifier.size(32.dp)
             )
         },
         title = {
             Text(
                 text = "Migration Blocked",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                style = SectionHeadline,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
             )
         },
         text = {
@@ -394,49 +418,49 @@ fun MigrationConflictDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(Space12)
             ) {
                 Text(
                     text = "A preflight validation check prevented migration from proceeding:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = BodyRegular,
+                    color = TextSecondary
                 )
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = ExpenseRed.copy(alpha = 0.1f)
+                        containerColor = ExpenseContainer
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(RadiusLarge)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(Space12),
+                        verticalArrangement = Arrangement.spacedBy(Space8)
                     ) {
                         Text(
                             text = conflictState.reason,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = LabelBadgeMedium,
                             fontWeight = FontWeight.Bold,
-                            color = ExpenseRed
+                            color = ExpenseCoral
                         )
                         Text(
                             text = conflictState.details,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = BodyRegular,
+                            color = TextPrimary
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
+            FinTrackButton(
+                text = "Dismiss",
                 onClick = onDismiss,
-                modifier = Modifier.testTag("migration_conflict_dismiss_button")
-            ) {
-                Text("Dismiss")
-            }
+                modifier = Modifier.testTag("migration_conflict_dismiss_button"),
+                variant = ButtonVariant.PRIMARY
+            )
         }
     )
 }
@@ -464,44 +488,51 @@ fun MigrationProgressDialog(
             dismissOnClickOutside = false
         ),
         modifier = modifier.testTag("migration_progress_dialog"),
+        containerColor = SurfaceDark,
+        shape = RoundedCornerShape(RadiusXLarge),
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
         icon = {
             Icon(
                 imageVector = Icons.Default.Sync,
                 contentDescription = "Migration In Progress",
-                tint = MaterialTheme.colorScheme.primary,
+                tint = CobaltBlue,
                 modifier = Modifier.size(32.dp)
             )
         },
         title = {
             Text(
                 text = "Migrating to Household Cloud",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                style = SectionHeadline,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
             )
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(Space16),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "Stage: ${progressState.stage}",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = LabelBadgeMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = CobaltBlue
                 )
 
                 if (progressState.totalCount > 0) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(Space4)
                     ) {
                         LinearProgressIndicator(
                             progress = { progressFraction },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp),
+                            color = IncomeEmerald,
+                            trackColor = SurfaceContainerHighDark
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -509,20 +540,21 @@ fun MigrationProgressDialog(
                         ) {
                             Text(
                                 text = "${(progressFraction * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MicroMetadata,
+                                color = TextSecondary
                             )
                             Text(
                                 text = "${progressState.processedCount} / ${progressState.totalCount} records",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MicroMetadata,
+                                color = TextSecondary
                             )
                         }
                     }
                 } else {
                     CircularProgressIndicator(
                         modifier = Modifier.size(40.dp),
-                        strokeWidth = 3.dp
+                        strokeWidth = 3.dp,
+                        color = CobaltBlue
                     )
                 }
 
@@ -530,27 +562,27 @@ fun MigrationProgressDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = SurfaceContainerDark
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(RadiusMedium)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(10.dp),
+                            .padding(Space12),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Listener Suppressed",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = TextMuted,
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(Space8))
                         Text(
                             text = "Real-time sync listeners are suppressed during migration to prevent write amplification.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MicroMetadata,
+                            color = TextSecondary
                         )
                     }
                 }
@@ -576,19 +608,24 @@ fun MigrationResultDialog(
             AlertDialog(
                 onDismissRequest = onDismiss,
                 modifier = modifier.testTag("migration_result_dialog"),
+                containerColor = SurfaceDark,
+                shape = RoundedCornerShape(RadiusXLarge),
+                titleContentColor = TextPrimary,
+                textContentColor = TextSecondary,
                 icon = {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = "Migration Succeeded",
-                        tint = IncomeGreen,
+                        tint = IncomeEmerald,
                         modifier = Modifier.size(36.dp)
                     )
                 },
                 title = {
                     Text(
                         text = "Migration Completed",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        style = SectionHeadline,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
                     )
                 },
                 text = {
@@ -596,26 +633,26 @@ fun MigrationResultDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(Space12)
                     ) {
                         Text(
                             text = "Your local records have been securely migrated and synced to the household cloud.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = BodyRegular,
+                            color = TextSecondary
                         )
 
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = IncomeGreen.copy(alpha = 0.1f)
+                                containerColor = SurfaceContainerDark
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(RadiusLarge)
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    .padding(Space12),
+                                verticalArrangement = Arrangement.spacedBy(Space8)
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -623,13 +660,14 @@ fun MigrationResultDialog(
                                 ) {
                                     Text(
                                         text = "Migration ID:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
                                     )
                                     Text(
                                         text = resultState.migrationId.take(16),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold
+                                        style = BodyRegular,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimary
                                     )
                                 }
                                 Row(
@@ -638,14 +676,14 @@ fun MigrationResultDialog(
                                 ) {
                                     Text(
                                         text = "Transactions Uploaded:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
                                     )
                                     Text(
                                         text = "${resultState.transactionsUploaded}",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = BodyRegular,
                                         fontWeight = FontWeight.Bold,
-                                        color = IncomeGreen
+                                        color = IncomeEmerald
                                     )
                                 }
                                 Row(
@@ -654,13 +692,14 @@ fun MigrationResultDialog(
                                 ) {
                                     Text(
                                         text = "Categories Uploaded:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
                                     )
                                     Text(
                                         text = "${resultState.categoriesUploaded}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
+                                        style = BodyRegular,
+                                        fontWeight = FontWeight.Medium,
+                                        color = TextPrimary
                                     )
                                 }
                                 Row(
@@ -669,13 +708,14 @@ fun MigrationResultDialog(
                                 ) {
                                     Text(
                                         text = "Exchange Rates Uploaded:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
                                     )
                                     Text(
                                         text = "${resultState.ratesUploaded}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
+                                        style = BodyRegular,
+                                        fontWeight = FontWeight.Medium,
+                                        color = TextPrimary
                                     )
                                 }
                                 Row(
@@ -684,14 +724,14 @@ fun MigrationResultDialog(
                                 ) {
                                     Text(
                                         text = "Total Processed:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
                                     )
                                     Text(
                                         text = "${resultState.totalProcessed}",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = BodyRegular,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = CobaltBlue
                                     )
                                 }
                             }
@@ -699,12 +739,12 @@ fun MigrationResultDialog(
                     }
                 },
                 confirmButton = {
-                    Button(
+                    FinTrackButton(
+                        text = "Done",
                         onClick = onDismiss,
-                        modifier = Modifier.testTag("migration_result_dismiss_button")
-                    ) {
-                        Text("Done")
-                    }
+                        modifier = Modifier.testTag("migration_result_dismiss_button"),
+                        variant = ButtonVariant.PRIMARY
+                    )
                 }
             )
         }
@@ -712,19 +752,24 @@ fun MigrationResultDialog(
             AlertDialog(
                 onDismissRequest = onDismiss,
                 modifier = modifier.testTag("migration_result_dialog"),
+                containerColor = SurfaceDark,
+                shape = RoundedCornerShape(RadiusXLarge),
+                titleContentColor = TextPrimary,
+                textContentColor = TextSecondary,
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Error,
                         contentDescription = "Migration Failed",
-                        tint = ExpenseRed,
+                        tint = ExpenseCoral,
                         modifier = Modifier.size(36.dp)
                     )
                 },
                 title = {
                     Text(
                         text = "Migration Failed",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        style = SectionHeadline,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
                     )
                 },
                 text = {
@@ -732,37 +777,37 @@ fun MigrationResultDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(Space12)
                     ) {
                         Text(
                             text = "An error occurred during the migration process. Local data remains safe.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = BodyRegular,
+                            color = TextSecondary
                         )
 
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = ExpenseRed.copy(alpha = 0.1f)
+                                containerColor = ExpenseContainer
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(RadiusLarge)
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    .padding(Space12),
+                                verticalArrangement = Arrangement.spacedBy(Space8)
                             ) {
                                 Text(
                                     text = "Failed Stage: ${resultState.stage}",
-                                    style = MaterialTheme.typography.labelLarge,
+                                    style = LabelBadgeMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = ExpenseRed
+                                    color = ExpenseCoral
                                 )
                                 Text(
                                     text = resultState.sanitizedError,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    style = BodyRegular,
+                                    color = TextPrimary
                                 )
                             }
                         }
@@ -770,19 +815,19 @@ fun MigrationResultDialog(
                         if (!resultState.backupBundlePath.isNullOrBlank()) {
                             Text(
                                 text = "Safety Backup Bundle: ${resultState.backupBundlePath}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MicroMetadata,
+                                color = TextMuted
                             )
                         }
                     }
                 },
                 confirmButton = {
-                    Button(
+                    FinTrackButton(
+                        text = "Dismiss",
                         onClick = onDismiss,
-                        modifier = Modifier.testTag("migration_result_dismiss_button")
-                    ) {
-                        Text("Dismiss")
-                    }
+                        modifier = Modifier.testTag("migration_result_dismiss_button"),
+                        variant = ButtonVariant.PRIMARY
+                    )
                 }
             )
         }

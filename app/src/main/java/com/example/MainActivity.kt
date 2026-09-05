@@ -150,7 +150,6 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         transactions = filteredTxs,
                         categories = categories,
                         filterSettings = filterSettings,
-                        onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
                         onTypeFilterSelected = { type -> viewModel.updateSelectedTypeFilter(type) },
                         onCategoryFilterSelected = { type, cat -> viewModel.updateCategoryFilter(type, cat) },
@@ -168,7 +167,6 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         categoryIncomeShares = categoryIncomeShares,
                         monthlyDataPoints = monthlyDataPoints,
                         insights = smartInsights,
-                        onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
                     )
 
@@ -193,6 +191,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         val invitationError by viewModel.invitationError.collectAsStateWithLifecycle()
                         val householdCreationUiState by viewModel.householdCreationUiState.collectAsStateWithLifecycle()
                         SettingsScreen(
+                            syncStatus = syncStatus,
                             filterSettings = filterSettings,
                             themeMode = themeMode,
                             currentUid = signedInState.userUid,
@@ -212,8 +211,6 @@ fun FinTrackApp(viewModel: MainViewModel) {
                             onThemeModeChanged = { viewModel.updateThemeMode(it) },
                             onExportCsv = { CsvExporter.exportTransactionsToCsv(context, allTxs) },
                             onImportCsv = { uri -> viewModel.importCsv(context, uri) },
-                            onSeedDemoData = { viewModel.seedDemoData() },
-                            onResetData = { viewModel.resetData() },
                             onRetryPendingConversions = { viewModel.retryPendingConversions() },
                             pendingRetryResult = uiState.pendingRetryResult,
                             onDismissRetryResult = { viewModel.dismissRetryResultDialog() },

@@ -32,9 +32,7 @@ class Stage3BUiTest {
     val composeTestRule = createComposeRule()
 
     @Test
-    fun testMigrationCardAndStartButtonAreDisplayedInSettings() {
-        var startMigrationClicked = false
-
+    fun testMigrationCardAndStartButtonAreNotDisplayedInSettings() {
         composeTestRule.setContent {
             SettingsScreen(
                 filterSettings = FilterSettings(),
@@ -46,21 +44,28 @@ class Stage3BUiTest {
                 onThemeModeChanged = {},
                 onExportCsv = {},
                 onImportCsv = {},
-                onSeedDemoData = {},
-                onResetData = {},
-                onStartMigration = { startMigrationClicked = true }
+                onStartMigration = {}
             )
         }
 
-        // Verify card and button exist and perform action
-        composeTestRule.onNodeWithTag("cloud_migration_card").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithTag("start_migration_button").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("Cloud Household Migration").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("Start Household Migration").performScrollTo().assertIsDisplayed()
+        // Verify card and button are NOT displayed in Settings (deprecated/removed in Step 12.3AC)
+        composeTestRule.onNodeWithTag("cloud_migration_card").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("start_migration_button").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Cloud Household Migration").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Start Household Migration").assertDoesNotExist()
 
-        // Perform click with scroll
-        composeTestRule.onNodeWithTag("start_migration_button").performClick()
-        assertTrue("Start migration callback was invoked", startMigrationClicked)
+        // Verify Backend Architecture & Database Management are NOT displayed (removed in Step 12.3AF)
+        composeTestRule.onNodeWithTag("architecture_info_card").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Backend Architecture & Sync Specification").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("seed_demo_data_button").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("reset_data_button").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Database Management").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Re-Seed Financial Demo Transactions").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Clear All Local Data").assertDoesNotExist()
+
+        // Verify remaining essential settings cards are present
+        composeTestRule.onNodeWithText("Preferences & System").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Data Export & Reports").performScrollTo().assertIsDisplayed()
     }
 
     @Test
