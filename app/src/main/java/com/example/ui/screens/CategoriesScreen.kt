@@ -22,9 +22,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Subtitles
@@ -570,11 +572,16 @@ private fun CategoryHeaderEditDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .widthIn(max = 480.dp)
                 .padding(Space16),
             shape = RoundedCornerShape(RadiusXLarge),
             color = SurfaceDark
         ) {
-            Column(modifier = Modifier.padding(Space20)) {
+            Column(
+                modifier = Modifier
+                    .padding(Space20)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 Text(
                     text = "Rename Category Group",
                     style = SectionHeadline,
@@ -590,6 +597,11 @@ private fun CategoryHeaderEditDialog(
                     },
                     label = { Text("Category Group Name", color = TextSecondary) },
                     isError = isError,
+                    supportingText = {
+                        if (isError) {
+                            Text("Category group name cannot be empty", color = ExpenseCoral, style = MicroMetadata)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -599,6 +611,8 @@ private fun CategoryHeaderEditDialog(
                         unfocusedContainerColor = SurfaceContainerDark,
                         focusedBorderColor = CobaltBlue,
                         unfocusedBorderColor = SurfaceContainerHighDark,
+                        errorBorderColor = ExpenseCoral,
+                        errorLabelColor = ExpenseCoral,
                         cursorColor = CobaltBlue
                     )
                 )
@@ -644,11 +658,16 @@ private fun SubcategoryEditDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .widthIn(max = 480.dp)
                 .padding(Space16),
             shape = RoundedCornerShape(RadiusXLarge),
             color = SurfaceDark
         ) {
-            Column(modifier = Modifier.padding(Space20)) {
+            Column(
+                modifier = Modifier
+                    .padding(Space20)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 Text(
                     text = "Rename Subcategory",
                     style = SectionHeadline,
@@ -664,6 +683,11 @@ private fun SubcategoryEditDialog(
                     },
                     label = { Text("Subcategory Name", color = TextSecondary) },
                     isError = isError,
+                    supportingText = {
+                        if (isError) {
+                            Text("Subcategory name cannot be empty", color = ExpenseCoral, style = MicroMetadata)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -673,6 +697,8 @@ private fun SubcategoryEditDialog(
                         unfocusedContainerColor = SurfaceContainerDark,
                         focusedBorderColor = CobaltBlue,
                         unfocusedBorderColor = SurfaceContainerHighDark,
+                        errorBorderColor = ExpenseCoral,
+                        errorLabelColor = ExpenseCoral,
                         cursorColor = CobaltBlue
                     )
                 )
@@ -732,19 +758,38 @@ private fun CategoryFormDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Space16),
+                .widthIn(max = 520.dp)
+                .padding(vertical = Space8, horizontal = Space16),
             shape = RoundedCornerShape(RadiusXLarge),
             color = SurfaceDark
         ) {
             Column(
-                modifier = Modifier.padding(Space20)
+                modifier = Modifier
+                    .padding(Space20)
+                    .verticalScroll(rememberScrollState())
             ) {
-                Text(
-                    text = title,
-                    style = SectionHeadline,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        style = SectionHeadline,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = TextSecondary
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(Space16))
 
@@ -769,6 +814,11 @@ private fun CategoryFormDialog(
                     },
                     label = { Text("Category Name (e.g. Food & Dining)", color = TextSecondary) },
                     isError = isError,
+                    supportingText = {
+                        if (isError) {
+                            Text("Category name cannot be empty", color = ExpenseCoral, style = MicroMetadata)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { targetFieldForEmoji = "Category" },
@@ -780,6 +830,8 @@ private fun CategoryFormDialog(
                         unfocusedContainerColor = SurfaceContainerDark,
                         focusedBorderColor = CobaltBlue,
                         unfocusedBorderColor = SurfaceContainerHighDark,
+                        errorBorderColor = ExpenseCoral,
+                        errorLabelColor = ExpenseCoral,
                         cursorColor = CobaltBlue
                     )
                 )
