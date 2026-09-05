@@ -62,7 +62,6 @@ import com.example.ui.components.FinTrackPeriodDropdown
 import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.FinTrackSyncStatus
 import com.example.ui.components.MonthlyCashFlowSplineChart
-import com.example.ui.components.PeriodSelectorChipRow
 import com.example.ui.theme.CanvasDark
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue

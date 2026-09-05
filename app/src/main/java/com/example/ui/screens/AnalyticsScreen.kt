@@ -53,7 +53,6 @@ import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.MonthlyCashFlowBarChart
 import com.example.ui.components.MonthlyCashFlowSplineChart
-import com.example.ui.components.PeriodSelectorChipRow
 import com.example.ui.components.SavingsTrendLineChart
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CanvasDark
@@ -84,7 +83,7 @@ fun AnalyticsScreen(
     categoryIncomeShares: List<CategoryExpenseShare>,
     monthlyDataPoints: List<MonthlyDataPoint>,
     insights: SmartFinancialInsights,
-    onPeriodSelected: (String) -> Unit,
+    onPeriodSelected: (String) -> Unit = {},
     onCurrencyChanged: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -141,14 +140,6 @@ fun AnalyticsScreen(
                     onCurrencyChanged = onCurrencyChanged
                 )
             }
-
-            Spacer(modifier = Modifier.height(Space8))
-
-            // Period Selector Chip Row
-            PeriodSelectorChipRow(
-                selectedPeriod = filterSettings.selectedPeriod,
-                onPeriodSelected = onPeriodSelected
-            )
 
             // Incomplete EUR warning if applicable
             if (metrics.hasIncompleteEurData) {

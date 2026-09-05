@@ -56,7 +56,6 @@ import com.example.data.util.NumberFormatter
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackEmptyState
 import com.example.ui.components.FinTrackSegmentedControl
-import com.example.ui.components.PeriodSelectorChipRow
 import com.example.ui.components.TransactionCardItem
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
@@ -96,7 +95,7 @@ fun TransactionsScreen(
     transactions: List<TransactionEntity>,
     categories: List<CategoryEntity>,
     filterSettings: FilterSettings,
-    onPeriodSelected: (String) -> Unit,
+    onPeriodSelected: (String) -> Unit = {},
     onCurrencyChanged: (String) -> Unit,
     onTypeFilterSelected: (String) -> Unit = {},
     onCategoryFilterSelected: (String, String?) -> Unit,
@@ -230,14 +229,6 @@ fun TransactionsScreen(
                     .testTag("search_transactions_input"),
                 shape = RoundedCornerShape(RadiusLarge),
                 singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(Space8))
-
-            // Period Selector Chips
-            PeriodSelectorChipRow(
-                selectedPeriod = filterSettings.selectedPeriod,
-                onPeriodSelected = onPeriodSelected
             )
 
             Spacer(modifier = Modifier.height(Space8))

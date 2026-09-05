@@ -150,7 +150,6 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         transactions = filteredTxs,
                         categories = categories,
                         filterSettings = filterSettings,
-                        onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
                         onTypeFilterSelected = { type -> viewModel.updateSelectedTypeFilter(type) },
                         onCategoryFilterSelected = { type, cat -> viewModel.updateCategoryFilter(type, cat) },
@@ -168,7 +167,6 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         categoryIncomeShares = categoryIncomeShares,
                         monthlyDataPoints = monthlyDataPoints,
                         insights = smartInsights,
-                        onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
                     )
 
