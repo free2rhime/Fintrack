@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,11 +58,13 @@ import com.example.ui.components.BadgeVariant
 import com.example.ui.components.CategoryDistributionChart
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackCard
+import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.FinTrackSyncStatus
 import com.example.ui.components.MonthlyCashFlowBarChart
 import com.example.ui.components.MonthlyCashFlowSplineChart
 import com.example.ui.components.PeriodSelectorChipRow
+import com.example.ui.theme.CanvasDark
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseContainer
@@ -103,12 +107,19 @@ fun DashboardScreen(
 ) {
     var isSplineChart by remember { mutableStateOf(true) }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 80.dp)
+            .background(CanvasDark),
+        contentAlignment = Alignment.TopCenter
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 680.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 80.dp)
+        ) {
         // Dashboard Header Region: Title + Sync Status
         Row(
             modifier = Modifier
@@ -225,72 +236,142 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(Space24))
 
                 // Income & Expense Split
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Total Income
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(IncomeContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowDownward,
-                                contentDescription = "Income",
-                                tint = IncomeEmerald,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(Space12))
-                        Column {
-                            Text(
-                                text = "Income",
-                                style = LabelBadgeMedium,
-                                color = TextSecondary
-                            )
-                            Spacer(modifier = Modifier.height(Space2))
-                            Text(
-                                text = "+${NumberFormatter.formatCurrency(metrics.totalIncome, metrics.currency)}",
-                                style = CardTitleAmount,
-                                color = IncomeEmerald
-                            )
-                        }
-                    }
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    if (maxWidth < 320.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
+                            // Total Income
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(IncomeContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDownward,
+                                        contentDescription = "Income",
+                                        tint = IncomeEmerald,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Space12))
+                                Column {
+                                    Text(
+                                        text = "Income",
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.height(Space2))
+                                    Text(
+                                        text = "+${NumberFormatter.formatCurrency(metrics.totalIncome, metrics.currency)}",
+                                        style = CardTitleAmount,
+                                        color = IncomeEmerald
+                                    )
+                                }
+                            }
 
-                    // Total Expense
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(ExpenseContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowUpward,
-                                contentDescription = "Expense",
-                                tint = ExpenseCoral,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            // Total Expense
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(ExpenseContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowUpward,
+                                        contentDescription = "Expense",
+                                        tint = ExpenseCoral,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Space12))
+                                Column {
+                                    Text(
+                                        text = "Expense",
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.height(Space2))
+                                    Text(
+                                        text = "-${NumberFormatter.formatCurrency(metrics.totalExpense, metrics.currency)}",
+                                        style = CardTitleAmount,
+                                        color = ExpenseCoral
+                                    )
+                                }
+                            }
                         }
-                        Spacer(modifier = Modifier.width(Space12))
-                        Column {
-                            Text(
-                                text = "Expense",
-                                style = LabelBadgeMedium,
-                                color = TextSecondary
-                            )
-                            Spacer(modifier = Modifier.height(Space2))
-                            Text(
-                                text = "-${NumberFormatter.formatCurrency(metrics.totalExpense, metrics.currency)}",
-                                style = CardTitleAmount,
-                                color = ExpenseCoral
-                            )
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Total Income
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(IncomeContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDownward,
+                                        contentDescription = "Income",
+                                        tint = IncomeEmerald,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Space12))
+                                Column {
+                                    Text(
+                                        text = "Income",
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.height(Space2))
+                                    Text(
+                                        text = "+${NumberFormatter.formatCurrency(metrics.totalIncome, metrics.currency)}",
+                                        style = CardTitleAmount,
+                                        color = IncomeEmerald
+                                    )
+                                }
+                            }
+
+                            // Total Expense
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(ExpenseContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowUpward,
+                                        contentDescription = "Expense",
+                                        tint = ExpenseCoral,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Space12))
+                                Column {
+                                    Text(
+                                        text = "Expense",
+                                        style = LabelBadgeMedium,
+                                        color = TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.height(Space2))
+                                    Text(
+                                        text = "-${NumberFormatter.formatCurrency(metrics.totalExpense, metrics.currency)}",
+                                        style = CardTitleAmount,
+                                        color = ExpenseCoral
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -492,69 +573,75 @@ fun DashboardScreen(
             contentPadding = Space16
         ) {
             Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(CobaltBlue.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.TrendingUp,
-                                contentDescription = null,
-                                tint = CobaltBlue,
-                                modifier = Modifier.size(18.dp)
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    if (maxWidth < 360.dp) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(CobaltBlue.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.TrendingUp,
+                                        contentDescription = null,
+                                        tint = CobaltBlue,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Space8))
+                                Text(
+                                    text = "Monthly Cash Flow",
+                                    style = SectionHeadline,
+                                    color = TextPrimary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(Space12))
+                            FinTrackSegmentedControl(
+                                items = listOf("Spline", "Bars"),
+                                selectedIndex = if (isSplineChart) 0 else 1,
+                                onItemSelected = { isSplineChart = (it == 0) },
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        Spacer(modifier = Modifier.width(Space8))
-                        Text(
-                            text = "Monthly Cash Flow",
-                            style = SectionHeadline,
-                            color = TextPrimary
-                        )
-                    }
-
-                    // Chart Type Segmented Pills
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(RadiusMedium))
-                            .background(SurfaceContainerDark)
-                            .padding(Space2)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(RadiusSmall),
-                            color = if (isSplineChart) CobaltBlue else Color.Transparent,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(RadiusSmall))
-                                .clickable { isSplineChart = true }
-                                .padding(horizontal = Space12, vertical = Space4)
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = "Spline",
-                                style = LabelBadgeMedium,
-                                fontWeight = if (isSplineChart) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSplineChart) Color.White else TextSecondary
-                            )
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(RadiusSmall),
-                            color = if (!isSplineChart) CobaltBlue else Color.Transparent,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(RadiusSmall))
-                                .clickable { isSplineChart = false }
-                                .padding(horizontal = Space12, vertical = Space4)
-                        ) {
-                            Text(
-                                text = "Bars",
-                                style = LabelBadgeMedium,
-                                fontWeight = if (!isSplineChart) FontWeight.Bold else FontWeight.Medium,
-                                color = if (!isSplineChart) Color.White else TextSecondary
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(CobaltBlue.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.TrendingUp,
+                                        contentDescription = null,
+                                        tint = CobaltBlue,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Space8))
+                                Text(
+                                    text = "Monthly Cash Flow",
+                                    style = SectionHeadline,
+                                    color = TextPrimary
+                                )
+                            }
+                            FinTrackSegmentedControl(
+                                items = listOf("Spline", "Bars"),
+                                selectedIndex = if (isSplineChart) 0 else 1,
+                                onItemSelected = { isSplineChart = (it == 0) },
+                                modifier = Modifier.width(150.dp)
                             )
                         }
                     }
@@ -619,5 +706,6 @@ fun DashboardScreen(
                 )
             }
         }
+    }
     }
 }
