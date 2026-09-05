@@ -54,7 +54,7 @@ import com.example.ui.theme.TextSecondary
 fun FinTrackTransactionRow(
     description: String,
     categoryName: String,
-    dateFormatted: String,
+    dateFormatted: String = "",
     amountPrimaryFormatted: String,
     isIncome: Boolean,
     modifier: Modifier = Modifier,

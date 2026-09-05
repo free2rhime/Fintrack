@@ -97,7 +97,7 @@ fun TransactionCardItem(
     FinTrackTransactionRow(
         description = transaction.description,
         categoryName = categoryText,
-        dateFormatted = transaction.date,
+        dateFormatted = "",
         accountName = accountText,
         amountPrimaryFormatted = primaryAmount,
         isIncome = isIncome,

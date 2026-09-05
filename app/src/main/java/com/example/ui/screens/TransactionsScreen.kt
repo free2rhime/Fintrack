@@ -231,7 +231,7 @@ fun TransactionsScreen(
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(Space8))
+            Spacer(modifier = Modifier.height(Space4))
 
             // Type Filter Segmented Control (All / Income / Expense)
             FinTrackSegmentedControl(
@@ -250,10 +250,11 @@ fun TransactionsScreen(
                         }
                     )
                 },
+                isCompact = true,
                 modifier = Modifier.padding(horizontal = Space16)
             )
 
-            Spacer(modifier = Modifier.height(Space8))
+            Spacer(modifier = Modifier.height(Space4))
 
             // Category Filter Chips
             Row(
@@ -314,7 +315,7 @@ fun TransactionsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(Space12))
+            Spacer(modifier = Modifier.height(Space8))
 
             // Transaction Cards grouped by Date
             if (groupedByDate.isEmpty()) {
