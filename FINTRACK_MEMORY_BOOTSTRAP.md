@@ -209,19 +209,15 @@ Outbox state is evaluated using direct/finite Room queries and event-driven noti
 
 ---
 
-## 11. UI SAFETY
+## 11. UI SAFETY & DESIGN SYSTEM
 
-FinTrack's current design direction includes:
+FinTrack uses **FinTrack Design System v1**, verified across the entire presentation layer (Phases 1–13):
 
-- dark-first identity;
-- green for primary/positive/income;
-- blue for navigation/selection;
-- red for expense/destructive semantics;
-- five-tab navigation;
-- visible synchronization status;
-- visible household context.
-
-UI work should not change backend or synchronization architecture unless explicitly required.
+- **Tokens**: CanvasDark, SurfaceDark, SurfaceContainerDark, SurfaceContainerHighDark, CobaltBlue (navigation/selection/focus), IncomeEmerald (income/positive), ExpenseCoral (expense/destructive), WarningAmber, TextPrimary, TextSecondary, TextMuted, Space4..Space20, RadiusSmall..RadiusXLarge.
+- **Motion Foundation**: Centralized restrained motion via `FinTrackMotion` (`DurationFast` 150ms, `DurationStandard` 200ms, `DurationEmphasized` 250ms, `DurationSyncSpin` 1000ms, `StandardEasing`, `LinearCurve`). No unmanaged coroutine motion jobs; infinite rotation strictly scoped to `BadgeVariant.SYNCING`.
+- **Responsive & Accessibility**: Responsive layouts (<340dp, <360dp, <480dp, max-width 680dp for tablets/foldables), minimum 48dp touch targets for interactive controls, financial polarity not conveyed by color alone, vertical scroll on constrained screens.
+- **Semantic Test Tag Contract**: Contractual test tags (e.g., `dashboard_top_card`, `currency_toggle_*`, `transaction_item_*`, `save_transaction_button`, `analytics_*`, `category_*`, `account_info_card`, `export_csv_button`, etc.) must never be renamed or removed.
+- **Strict Architectural Lock**: Future UI work must NOT modify the 10 locked architectural domains: Room, Firestore, Authentication, Household / RBAC, Synchronization, ViewModels, Domain, CSV / BNR, Navigation, Build.
 
 ---
 
@@ -230,8 +226,11 @@ UI work should not change backend or synchronization architecture unless explici
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint (Steps 12.3S–12.3Z Complete)
-Android test baseline: 380/380 PASS (Full Android JVM/Robolectric test cases passing, 0 failed, 0 errors, 0 skipped; 31/31 focused hard-delete/sync tests PASS; 8/8 targeted Account UI label tests PASS)
+Git baseline: Phase 13 Final Visual QA Clean Completion Checkpoint (Phases 1–13 Complete — GO: PHASE 13 CLEAN - 2026-09-05)
+Previous baseline: Phase 12 / Phase 11 / Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03) / Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint
+Reported Phase 13 test baseline: 72 executed, 72 passed, 0 failed, 0 errors, 1 intentionally skipped (finalizeTestRoborazziDebug), BUILD SUCCESSFUL, 0 coroutine/memory leaks, 0 UncompletedCoroutinesError
+Reported Phase 13 build: gradle :app:assembleDebug -> BUILD SUCCESSFUL (Debug APK generated)
+Historical Android test baseline: 380/380 PASS (Full Android JVM/Robolectric test cases passing, 0 failed, 0 errors, 0 skipped; 31/31 focused hard-delete/sync tests PASS; 8/8 targeted Account UI label tests PASS)
 Firestore rules test baseline: 100/100 test cases preserved in tests/firestore.rules.test.ts and Firestore test suites
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
 Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS (Transaction & Category permanent deletion verified on physical device and Firestore, SyncStatus = Synced, no tombstones created); Step 12.3Y Real 33-Row CSV Import & Period Filter Visibility Resolution PASS; Step 12.3Z Complete Real Historical Database Import & Production Firestore Console Verification PASS
@@ -239,6 +238,15 @@ Branch: main
 Remote branch: origin/main
 Working tree: clean / synchronized
 ```
+
+### Verified UI Baseline (Phases 7–13 Milestones)
+- **Phase 7 — Categories Visual Overhaul (COMPLETE / AUDIT GO):** CategoriesScreen aligned with FinTrack Design System v1, FinTrackCard containers, RadiusLarge geometry, tonal category icon containers, IncomeEmerald / ExpenseCoral semantic colors, FinTrackSegmentedControl for category type selection, FinTrackEmptyState, responsive 680dp constraint, form standardization, semantic test tags preserved, zero business logic changes.
+- **Phase 8 — Settings & Household Visual Overhaul (COMPLETE / AUDIT GO):** Modified `SettingsScreen.kt` and `HouseholdOverviewCard.kt`. FinTrackCard section hierarchy, Account Identity & Security, Pending Invitations, Household Setup / Overview, currency selector, theme selector, CSV Import/Export, EUR sync controls, sync diagnostics, role/status badges, owner-only invite action, 680dp constraint, 48dp minimum touch targets, test tags preserved, zero changes to Auth, RBAC, sync, repositories, or ViewModels.
+- **Phase 9 — Dialogs & Forms Polish (COMPLETE / AUDIT GO):** SurfaceDark modal surfaces, RadiusXLarge geometry, SurfaceContainerDark form fields, CobaltBlue focus states, FinTrackButton hierarchy (PRIMARY, SECONDARY, DESTRUCTIVE), dialog width constraints 480–560dp, verticalScroll keyboard safety, header dismiss actions standardized, field-level validation standardized, test tags preserved, zero business logic changes.
+- **Phase 10 — Empty / Loading / Error States (COMPLETE / AUDIT GO):** Standardized FinTrackEmptyState (compact mode for charts/dialogs), FinTrackLoadingState for unified loading presentation, chart empty states, analytics sparse-data states, categories empty state, auth loading/error, create household loading/error, invite member loading/error, sync diagnostics clean state, test tags preserved, zero business logic changes.
+- **Phase 11 — Motion Foundation (COMPLETE / AUDIT GO):** `app/src/main/java/com/example/ui/theme/Motion.kt` foundation. Tokens: DurationFast (150ms), DurationStandard (200ms), DurationEmphasized (250ms), DurationSyncSpin (1000ms), StandardEasing (FastOutSlowInEasing), LinearCurve (LinearEasing). Helpers: `fastTween()`, `standardTween()`, `emphasizedTween()`, `contentFade()`. `LocalFinTrackMotion` via `FinTrackTheme`. Components migrated: DashboardScreen, CurrencyToggle, FinTrackSegmentedControl, FinTrackStatusBadge. Infinite animation limited to SYNCING badge rotation scoped to active state. Zero coroutine leaks / UncompletedCoroutinesError. `FinTrackMotionTest.kt` passing.
+- **Phase 12 — Accessibility + Responsive QA (COMPLETE / AUDIT GO):** Dashboard chart controls use FinTrackSegmentedControl, 48dp minimum touch targets, hero metric adapts on narrow widths, centered 680dp containers, AuthScreen vertical scrolling & 480dp width constraint, high font scale hardened, semantic roles and content descriptions preserved, financial polarity not color-only, responsive checks across <340dp, <360dp, <480dp, <680dp.
+- **Phase 13 — Final Visual QA (COMPLETE / AUDIT GO — GO: CLEAN):** Final presentation-layer audit completed cleanly across all screens and components. Design System v1 tokens verified (CanvasDark, SurfaceDark, SurfaceContainerDark, SurfaceContainerHighDark, CobaltBlue, IncomeEmerald, ExpenseCoral, WarningAmber, TextPrimary, TextSecondary, TextMuted, Space4..Space20, RadiusSmall..RadiusXLarge, typography tokens, Motion tokens). Material 3 HorizontalDivider used, + Sub action minimum 48dp, category emoji picker minimum 40dp, icon content descriptions verified. All 10 architectural locks preserved. Historical sync and coroutine investigations preserved.
 
 ### Complete Real Database Import & Full Pipeline Verification (Step 12.3Z — COMPLETE)
 - **Complete Real Historical Database Import:** The user's complete personal historical transaction database was imported into the FinTrack application using the CSV import functionality on real physical hardware:

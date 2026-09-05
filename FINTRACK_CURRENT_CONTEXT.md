@@ -2,7 +2,8 @@
 
 > Compact operational context for continuing FinTrack development.
 > Last verified: 2026-09-05
-> Baseline: Phase 11 Motion Foundation Clean Completion (2026-09-05)
+> Baseline: Phase 13 Final Visual QA Clean Completion (2026-09-05) — GO: PHASE 13 CLEAN
+> Previous baseline: Phase 12 Accessibility + Responsive QA / Phase 11 Motion Foundation Clean Completion (2026-09-05)
 > Previous baseline: Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
 > Previous baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
@@ -29,9 +30,14 @@ At the time this context was verified, the repository working tree was synchroni
 
 Current implementation baseline:
 
-Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
+Phase 13 Final Visual QA Clean Completion (`GO — PHASE 13 CLEAN` - 2026-09-05)
+FinTrack Design System v1 verified across full presentation layer (Phases 1–13 complete).
 
-Previous functional baseline:
+Previous UI/Functional baselines:
+
+Phase 12 Accessibility + Responsive QA (2026-09-05) / Phase 11 Motion Foundation Clean Completion (2026-09-05) / Phase 10 Empty/Loading/Error States (2026-09-05) / Phase 9 Dialogs & Forms Polish (2026-09-05) / Phase 8 Settings & Household Visual Overhaul (2026-09-05) / Phase 7 Categories Visual Overhaul (2026-09-05) / Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
+
+Historical backend / data baselines:
 
 Step 12.3Z (`docs: update project memory for real database import and full pipeline verification`) / Step 12.3Y (`test: verify real-device 33-row CSV import and historical transaction period filter visibility`) / Step 12.3X (`feat: implement "Tichete de masa" UI display label for Account while preserving internal "Meal Tickets" value`) / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M (`fix: deduplicate CSV categories and subcategories`) / Step 12.3L / `1bef33f` (feat: automate BNR EUR conversion for CSV imports) / `7a8b6bf` (docs: update project memory after step 12.1J) / `aed996f` (ci: enable Firebase-configured online APK builds) / `14f5338` (ci: remove redundant GitHub workflows) / `0da6b96` / `4ed7894` (fix: allow cross-user transaction editing) / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
@@ -356,10 +362,25 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
    - *12.3Y:* Real CSV Import & Historical Transaction Visibility Verification (COMPLETE — 33-row historical CSV imported successfully on real physical hardware; 33 Firestore documents present; SyncStatus = Synced; 0 category/subcategory duplicates; historical transaction visibility confirmed as user-side period filter configuration)
    - *12.3Z:* Complete Real Database Import & Full Pipeline Verification Checkpoint (COMPLETE — User's complete historical database imported, Room persisted, Outbox processed, Firestore synchronized, SyncStatus = Synced, independently verified in Firebase Firestore Console; 0 unexpected category/subcategory duplicates; hard delete & account label preserved; Project Memory updated)
    - *Transactions Search Bug Fix Checkpoint (2026-09-03):* COMPLETE — MainViewModel in-memory search query state integrated with filterSettings; OutlinedTextField explicit IME search handling added; case-insensitive multi-attribute search verified; Stage3AViewModelTest, FinancialAnalyticsEngineTest, and GreetingScreenshotTest PASS.
-8. **Phase 8 — Beta Release Polish & Housekeeping:**
-   - *Current Status:* Transactions Search verified & fixed. Next Roadmap Item: Continue FinTrack development from the verified baseline / Beta Release Polish & Housekeeping.
+8. **FinTrack Design System v1 UI Overhaul (Phases 1–13) — COMPLETE / AUDIT GO:**
+   - *Phase 1 — Foundation & Design System Tokens:* STATUS: COMPLETE
+   - *Phase 2 — Core UI Components & Library:* STATUS: COMPLETE
+   - *Phase 3 — Dashboard Visual Overhaul:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 4 — Transactions Visual Overhaul:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 5 — Transaction Form Visual Overhaul:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 6 — Analytics Visual Overhaul:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 7 — Categories Visual Overhaul:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 8 — Settings & Household Visual Overhaul:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 9 — Dialogs & Forms Polish:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 10 — Empty / Loading / Error States:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 11 — Motion Foundation:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 12 — Accessibility + Responsive QA:* STATUS: COMPLETE / AUDIT GO
+   - *Phase 13 — Final Visual QA:* STATUS: COMPLETE / AUDIT GO (GO — PHASE 13 CLEAN)
+9. **Next Roadmap Item / Housekeeping:**
+   - *Current Status:* Presentation layer verified clean after Phase 13.
    - *Open Administrative Cleanup Task:* Administrative cleanup script for legacy Firestore documents with `isDeleted == true` created prior to Step 12.3S (separate execution).
    - *Open Data-Integrity Item (Separate Task):* Audit and cleanup of historical duplicate Category/SubCategory records that already exist in the database from earlier imports prior to Step 12.3L.
+   - *Historical Technical Investigation Context:* Sync permission issues and coroutine lifecycle problems remain preserved in historical memory.
 
 ### Verification Layer Status:
 - **Automated Verification:** PASS (380/380 full Android JVM/Robolectric test cases passing, 100/100 Firestore test cases preserved, 8/8 targeted Account UI label tests PASS, assembleDebug PASS).
@@ -462,11 +483,194 @@ ANALYZE
 → MEMORY UPDATE
 ```
 
-## 12. PHASE 11 MOTION FOUNDATION (VERIFIED CLEAN)
+## 12. VERIFIED UI BASELINE (PHASES 7–13)
 
-- **Status:** Complete & Audited Clean (GO — PHASE 11 CLEAN).
-- **Core Tokens:** `FinTrackMotion` (`DurationFast` 150ms, `DurationStandard` 200ms, `DurationEmphasized` 250ms, `DurationSyncSpin` 1000ms; `StandardEasing`, `LinearCurve`).
-- **Theme Integration:** `LocalFinTrackMotion` provided through `FinTrackTheme`.
-- **Migrated Components:** `DashboardScreen` (`contentFade()`), `CurrencyToggle` (`standardTween()`), `FinTrackSegmentedControl` (`standardTween()`), `FinTrackStatusBadge` (tokenized `DurationSyncSpin` & `LinearCurve`).
-- **Lifecycle & Architecture Safety:** Zero coroutine motion jobs; `SYNCING` infinite transition scoped only to active state; all locked layers (Room, Firestore, Auth, Household, Sync, ViewModels, CSV, Navigation) strictly preserved; 100% tests and assembleDebug passing.
+### PHASE 7 — CATEGORIES VISUAL OVERHAUL
+**STATUS: COMPLETE / AUDIT GO**
+- CategoriesScreen aligned with FinTrack Design System v1.
+- FinTrackCard containers.
+- RadiusLarge geometry.
+- Tonal category icon containers.
+- IncomeEmerald / ExpenseCoral semantic colors.
+- FinTrackSegmentedControl for category type selection.
+- FinTrackEmptyState for empty category state.
+- Responsive max width of 680dp.
+- Dialog/form visual standardization.
+- Existing semantic test tags preserved.
+- No business logic changes.
+
+### PHASE 8 — SETTINGS & HOUSEHOLD VISUAL OVERHAUL
+**STATUS: COMPLETE / AUDIT GO**
+- Modified presentation files: `SettingsScreen.kt`, `HouseholdOverviewCard.kt`.
+- FinTrackCard section hierarchy.
+- Account Identity & Security section.
+- Pending Invitations.
+- Household Setup / Overview.
+- Currency selector.
+- Dark / Light / System theme selector.
+- CSV Import / Export.
+- EUR synchronization controls.
+- Sync diagnostics.
+- Household role/status badges.
+- Owner-only invite action.
+- Responsive max width of 680dp.
+- Minimum 48dp interactive targets.
+- Existing callbacks and state bindings preserved.
+- Existing semantic test tags preserved.
+- No changes to Auth, RBAC, sync, repositories or ViewModels.
+
+### PHASE 9 — DIALOGS & FORMS POLISH
+**STATUS: COMPLETE / AUDIT GO**
+- Modal surfaces standardized using SurfaceDark.
+- RadiusXLarge geometry.
+- SurfaceContainerDark form fields.
+- CobaltBlue focus states.
+- FinTrackButton action hierarchy: PRIMARY, SECONDARY, DESTRUCTIVE.
+- Dialog width constraints generally 480–560dp.
+- verticalScroll added/standardized where required for keyboard safety.
+- Header dismiss actions standardized.
+- Inline field-level validation/error presentation standardized.
+- Existing state flows and callbacks preserved.
+- Existing semantic test tags preserved.
+- No business logic changes.
+- Affected visual areas include: Migration dialogs, CSV import dialogs, Category forms, Transaction-related forms/dialogs, other existing modal surfaces.
+
+### PHASE 10 — EMPTY / LOADING / ERROR STATES
+**STATUS: COMPLETE / AUDIT GO**
+- FinTrackEmptyState standardized.
+- Compact mode introduced for charts and embedded/dialog contexts.
+- FinTrackLoadingState introduced for unified loading presentation.
+- Dashboard chart empty states standardized.
+- Analytics sparse/insufficient-data states standardized.
+- Categories empty state standardized.
+- Authentication loading/error presentation standardized.
+- Create Household dialog loading/error presentation standardized.
+- Invite Member dialog loading/error presentation standardized.
+- Sync Diagnostics clean state standardized.
+- No business logic changes.
+- Existing semantic test tags preserved.
+
+### PHASE 11 — MOTION FOUNDATION
+**STATUS: COMPLETE / AUDIT GO**
+- New foundation: `app/src/main/java/com/example/ui/theme/Motion.kt`.
+- Verified motion vocabulary:
+  - DurationFast = 150ms
+  - DurationStandard = 200ms
+  - DurationEmphasized = 250ms
+  - DurationSyncSpin = 1000ms
+  - StandardEasing = FastOutSlowInEasing
+  - LinearCurve = LinearEasing
+- Reusable APIs: `fastTween()`, `standardTween()`, `emphasizedTween()`, `contentFade()`.
+- Theme integration: `LocalFinTrackMotion` provided through `FinTrackTheme`.
+- Existing motion migrated to centralized tokens: DashboardScreen, CurrencyToggle, FinTrackSegmentedControl, FinTrackStatusBadge.
+- Infinite animation policy: Only SYNCING badge rotation remains infinite, justified as functional sync feedback, lifecycle scoped to BadgeVariant.SYNCING.
+- Zero unmanaged CoroutineScope / Job / GlobalScope introduced.
+- Zero motion-related UncompletedCoroutinesError introduced.
+- Test file: `app/src/test/java/com/example/FinTrackMotionTest.kt` (token constants, tween specs, contentFade, CompositionLocal resolution, CurrencyToggle, FinTrackSegmentedControl, FinTrackStatusBadge syncing/static states).
+
+### PHASE 12 — ACCESSIBILITY + RESPONSIVE QA
+**STATUS: COMPLETE / AUDIT GO**
+- Dashboard chart controls use FinTrackSegmentedControl.
+- 48dp minimum interactive targets enforced for applicable controls.
+- Dashboard hero metric layout adapts on narrow widths.
+- Dashboard and Transactions use centered max-width 680dp containers.
+- AuthScreen uses vertical scrolling and approximately 480dp content constraint.
+- High font-scale layouts hardened.
+- Semantic roles preserved.
+- Content descriptions preserved.
+- Financial polarity is not communicated by color alone.
+- Responsive behavior verified across narrow phones (<340dp, <360dp), standard phones (<480dp), tablets and foldables (<680dp).
+
+### PHASE 13 — FINAL VISUAL QA
+**STATUS: COMPLETE / AUDIT GO (GO — PHASE 13 CLEAN)**
+- Final presentation-layer audit completed cleanly.
+- Audited screens/surfaces: Dashboard, Transactions, Transaction Form, Analytics, Categories, Settings, Household, Auth, Dialogs / Forms, Empty / Loading / Error states, Shared UI components, Design tokens, Motion, Accessibility, Responsive behavior, Semantic/test contracts.
+- Verified Design System tokens: CanvasDark, SurfaceDark, SurfaceContainerDark, SurfaceContainerHighDark, CobaltBlue, IncomeEmerald, ExpenseCoral, WarningAmber, TextPrimary, TextSecondary, TextMuted, Space4, Space8, Space12, Space16, Space20, RadiusSmall, RadiusMedium, RadiusLarge, RadiusXLarge, centralized typography tokens, centralized Motion tokens.
+- Final hardening: Material 3 HorizontalDivider replacing deprecated Divider; + Sub action minimum 48dp; Category emoji picker minimum 40dp; icon content descriptions verified.
+
+## 13. ARCHITECTURAL LOCK
+
+The following architectural layers remain explicitly protected from visual/UI modifications:
+
+- **ROOM**: Database, DAOs, Entities, migrations.
+- **FIRESTORE**: Repositories, snapshot listeners, DTOs, rules, indexes.
+- **AUTHENTICATION**: AuthRepository, FirebaseAuthRepository, Google Sign-In.
+- **HOUSEHOLD / RBAC**: Household resolution, permission evaluation, invitation state, role evaluation.
+- **SYNCHRONIZATION**: OutboundSyncEngine, SyncOutbox, SyncOutboxDao, SyncStatus, SyncDiagnosticsHolder.
+- **VIEWMODELS**: MainViewModel, AuthViewModel, business StateFlows.
+- **DOMAIN**: FinancialAnalyticsEngine, financial calculations, currency conversion logic.
+- **CSV / BNR**: CsvImporter, CsvImportOrchestrator, exchange-rate services, export.
+- **NAVIGATION**: Routes, navigation graph, bottom navigation behavior.
+- **BUILD**: Gradle configuration, plugin & dependency versions.
+
+Future visual work must NOT modify these protected layers unless explicitly declared as a separate technical phase.
+
+## 14. TEST & BUILD BASELINE (PHASE 13)
+
+Reported Phase 13 verification results:
+
+**Phase 13 Unit Tests:**
+```text
+gradle :app:testDebugUnitTest
+
+Result:
+- 72 tests executed
+- 72 passed
+- 0 failed
+- 0 errors
+- 1 intentionally skipped (finalizeTestRoborazziDebug)
+- BUILD SUCCESSFUL
+- 0 coroutine/memory leaks detected
+- 0 UncompletedCoroutinesError detected
+```
+
+**Phase 13 Build:**
+```text
+gradle :app:assembleDebug
+
+Result:
+- BUILD SUCCESSFUL
+- Debug APK generated successfully
+```
+
+*(Note: These are the reported Phase 13 verification results from the test suite execution. Automated checks remain repeatable).*
+
+## 15. SEMANTIC TEST TAG CONTRACT
+
+The documented semantic/test tags are contractual and must not be renamed or removed during UI work:
+
+- **Dashboard:** `dashboard_top_card`, `sync_status_indicator`, `card_savings_rate`, `card_expense_pressure`
+- **Currency:** `currency_toggle_RON`, `currency_toggle_EUR`
+- **Transactions:** `transaction_item_*`, `tx_duplicate_*`, `tx_delete_*`, `tx_input_amount`, `tx_input_desc`, `save_transaction_button`
+- **Analytics:** `analytics_smart_insights_card`, `analytics_eur_incomplete_warning_card`
+- **Categories:** `fab_add_category`, `category_card_*`, `edit_category_group_*`, `delete_category_group_*`, `edit_subcategory_*`, `delete_subcategory_*`
+- **Settings:** `account_info_card`, `account_uid_text`, `sign_out_button`, `pending_invitations_card`, `pending_invite_item`, `accept_invite_button`, `decline_invite_button`, `household_setup_card`, `create_household_button`, `export_csv_button`, `import_csv_button`, `retry_eur_conversions_button`, `run_bnr_diagnostic_button`, `view_sync_diagnostic_button`
+
+## 16. CURRENT PROJECT STATE & ROADMAP
+
+**CURRENT ROADMAP:**
+- Phase 1  — Foundation & Design System Tokens: STATUS: COMPLETE
+- Phase 2  — Core UI Components & Library: STATUS: COMPLETE
+- Phase 3  — Dashboard Visual Overhaul: STATUS: COMPLETE / AUDIT GO
+- Phase 4  — Transactions Visual Overhaul: STATUS: COMPLETE / AUDIT GO
+- Phase 5  — Transaction Form Visual Overhaul: STATUS: COMPLETE / AUDIT GO
+- Phase 6  — Analytics Visual Overhaul: STATUS: COMPLETE / AUDIT GO
+- Phase 7  — Categories Visual Overhaul: STATUS: COMPLETE / AUDIT GO
+- Phase 8  — Settings & Household Visual Overhaul: STATUS: COMPLETE / AUDIT GO
+- Phase 9  — Dialogs & Forms Polish: STATUS: COMPLETE / AUDIT GO
+- Phase 10 — Empty / Loading / Error States: STATUS: COMPLETE / AUDIT GO
+- Phase 11 — Motion Foundation: STATUS: COMPLETE / AUDIT GO
+- Phase 12 — Accessibility + Responsive QA: STATUS: COMPLETE / AUDIT GO
+- Phase 13 — Final Visual QA: STATUS: COMPLETE / AUDIT GO (GO — PHASE 13 CLEAN)
+
+**CURRENT VERIFIED STATE:**
+- **PRESENTATION LAYER:** VERIFIED CLEAN AFTER PHASE 13
+- **DESIGN SYSTEM:** FinTrack Design System v1 verified across presentation layer.
+- **MOTION:** Centralized FinTrackMotion foundation verified.
+- **ACCESSIBILITY:** Responsive and accessibility hardening completed.
+- **TEST CONTRACTS:** Existing semantic/test tags preserved.
+- **ARCHITECTURAL LOCKS:** Preserved across all 10 protected domains.
+- **BUSINESS LOGIC:** No changes introduced by Phases 7–13.
+- **SYNC / AUTH / RBAC:** Not modified by the UI phases.
+- **HISTORICAL CONTEXT:** Historical technical investigations regarding sync permissions and coroutine lifecycles remain documented and preserved.
 
