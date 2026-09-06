@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,9 +28,6 @@ import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 /**
  * Reusable metric presentation component for FinTrack Design System v1.
@@ -43,15 +41,19 @@ fun FinTrackMetricCard(
     modifier: Modifier = Modifier,
     supportingText: String? = null,
     icon: ImageVector? = null,
-    iconTint: Color = TextSecondary,
-    iconContainerColor: Color = SurfaceContainerDark,
-    valueColor: Color = TextPrimary,
+    iconTint: Color = Color.Unspecified,
+    iconContainerColor: Color = Color.Unspecified,
+    valueColor: Color = Color.Unspecified,
     isHeroDisplay: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
+    val resolvedIconTint = if (iconTint != Color.Unspecified) iconTint else MaterialTheme.colorScheme.onSurfaceVariant
+    val resolvedIconContainerColor = if (iconContainerColor != Color.Unspecified) iconContainerColor else MaterialTheme.colorScheme.surfaceContainerHigh
+    val resolvedValueColor = if (valueColor != Color.Unspecified) valueColor else MaterialTheme.colorScheme.onSurface
+
     FinTrackCard(
         modifier = modifier.fillMaxWidth(),
-        containerColor = SurfaceContainerDark,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentPadding = Space16,
         onClick = onClick
     ) {
@@ -64,13 +66,13 @@ fun FinTrackMetricCard(
                     Box(
                         modifier = Modifier
                             .size(32.dp)
-                            .background(iconContainerColor, CircleShape),
+                            .background(resolvedIconContainerColor, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = iconTint,
+                            tint = resolvedIconTint,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -79,7 +81,7 @@ fun FinTrackMetricCard(
                 Text(
                     text = title,
                     style = LabelBadgeMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -88,7 +90,7 @@ fun FinTrackMetricCard(
             Text(
                 text = value,
                 style = if (isHeroDisplay) HeroFinancialDisplay else CardTitleAmount,
-                color = valueColor
+                color = resolvedValueColor
             )
 
             if (supportingText != null) {
@@ -96,7 +98,7 @@ fun FinTrackMetricCard(
                 Text(
                     text = supportingText,
                     style = MicroMetadata,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -38,11 +39,6 @@ import com.example.ui.theme.RadiusXLarge
 import com.example.ui.theme.SectionHeadline
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 @Composable
 fun CreateHouseholdDialog(
@@ -77,7 +73,7 @@ fun CreateHouseholdDialog(
                 text = "Create Household",
                 style = SectionHeadline,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
         },
         text = {
@@ -85,7 +81,7 @@ fun CreateHouseholdDialog(
                 Text(
                     text = "Enter a name for your new household to enable cloud synchronization of your financial data.",
                     style = BodyRegular,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(Space16))
@@ -96,8 +92,8 @@ fun CreateHouseholdDialog(
                         name = it
                         if (localError != null) localError = null
                     },
-                    label = { Text("Household Name", color = TextSecondary) },
-                    placeholder = { Text("e.g. My Family Budget", color = TextSecondary.copy(alpha = 0.6f)) },
+                    label = { Text("Household Name", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    placeholder = { Text("e.g. My Family Budget", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Home,
@@ -121,12 +117,12 @@ fun CreateHouseholdDialog(
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = CobaltBlue,
-                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         errorBorderColor = ExpenseCoral,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedContainerColor = SurfaceContainerDark,
-                        unfocusedContainerColor = SurfaceContainerDark
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer
                     )
                 )
 
@@ -171,9 +167,9 @@ fun CreateHouseholdDialog(
         },
         modifier = Modifier.testTag("create_household_dialog"),
         shape = RoundedCornerShape(RadiusXLarge),
-        containerColor = SurfaceDark,
-        titleContentColor = TextPrimary,
-        textContentColor = TextSecondary
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
 

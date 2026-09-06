@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -38,11 +39,6 @@ import com.example.ui.theme.RadiusXLarge
 import com.example.ui.theme.SectionHeadline
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 @Composable
 fun InviteMemberDialog(
@@ -78,7 +74,7 @@ fun InviteMemberDialog(
                 text = "Invite Household Member",
                 style = SectionHeadline,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
         },
         text = {
@@ -86,7 +82,7 @@ fun InviteMemberDialog(
                 Text(
                     text = "Enter the email of the person you want to invite to your household.",
                     style = BodyRegular,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(Space16))
@@ -97,8 +93,8 @@ fun InviteMemberDialog(
                         email = it
                         if (localError != null) localError = null
                     },
-                    label = { Text("Invitee Email", color = TextSecondary) },
-                    placeholder = { Text("partner@example.com", color = TextSecondary.copy(alpha = 0.6f)) },
+                    label = { Text("Invitee Email", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    placeholder = { Text("partner@example.com", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Email,
@@ -132,12 +128,12 @@ fun InviteMemberDialog(
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = CobaltBlue,
-                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         errorBorderColor = ExpenseCoral,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedContainerColor = SurfaceContainerDark,
-                        unfocusedContainerColor = SurfaceContainerDark
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer
                     )
                 )
             }
@@ -171,9 +167,9 @@ fun InviteMemberDialog(
         },
         modifier = Modifier.testTag("invite_member_dialog"),
         shape = RoundedCornerShape(RadiusXLarge),
-        containerColor = SurfaceDark,
-        titleContentColor = TextPrimary,
-        textContentColor = TextSecondary
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
 

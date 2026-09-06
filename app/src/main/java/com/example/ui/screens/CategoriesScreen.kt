@@ -35,6 +35,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -64,7 +65,6 @@ import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.resolveCategoryIcon
 import com.example.ui.theme.BodyRegular
-import com.example.ui.theme.CanvasDark
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseContainer
@@ -83,12 +83,6 @@ import com.example.ui.theme.Space20
 import com.example.ui.theme.Space32
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 @Composable
 fun CategoriesScreen(
@@ -119,7 +113,7 @@ fun CategoriesScreen(
     }
 
     Scaffold(
-        containerColor = CanvasDark,
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0.dp),
         floatingActionButton = {
             if (canManageCategories) {
@@ -143,7 +137,7 @@ fun CategoriesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(CanvasDark),
+                .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.TopCenter
         ) {
             Column(
@@ -183,12 +177,12 @@ fun CategoriesScreen(
                             Text(
                                 text = "Category & Subcategory Management",
                                 style = SectionHeadline,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "Organize household transactions by type",
                                 style = MicroMetadata,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -251,7 +245,6 @@ fun CategoriesScreen(
                                     .fillMaxWidth()
                                     .testTag("category_card_${catName}"),
                                 shape = RoundedCornerShape(RadiusLarge),
-                                containerColor = SurfaceDark,
                                 contentPadding = Space16
                             ) {
                                 Column(
@@ -288,13 +281,13 @@ fun CategoriesScreen(
                                                     text = catName,
                                                     style = CardTitleAmount,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = TextPrimary
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 val validCount = subList.count { it.subCategory.isNotBlank() }
                                                 Text(
                                                     text = if (validCount == 1) "1 subcategory" else "$validCount subcategories",
                                                     style = MicroMetadata,
-                                                    color = TextSecondary
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
@@ -345,7 +338,7 @@ fun CategoriesScreen(
                                                     Icon(
                                                         imageVector = Icons.Default.Edit,
                                                         contentDescription = "Edit Category Group",
-                                                        tint = TextSecondary,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                 }
@@ -372,7 +365,7 @@ fun CategoriesScreen(
                                     if (validSubs.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(Space12))
                                         HorizontalDivider(
-                                            color = SurfaceContainerHighDark.copy(alpha = 0.6f),
+                                            color = MaterialTheme.colorScheme.outlineVariant,
                                             thickness = 1.dp
                                         )
                                         Spacer(modifier = Modifier.height(Space12))
@@ -383,7 +376,7 @@ fun CategoriesScreen(
                                             validSubs.forEach { subEntity ->
                                                 Surface(
                                                     shape = RoundedCornerShape(RadiusMedium),
-                                                    color = SurfaceContainerDark,
+                                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) {
                                                     Row(
@@ -401,13 +394,13 @@ fun CategoriesScreen(
                                                                 modifier = Modifier
                                                                     .size(28.dp)
                                                                     .clip(CircleShape)
-                                                                    .background(SurfaceContainerHighDark),
+                                                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                                                                 contentAlignment = Alignment.Center
                                                             ) {
                                                                 Icon(
                                                                     imageVector = Icons.Default.Subtitles,
                                                                     contentDescription = null,
-                                                                    tint = TextSecondary,
+                                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                     modifier = Modifier.size(14.dp)
                                                                 )
                                                             }
@@ -415,7 +408,7 @@ fun CategoriesScreen(
                                                             Text(
                                                                 text = subEntity.subCategory,
                                                                 style = BodyRegular,
-                                                                color = TextPrimary,
+                                                                color = MaterialTheme.colorScheme.onSurface,
                                                                 fontWeight = FontWeight.Medium
                                                             )
                                                         }
@@ -431,7 +424,7 @@ fun CategoriesScreen(
                                                                     Icon(
                                                                         imageVector = Icons.Default.Edit,
                                                                         contentDescription = "Edit Subcategory",
-                                                                        tint = TextSecondary,
+                                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                         modifier = Modifier.size(16.dp)
                                                                     )
                                                                 }
@@ -460,7 +453,7 @@ fun CategoriesScreen(
                                         Text(
                                             text = if (canManageCategories) "No subcategories yet. Tap '+ Sub' to add one." else "No subcategories.",
                                             style = MicroMetadata,
-                                            color = TextMuted
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
@@ -508,13 +501,13 @@ fun CategoriesScreen(
         val groupToDelete = categoryGroupToDelete!!
         AlertDialog(
             onDismissRequest = { categoryGroupToDelete = null },
-            containerColor = SurfaceDark,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = RoundedCornerShape(RadiusXLarge),
             title = {
                 Text(
                     text = "Delete Category Group",
                     style = SectionHeadline,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -522,7 +515,7 @@ fun CategoriesScreen(
                 Text(
                     text = "Are you sure you want to delete category group '$groupToDelete'? All subcategories under this group will be deleted. Historical transactions will be preserved.",
                     style = BodyRegular,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -575,7 +568,7 @@ private fun CategoryHeaderEditDialog(
                 .widthIn(max = 480.dp)
                 .padding(Space16),
             shape = RoundedCornerShape(RadiusXLarge),
-            color = SurfaceDark
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
             Column(
                 modifier = Modifier
@@ -585,7 +578,7 @@ private fun CategoryHeaderEditDialog(
                 Text(
                     text = "Rename Category Group",
                     style = SectionHeadline,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(Space16))
@@ -595,7 +588,7 @@ private fun CategoryHeaderEditDialog(
                         name = it
                         isError = false
                     },
-                    label = { Text("Category Group Name", color = TextSecondary) },
+                    label = { Text("Category Group Name", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     isError = isError,
                     supportingText = {
                         if (isError) {
@@ -605,12 +598,12 @@ private fun CategoryHeaderEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedContainerColor = SurfaceContainerDark,
-                        unfocusedContainerColor = SurfaceContainerDark,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         focusedBorderColor = CobaltBlue,
-                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         errorBorderColor = ExpenseCoral,
                         errorLabelColor = ExpenseCoral,
                         cursorColor = CobaltBlue
@@ -661,7 +654,7 @@ private fun SubcategoryEditDialog(
                 .widthIn(max = 480.dp)
                 .padding(Space16),
             shape = RoundedCornerShape(RadiusXLarge),
-            color = SurfaceDark
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
             Column(
                 modifier = Modifier
@@ -671,7 +664,7 @@ private fun SubcategoryEditDialog(
                 Text(
                     text = "Rename Subcategory",
                     style = SectionHeadline,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(Space16))
@@ -681,7 +674,7 @@ private fun SubcategoryEditDialog(
                         subName = it
                         isError = false
                     },
-                    label = { Text("Subcategory Name", color = TextSecondary) },
+                    label = { Text("Subcategory Name", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     isError = isError,
                     supportingText = {
                         if (isError) {
@@ -691,12 +684,12 @@ private fun SubcategoryEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedContainerColor = SurfaceContainerDark,
-                        unfocusedContainerColor = SurfaceContainerDark,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         focusedBorderColor = CobaltBlue,
-                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         errorBorderColor = ExpenseCoral,
                         errorLabelColor = ExpenseCoral,
                         cursorColor = CobaltBlue
@@ -761,7 +754,7 @@ private fun CategoryFormDialog(
                 .widthIn(max = 520.dp)
                 .padding(vertical = Space8, horizontal = Space16),
             shape = RoundedCornerShape(RadiusXLarge),
-            color = SurfaceDark
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
             Column(
                 modifier = Modifier
@@ -776,7 +769,7 @@ private fun CategoryFormDialog(
                     Text(
                         text = title,
                         style = SectionHeadline,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(
@@ -786,7 +779,7 @@ private fun CategoryFormDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = TextSecondary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -812,7 +805,7 @@ private fun CategoryFormDialog(
                         isError = false
                         targetFieldForEmoji = "Category"
                     },
-                    label = { Text("Category Name (e.g. Food & Dining)", color = TextSecondary) },
+                    label = { Text("Category Name (e.g. Food & Dining)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     isError = isError,
                     supportingText = {
                         if (isError) {
@@ -824,12 +817,12 @@ private fun CategoryFormDialog(
                         .clickable { targetFieldForEmoji = "Category" },
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedContainerColor = SurfaceContainerDark,
-                        unfocusedContainerColor = SurfaceContainerDark,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         focusedBorderColor = CobaltBlue,
-                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         errorBorderColor = ExpenseCoral,
                         errorLabelColor = ExpenseCoral,
                         cursorColor = CobaltBlue
@@ -845,18 +838,18 @@ private fun CategoryFormDialog(
                         subCategory = it
                         targetFieldForEmoji = "Subcategory"
                     },
-                    label = { Text("Subcategory (Optional)", color = TextSecondary) },
+                    label = { Text("Subcategory (Optional)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { targetFieldForEmoji = "Subcategory" },
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedContainerColor = SurfaceContainerDark,
-                        unfocusedContainerColor = SurfaceContainerDark,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         focusedBorderColor = CobaltBlue,
-                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         cursorColor = CobaltBlue
                     )
                 )
@@ -867,7 +860,7 @@ private fun CategoryFormDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(SurfaceContainerDark, RoundedCornerShape(RadiusMedium))
+                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(RadiusMedium))
                         .padding(Space12)
                 ) {
                     Row(
@@ -887,17 +880,17 @@ private fun CategoryFormDialog(
                                 text = "Category",
                                 style = MicroMetadata,
                                 fontWeight = if (targetFieldForEmoji == "Category") FontWeight.Bold else FontWeight.Normal,
-                                color = if (targetFieldForEmoji == "Category") CobaltBlue else TextMuted,
+                                color = if (targetFieldForEmoji == "Category") CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
                                     .clickable { targetFieldForEmoji = "Category" }
                                     .padding(horizontal = Space4)
                             )
-                            Text("|", style = MicroMetadata, color = TextMuted)
+                            Text("|", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(
                                 text = "Subcategory",
                                 style = MicroMetadata,
                                 fontWeight = if (targetFieldForEmoji == "Subcategory") FontWeight.Bold else FontWeight.Normal,
-                                color = if (targetFieldForEmoji == "Subcategory") CobaltBlue else TextMuted,
+                                color = if (targetFieldForEmoji == "Subcategory") CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
                                     .clickable { targetFieldForEmoji = "Subcategory" }
                                     .padding(horizontal = Space4)
@@ -916,7 +909,7 @@ private fun CategoryFormDialog(
                         commonEmojis.forEach { emoji ->
                             Surface(
                                 shape = CircleShape,
-                                color = SurfaceContainerHighDark,
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
                                 modifier = Modifier
                                     .defaultMinSize(minWidth = 40.dp, minHeight = 40.dp)
                                     .clip(CircleShape)

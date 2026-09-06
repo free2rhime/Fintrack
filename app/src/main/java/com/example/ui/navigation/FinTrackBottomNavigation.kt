@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -22,9 +23,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.LabelBadgeMedium
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 enum class BottomNavItem(
     val title: String,
@@ -40,7 +38,7 @@ enum class BottomNavItem(
 
 /**
  * Bottom Navigation component for FinTrack Design System v1.
- * Applies dark tonal background (SurfaceDark), CobaltBlue active indicator,
+ * Applies Material 3 semantic container background, CobaltBlue active indicator,
  * and strict accessible touch targets across all 5 primary destinations.
  */
 @Composable
@@ -51,7 +49,7 @@ fun FinTrackBottomNavigation(
 ) {
     NavigationBar(
         modifier = modifier.testTag("bottom_navigation_bar"),
-        containerColor = SurfaceDark
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
     ) {
         BottomNavItem.values().forEach { item ->
             val isSelected = selectedTabIndex == item.tabIndex
@@ -76,10 +74,10 @@ fun FinTrackBottomNavigation(
                 },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = Color.White,
-                    selectedTextColor = TextPrimary,
+                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
                     indicatorColor = CobaltBlue,
-                    unselectedIconColor = TextSecondary,
-                    unselectedTextColor = TextSecondary
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)

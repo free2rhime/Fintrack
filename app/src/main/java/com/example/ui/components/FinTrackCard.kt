@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -14,8 +15,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.Space16
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceDark
 
 /**
  * Reusable tonal card primitive for FinTrack Design System v1.
@@ -25,7 +24,7 @@ import com.example.ui.theme.SurfaceDark
 fun FinTrackCard(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(RadiusLarge),
-    containerColor: Color = SurfaceDark,
+    containerColor: Color = Color.Unspecified,
     contentColor: Color = Color.Unspecified,
     border: BorderStroke? = null,
     tonalElevation: Dp = 0.dp,
@@ -33,6 +32,12 @@ fun FinTrackCard(
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    val resolvedContainerColor = if (containerColor != Color.Unspecified) {
+        containerColor
+    } else {
+        MaterialTheme.colorScheme.surfaceContainer
+    }
+
     Surface(
         modifier = if (onClick != null) {
             modifier.clickable(onClick = onClick)
@@ -40,7 +45,7 @@ fun FinTrackCard(
             modifier
         },
         shape = shape,
-        color = containerColor,
+        color = resolvedContainerColor,
         contentColor = contentColor,
         tonalElevation = tonalElevation,
         border = border

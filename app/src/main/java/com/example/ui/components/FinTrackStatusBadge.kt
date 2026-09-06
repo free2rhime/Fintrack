@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,9 +43,6 @@ import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.WarningAmber
 
 enum class BadgeVariant {
@@ -96,9 +94,9 @@ fun FinTrackStatusBadge(
         )
         BadgeVariant.NEUTRAL -> Quad(
             Icons.Default.Info,
-            TextSecondary,
-            SurfaceContainerHighDark,
-            TextPrimary
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+            MaterialTheme.colorScheme.onSurface
         )
         BadgeVariant.SYNCING -> Quad(
             Icons.Default.Sync,

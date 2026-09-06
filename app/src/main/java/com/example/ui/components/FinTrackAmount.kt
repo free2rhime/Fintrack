@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,8 +18,6 @@ import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.Space4
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 enum class AmountSemanticType {
     INCOME,
@@ -47,7 +46,7 @@ fun FinTrackAmount(
     val (sign, color, typeDesc) = when (type) {
         AmountSemanticType.INCOME -> Triple(if (showSign) "+ " else "", IncomeEmerald, "Income")
         AmountSemanticType.EXPENSE -> Triple(if (showSign) "- " else "", ExpenseCoral, "Expense")
-        AmountSemanticType.NEUTRAL -> Triple("", TextPrimary, "Amount")
+        AmountSemanticType.NEUTRAL -> Triple("", MaterialTheme.colorScheme.onSurface, "Amount")
     }
 
     val fullPrimary = "$sign$amountPrimary $currencyPrimary"
@@ -75,7 +74,7 @@ fun FinTrackAmount(
             Text(
                 text = fullSecondary,
                 style = secondaryTextStyle,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

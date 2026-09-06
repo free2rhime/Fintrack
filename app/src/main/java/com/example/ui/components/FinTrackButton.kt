@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,9 +22,6 @@ import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
 
 enum class ButtonVariant {
     PRIMARY,
@@ -56,10 +54,10 @@ fun FinTrackButton(
             disabledContentColor = Color.White.copy(alpha = 0.38f)
         )
         ButtonVariant.SECONDARY -> ButtonColorsSet(
-            containerColor = SurfaceContainerHighDark,
-            contentColor = TextPrimary,
-            disabledContainerColor = SurfaceContainerHighDark.copy(alpha = 0.38f),
-            disabledContentColor = TextMuted
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.38f),
+            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
         )
         ButtonVariant.DESTRUCTIVE -> ButtonColorsSet(
             containerColor = ExpenseCoral,

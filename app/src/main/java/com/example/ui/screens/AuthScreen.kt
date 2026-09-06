@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -52,7 +53,6 @@ import com.example.ui.components.ButtonVariant
 import com.example.ui.components.FinTrackButton
 import com.example.ui.components.FinTrackCard
 import com.example.ui.theme.BodyRegular
-import com.example.ui.theme.CanvasDark
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.HeroFinancialDisplay
@@ -68,11 +68,6 @@ import com.example.ui.theme.Space24
 import com.example.ui.theme.Space32
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
@@ -95,7 +90,7 @@ fun AuthScreen(
         modifier = Modifier
             .fillMaxSize()
             .testTag("auth_screen_surface"),
-        color = CanvasDark
+        color = MaterialTheme.colorScheme.background
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -129,7 +124,7 @@ fun AuthScreen(
             Text(
                 text = "FinTrack",
                 style = HeroFinancialDisplay,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(Space4))
@@ -137,7 +132,7 @@ fun AuthScreen(
             Text(
                 text = "Secure Personal Finance Manager",
                 style = BodyRegular,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(Space32))
@@ -147,7 +142,6 @@ fun AuthScreen(
                     .fillMaxWidth()
                     .testTag("auth_card"),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space20
             ) {
                 Column(
@@ -168,7 +162,7 @@ fun AuthScreen(
                                 text = "Signing in securely...",
                                 style = BodyRegular,
                                 fontWeight = FontWeight.Medium,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
@@ -198,7 +192,7 @@ fun AuthScreen(
                                 text = authState.message,
                                 style = BodyRegular,
                                 textAlign = TextAlign.Center,
-                                color = TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.testTag("auth_error_message")
                             )
                             Spacer(modifier = Modifier.height(Space20))
@@ -215,7 +209,7 @@ fun AuthScreen(
                                 text = "Sign in to view and manage your financial records. Your data is isolated and protected by account identity.",
                                 style = BodyRegular,
                                 textAlign = TextAlign.Center,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
                             Spacer(modifier = Modifier.height(Space20))
@@ -266,22 +260,22 @@ fun AuthScreen(
                                     Text(
                                         text = "Direct Account Sign-In (UID Testing & Cache Isolation)",
                                         style = MicroMetadata,
-                                        color = TextSecondary
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Spacer(modifier = Modifier.height(Space8))
                                     OutlinedTextField(
                                         value = testUidInput,
                                         onValueChange = { testUidInput = it },
-                                        label = { Text("Account UID", color = TextSecondary) },
+                                        label = { Text("Account UID", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                         singleLine = true,
                                         shape = RoundedCornerShape(RadiusMedium),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = CobaltBlue,
-                                            unfocusedBorderColor = SurfaceContainerHighDark,
-                                            focusedTextColor = TextPrimary,
-                                            unfocusedTextColor = TextPrimary,
-                                            focusedContainerColor = SurfaceContainerDark,
-                                            unfocusedContainerColor = SurfaceContainerDark
+                                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer
                                         ),
                                         modifier = Modifier
                                             .fillMaxWidth()

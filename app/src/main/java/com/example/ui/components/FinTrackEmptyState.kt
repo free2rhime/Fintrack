@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,9 +31,6 @@ import com.example.ui.theme.Space16
 import com.example.ui.theme.Space24
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 /**
  * Reusable empty state primitive for FinTrack Design System v1.
@@ -45,12 +43,15 @@ fun FinTrackEmptyState(
     description: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
-    iconTint: Color = TextSecondary,
-    iconContainerColor: Color = SurfaceContainerDark,
+    iconTint: Color = Color.Unspecified,
+    iconContainerColor: Color = Color.Unspecified,
     compact: Boolean = false,
     actionLabel: String? = null,
     onActionClick: (() -> Unit)? = null
 ) {
+    val resolvedIconTint = if (iconTint != Color.Unspecified) iconTint else MaterialTheme.colorScheme.onSurfaceVariant
+    val resolvedIconContainerColor = if (iconContainerColor != Color.Unspecified) iconContainerColor else MaterialTheme.colorScheme.surfaceContainerHigh
+
     val containerPadding = if (compact) Space12 else Space24
     val iconBoxSize = if (compact) 44.dp else 64.dp
     val iconSize = if (compact) 22.dp else 32.dp
@@ -70,13 +71,13 @@ fun FinTrackEmptyState(
             Box(
                 modifier = Modifier
                     .size(iconBoxSize)
-                    .background(iconContainerColor, CircleShape),
+                    .background(resolvedIconContainerColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = iconTint,
+                    tint = resolvedIconTint,
                     modifier = Modifier.size(iconSize)
                 )
             }
@@ -86,7 +87,7 @@ fun FinTrackEmptyState(
         Text(
             text = title,
             style = titleStyle,
-            color = TextPrimary,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
 
@@ -95,7 +96,7 @@ fun FinTrackEmptyState(
         Text(
             text = description,
             style = BodyRegular,
-            color = TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
@@ -138,7 +139,7 @@ fun FinTrackLoadingState(
         Text(
             text = message,
             style = BodyRegular,
-            color = TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }

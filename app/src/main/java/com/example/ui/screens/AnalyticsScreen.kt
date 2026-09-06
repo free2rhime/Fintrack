@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,7 +56,6 @@ import com.example.ui.components.MonthlyCashFlowBarChart
 import com.example.ui.components.MonthlyCashFlowSplineChart
 import com.example.ui.components.SavingsTrendLineChart
 import com.example.ui.theme.BodyRegular
-import com.example.ui.theme.CanvasDark
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseCoral
@@ -69,10 +69,6 @@ import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.WarningAmber
 
 @Composable
@@ -92,7 +88,7 @@ fun AnalyticsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(CanvasDark),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
@@ -131,7 +127,7 @@ fun AnalyticsScreen(
                     Text(
                         text = "Analytics & Ratios",
                         style = SectionHeadline,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -150,7 +146,6 @@ fun AnalyticsScreen(
                         .padding(horizontal = Space16)
                         .testTag("analytics_eur_incomplete_warning_card"),
                     shape = RoundedCornerShape(RadiusMedium),
-                    containerColor = SurfaceContainerDark,
                     border = BorderStroke(1.dp, WarningAmber.copy(alpha = 0.3f)),
                     contentPadding = Space12
                 ) {
@@ -173,7 +168,7 @@ fun AnalyticsScreen(
                         Text(
                             text = "EUR totals are incomplete: ${metrics.excludedNonOfficialCount} transaction(s) pending or unverified BNR exchange rate excluded. Complete RON data remains available.",
                             style = MicroMetadata,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -188,7 +183,6 @@ fun AnalyticsScreen(
                     .padding(horizontal = Space16)
                     .testTag("analytics_smart_insights_card"),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
@@ -211,7 +205,7 @@ fun AnalyticsScreen(
                         Text(
                             text = "Financial Health Assessment",
                             style = SectionHeadline,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -224,7 +218,7 @@ fun AnalyticsScreen(
                         Text(
                             text = "Status:",
                             style = BodyRegular,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         val healthBadgeVariant = when {
@@ -251,14 +245,14 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Avg Monthly Expense",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
@@ -272,14 +266,14 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Avg Monthly Income",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
@@ -298,14 +292,14 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Avg Monthly Expense",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
@@ -319,14 +313,14 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Avg Monthly Income",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
@@ -350,7 +344,6 @@ fun AnalyticsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = Space16),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
@@ -373,7 +366,7 @@ fun AnalyticsScreen(
                         Text(
                             text = "Period Totals",
                             style = SectionHeadline,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -385,14 +378,14 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Total Income",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
@@ -406,14 +399,14 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Total Expense",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
@@ -427,20 +420,20 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Net Balance",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
                                             text = NumberFormatter.formatCurrency(metrics.balance, metrics.currency),
                                             style = CardTitleAmount,
-                                            color = if (metrics.balance > 0) IncomeEmerald else if (metrics.balance < 0) ExpenseCoral else TextPrimary
+                                            color = if (metrics.balance > 0) IncomeEmerald else if (metrics.balance < 0) ExpenseCoral else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
@@ -453,14 +446,14 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Total Income",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
@@ -474,14 +467,14 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Total Expense",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
@@ -495,20 +488,20 @@ fun AnalyticsScreen(
                                 FinTrackCard(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    containerColor = SurfaceContainerDark,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentPadding = Space12
                                 ) {
                                     Column {
                                         Text(
                                             text = "Net Balance",
                                             style = MicroMetadata,
-                                            color = TextSecondary
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
                                             text = NumberFormatter.formatCurrency(metrics.balance, metrics.currency),
                                             style = CardTitleAmount,
-                                            color = if (metrics.balance > 0) IncomeEmerald else if (metrics.balance < 0) ExpenseCoral else TextPrimary
+                                            color = if (metrics.balance > 0) IncomeEmerald else if (metrics.balance < 0) ExpenseCoral else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
@@ -526,7 +519,6 @@ fun AnalyticsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = Space16),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
@@ -549,7 +541,7 @@ fun AnalyticsScreen(
                         Text(
                             text = "Net Savings Trend",
                             style = SectionHeadline,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -567,7 +559,6 @@ fun AnalyticsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = Space16),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
@@ -593,7 +584,7 @@ fun AnalyticsScreen(
                                     Text(
                                         text = "Income vs Expense Trend",
                                         style = SectionHeadline,
-                                        color = TextPrimary
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(Space12))
@@ -632,7 +623,7 @@ fun AnalyticsScreen(
                                     Text(
                                         text = "Income vs Expense Trend",
                                         style = SectionHeadline,
-                                        color = TextPrimary
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(Space8))
@@ -664,7 +655,6 @@ fun AnalyticsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = Space16),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
@@ -687,7 +677,7 @@ fun AnalyticsScreen(
                         Text(
                             text = "Expense Category Breakdown",
                             style = SectionHeadline,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -706,16 +696,15 @@ fun AnalyticsScreen(
                         .fillMaxWidth()
                         .padding(horizontal = Space16),
                     shape = RoundedCornerShape(RadiusLarge),
-                    containerColor = SurfaceDark,
                     contentPadding = Space16
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(IncomeEmerald.copy(alpha = 0.15f)),
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(IncomeEmerald.copy(alpha = 0.15f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -729,7 +718,7 @@ fun AnalyticsScreen(
                             Text(
                                 text = "Income Source Distribution",
                                 style = SectionHeadline,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 

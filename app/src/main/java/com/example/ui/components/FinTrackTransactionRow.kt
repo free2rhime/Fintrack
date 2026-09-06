@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,10 +41,6 @@ import com.example.ui.theme.Space12
 import com.example.ui.theme.Space2
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 /**
  * Reusable presentation row for transactions in FinTrack Design System v1.
@@ -76,7 +73,7 @@ fun FinTrackTransactionRow(
 ) {
     FinTrackCard(
         modifier = modifier.fillMaxWidth(),
-        containerColor = SurfaceContainerDark,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(RadiusLarge),
         contentPadding = Space12,
         onClick = onClick
@@ -111,7 +108,7 @@ fun FinTrackTransactionRow(
                     Text(
                         text = description,
                         style = CardTitleAmount,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -128,7 +125,7 @@ fun FinTrackTransactionRow(
                     Text(
                         text = metadataParts.joinToString("  •  "),
                         style = MicroMetadata,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -177,7 +174,7 @@ fun FinTrackTransactionRow(
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
                                 contentDescription = "Duplicate transaction",
-                                tint = TextSecondary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -194,7 +191,7 @@ fun FinTrackTransactionRow(
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Edit transaction",
-                                tint = TextSecondary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }

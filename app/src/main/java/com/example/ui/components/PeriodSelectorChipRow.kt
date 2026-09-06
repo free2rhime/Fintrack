@@ -24,6 +24,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,11 +50,6 @@ import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 /**
  * Compact Material 3 Period Dropdown Selector for FinTrack Design System v1.
@@ -83,8 +79,8 @@ fun FinTrackPeriodDropdown(
         Surface(
             onClick = { expanded = !expanded },
             shape = RoundedCornerShape(RadiusMedium),
-            color = SurfaceContainerDark,
-            border = BorderStroke(1.dp, SurfaceContainerHighDark),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .defaultMinSize(minHeight = 40.dp)
                 .testTag("period_selector_dropdown")
@@ -105,13 +101,13 @@ fun FinTrackPeriodDropdown(
                     text = currentDisplayName,
                     style = LabelBadgeMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.width(Space8))
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = "Select period",
-                    tint = TextSecondary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -121,8 +117,8 @@ fun FinTrackPeriodDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier
-                .background(SurfaceDark)
-                .border(1.dp, SurfaceContainerHighDark, RoundedCornerShape(RadiusSmall))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(RadiusSmall))
         ) {
             periods.forEach { period ->
                 val isSelected = period == selectedPeriod
@@ -139,7 +135,7 @@ fun FinTrackPeriodDropdown(
                                 text = displayName,
                                 style = LabelBadgeMedium,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) CobaltBlue else TextPrimary,
+                                color = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
                             if (isSelected) {
@@ -217,8 +213,8 @@ fun FinTrackPeriodSelector(
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = CobaltBlue,
                         selectedLabelColor = Color.White,
-                        containerColor = SurfaceContainerDark,
-                        labelColor = TextSecondary
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     modifier = Modifier
                         .defaultMinSize(minHeight = 48.dp)

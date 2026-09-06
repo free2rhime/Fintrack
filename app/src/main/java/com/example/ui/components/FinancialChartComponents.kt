@@ -64,12 +64,7 @@ import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
 import com.example.ui.theme.TertiaryViolet
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import kotlin.math.roundToInt
 
 @Composable
@@ -83,7 +78,7 @@ fun MonthlyCashFlowSplineChart(
             title = "No Cash Flow Data",
             description = "No financial activity recorded in this period",
             icon = Icons.Default.ShowChart,
-            iconTint = TextSecondary,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
             compact = true,
             modifier = modifier
                 .fillMaxWidth()
@@ -106,7 +101,7 @@ fun MonthlyCashFlowSplineChart(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(RadiusSmall))
-                    .background(SurfaceContainerDark)
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
                     .padding(horizontal = Space12, vertical = Space8),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -114,7 +109,7 @@ fun MonthlyCashFlowSplineChart(
                 Text(
                     text = activePoint.monthYearLabel,
                     style = LabelBadgeMedium,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold
                 )
                 Row(
@@ -156,6 +151,9 @@ fun MonthlyCashFlowSplineChart(
             Spacer(modifier = Modifier.height(Space8))
         }
 
+        val gridColor = MaterialTheme.colorScheme.outlineVariant
+        val indicatorColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -179,7 +177,6 @@ fun MonthlyCashFlowSplineChart(
             val bottomPadding = 20.dp.toPx()
             val availableHeight = height - bottomPadding
 
-            val gridColor = SurfaceContainerHighDark.copy(alpha = 0.6f)
             for (i in 1..3) {
                 val y = availableHeight * (i / 4f)
                 drawLine(
@@ -291,7 +288,7 @@ fun MonthlyCashFlowSplineChart(
             if (selectedIndex in incomePoints.indices) {
                 val highlightX = incomePoints[selectedIndex].x
                 drawLine(
-                    color = TextSecondary.copy(alpha = 0.35f),
+                    color = indicatorColor,
                     start = Offset(highlightX, 0f),
                     end = Offset(highlightX, availableHeight),
                     strokeWidth = 1.dp.toPx(),
@@ -349,7 +346,7 @@ fun MonthlyCashFlowSplineChart(
                         style = MicroMetadata,
                         fontSize = 10.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) TextPrimary else TextSecondary,
+                        color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                     if (yearPart.isNotEmpty()) {
@@ -358,7 +355,7 @@ fun MonthlyCashFlowSplineChart(
                             style = MicroMetadata,
                             fontSize = 9.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) TextPrimary else TextMuted,
+                            color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center
                         )
                     }
@@ -385,7 +382,7 @@ fun MonthlyCashFlowSplineChart(
                 text = "Income",
                 style = LabelBadgeMedium,
                 fontWeight = FontWeight.Medium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.width(Space20))
@@ -401,7 +398,7 @@ fun MonthlyCashFlowSplineChart(
                 text = "Expense",
                 style = LabelBadgeMedium,
                 fontWeight = FontWeight.Medium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -418,7 +415,7 @@ fun MonthlyCashFlowBarChart(
             title = "No Cash Flow Data",
             description = "No financial activity recorded in this period",
             icon = Icons.Default.BarChart,
-            iconTint = TextSecondary,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
             compact = true,
             modifier = modifier
                 .fillMaxWidth()
@@ -428,6 +425,7 @@ fun MonthlyCashFlowBarChart(
     }
 
     val maxVal = (dataPoints.maxOfOrNull { maxOf(it.income, it.expense) } ?: 100.0).coerceAtLeast(10.0)
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
 
     Column(modifier = modifier.fillMaxWidth()) {
         Canvas(
@@ -441,7 +439,6 @@ fun MonthlyCashFlowBarChart(
             val groupWidth = width / numGroups
             val barWidth = (groupWidth * 0.3f).coerceAtMost(20.dp.toPx())
 
-            val gridColor = SurfaceContainerHighDark.copy(alpha = 0.6f)
             for (i in 1..3) {
                 val y = height * (i / 4f)
                 drawLine(
@@ -500,7 +497,7 @@ fun MonthlyCashFlowBarChart(
                         style = MicroMetadata,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                     if (yearPart.isNotEmpty()) {
@@ -509,7 +506,7 @@ fun MonthlyCashFlowBarChart(
                             style = MicroMetadata,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Normal,
-                            color = TextMuted,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center
                         )
                     }
@@ -536,7 +533,7 @@ fun MonthlyCashFlowBarChart(
                 text = "Income",
                 style = LabelBadgeMedium,
                 fontWeight = FontWeight.Medium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.width(Space20))
@@ -552,7 +549,7 @@ fun MonthlyCashFlowBarChart(
                 text = "Expense",
                 style = LabelBadgeMedium,
                 fontWeight = FontWeight.Medium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -620,7 +617,7 @@ fun CategoryDistributionChart(
             title = "No Category Spending",
             description = "No category data available for this period",
             icon = Icons.Default.PieChart,
-            iconTint = TextSecondary,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
             compact = true,
             modifier = modifier
                 .fillMaxWidth()
@@ -669,7 +666,7 @@ fun CategoryDistributionChart(
                         Text(
                             text = share.categoryName,
                             style = BodyRegular,
-                            color = TextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -682,7 +679,7 @@ fun CategoryDistributionChart(
                         text = "$formattedAmount $currency (${share.displayPercentage}%)",
                         style = LabelBadgeMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -695,7 +692,7 @@ fun CategoryDistributionChart(
                         .height(7.dp)
                         .clip(RoundedCornerShape(4.dp)),
                     color = color,
-                    trackColor = SurfaceContainerHighDark
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
                 )
             }
         }
@@ -713,7 +710,7 @@ fun SavingsTrendLineChart(
             title = "No Savings Data",
             description = "No financial activity recorded in this period",
             icon = Icons.Default.TrendingUp,
-            iconTint = TextSecondary,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
             compact = true,
             modifier = modifier
                 .fillMaxWidth()
@@ -727,7 +724,7 @@ fun SavingsTrendLineChart(
             title = "Insufficient Trend Data",
             description = "Accumulate transactions over multiple months to display savings trends",
             icon = Icons.Default.Info,
-            iconTint = TextSecondary,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
             compact = true,
             modifier = modifier
                 .fillMaxWidth()

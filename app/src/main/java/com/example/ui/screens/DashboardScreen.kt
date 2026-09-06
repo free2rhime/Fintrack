@@ -62,7 +62,6 @@ import com.example.ui.components.FinTrackPeriodDropdown
 import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.FinTrackSyncStatus
 import com.example.ui.components.MonthlyCashFlowSplineChart
-import com.example.ui.theme.CanvasDark
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseContainer
@@ -85,10 +84,6 @@ import com.example.ui.theme.Space20
 import com.example.ui.theme.Space24
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.WarningAmber
 
 @Composable
@@ -106,7 +101,7 @@ fun DashboardScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(CanvasDark),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
@@ -127,7 +122,7 @@ fun DashboardScreen(
             Text(
                 text = "Dashboard",
                 style = SectionHeadline,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             CurrencyToggle(
                 selectedCurrency = filterSettings.selectedCurrency,
@@ -157,7 +152,6 @@ fun DashboardScreen(
                     .padding(horizontal = Space16)
                     .testTag("eur_incomplete_warning_card"),
                 shape = RoundedCornerShape(RadiusMedium),
-                containerColor = SurfaceContainerDark,
                 border = BorderStroke(1.dp, WarningAmber.copy(alpha = 0.3f)),
                 contentPadding = Space12
             ) {
@@ -182,7 +176,7 @@ fun DashboardScreen(
                     Text(
                         text = "EUR totals are incomplete: ${metrics.excludedNonOfficialCount} transaction(s) pending or unverified BNR exchange rate excluded. Complete RON data remains available.",
                         style = MicroMetadata,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -197,7 +191,6 @@ fun DashboardScreen(
                 .padding(horizontal = Space16)
                 .testTag("dashboard_top_card"),
             shape = RoundedCornerShape(RadiusXLarge),
-            containerColor = SurfaceDark,
             tonalElevation = 2.dp,
             contentPadding = Space24
         ) {
@@ -205,7 +198,7 @@ fun DashboardScreen(
                 Text(
                     text = "NET BALANCE",
                     style = LabelBadgeMedium,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.sp
                 )
                 Spacer(modifier = Modifier.height(Space8))
@@ -217,7 +210,7 @@ fun DashboardScreen(
                     Text(
                         text = formattedBalance,
                         style = HeroFinancialDisplay,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -253,7 +246,7 @@ fun DashboardScreen(
                             Text(
                                 text = "Income",
                                 style = LabelBadgeMedium,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(Space2))
                             Text(
@@ -293,7 +286,7 @@ fun DashboardScreen(
                             Text(
                                 text = "Expense",
                                 style = LabelBadgeMedium,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(Space2))
                             Text(
@@ -341,7 +334,6 @@ fun DashboardScreen(
                     .weight(1f)
                     .testTag("card_savings_rate"),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
@@ -353,20 +345,20 @@ fun DashboardScreen(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(SurfaceContainerDark),
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Savings,
                                 contentDescription = "Savings",
-                                tint = TextSecondary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Text(
                             text = "Savings Rate",
                             style = LabelBadgeMedium,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -385,7 +377,6 @@ fun DashboardScreen(
                     .weight(1f)
                     .testTag("card_expense_pressure"),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
@@ -397,20 +388,20 @@ fun DashboardScreen(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(SurfaceContainerDark),
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Speed,
                                 contentDescription = "Pressure",
-                                tint = TextSecondary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Text(
                             text = "Expense Pressure",
                             style = LabelBadgeMedium,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -437,20 +428,19 @@ fun DashboardScreen(
             FinTrackCard(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
                     Text(
                         text = "Top Category",
                         style = LabelBadgeMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(Space8))
                     Text(
                         text = metrics.topExpenseCategory.ifBlank { "None" },
                         style = CardTitleAmount,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -467,26 +457,25 @@ fun DashboardScreen(
             FinTrackCard(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(RadiusLarge),
-                containerColor = SurfaceDark,
                 contentPadding = Space16
             ) {
                 Column {
                     Text(
                         text = "Concentration",
                         style = LabelBadgeMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(Space8))
                     Text(
                         text = "${metrics.categoryConcentrationPercent}%",
                         style = CardTitleAmount,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(Space4))
                     Text(
                         text = "of total spending",
                         style = MicroMetadata,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -500,7 +489,6 @@ fun DashboardScreen(
                 .fillMaxWidth()
                 .padding(horizontal = Space16),
             shape = RoundedCornerShape(RadiusLarge),
-            containerColor = SurfaceDark,
             contentPadding = Space16
         ) {
             Column {
@@ -526,7 +514,7 @@ fun DashboardScreen(
                     Text(
                         text = "Monthly Cash Flow",
                         style = SectionHeadline,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -547,7 +535,6 @@ fun DashboardScreen(
                 .fillMaxWidth()
                 .padding(horizontal = Space16),
             shape = RoundedCornerShape(RadiusLarge),
-            containerColor = SurfaceDark,
             contentPadding = Space16
         ) {
             Column {
@@ -570,7 +557,7 @@ fun DashboardScreen(
                     Text(
                         text = "Spending by Category",
                         style = SectionHeadline,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 

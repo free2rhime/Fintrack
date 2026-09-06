@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -76,7 +77,6 @@ import com.example.ui.components.FinTrackSyncStatus
 import com.example.ui.components.HouseholdOverviewCard
 import com.example.ui.components.InviteMemberDialog
 import com.example.ui.theme.BodyRegular
-import com.example.ui.theme.CanvasDark
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseCoral
@@ -93,11 +93,6 @@ import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.WarningAmber
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -187,7 +182,7 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(CanvasDark),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
@@ -223,12 +218,12 @@ fun SettingsScreen(
                     Text(
                         text = "Preferences & System",
                         style = SectionHeadline,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Account, household sync, and data preferences",
                         style = MicroMetadata,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -250,9 +245,8 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("account_info_card"),
-                containerColor = SurfaceDark,
                 shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, SurfaceContainerHighDark.copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
                     Row(
@@ -279,7 +273,7 @@ fun SettingsScreen(
                             Text(
                                 text = "Account Identity & Security",
                                 style = CardTitleAmount,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
@@ -295,7 +289,7 @@ fun SettingsScreen(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(RadiusMedium),
-                        color = SurfaceContainerDark
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
                     ) {
                         Column(modifier = Modifier.padding(Space12)) {
                             Text(
@@ -311,7 +305,7 @@ fun SettingsScreen(
                                 Text(
                                     text = "Email: $currentUserEmail",
                                     style = BodyRegular,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -346,9 +340,8 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("pending_invitations_card"),
-                    containerColor = SurfaceDark,
                     shape = RoundedCornerShape(RadiusLarge),
-                    border = BorderStroke(1.dp, SurfaceContainerHighDark.copy(alpha = 0.5f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
                         Row(
@@ -373,7 +366,7 @@ fun SettingsScreen(
                             Text(
                                 text = "Pending Invitations",
                                 style = CardTitleAmount,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             FinTrackStatusBadge(
@@ -402,20 +395,20 @@ fun SettingsScreen(
                                         .fillMaxWidth()
                                         .testTag("pending_invite_item"),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    color = SurfaceContainerDark
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh
                                 ) {
                                     Column(modifier = Modifier.padding(Space12)) {
                                         Text(
                                             text = householdName,
                                             style = CardTitleAmount,
-                                            color = TextPrimary,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.testTag("invite_household_name")
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
                                         Text(
                                             text = "From: $inviterEmail",
                                             style = BodyRegular,
-                                            color = TextSecondary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.testTag("invite_inviter_email")
                                         )
                                         Spacer(modifier = Modifier.height(Space4))
@@ -498,9 +491,8 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("household_setup_card"),
-                    containerColor = SurfaceDark,
                     shape = RoundedCornerShape(RadiusLarge),
-                    border = BorderStroke(1.dp, SurfaceContainerHighDark.copy(alpha = 0.5f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -522,14 +514,14 @@ fun SettingsScreen(
                             Text(
                                 text = "Household Setup",
                                 style = CardTitleAmount,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
                         Text(
                             text = "Create a household to enable cloud synchronization of your financial data.",
                             style = BodyRegular,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         FinTrackButton(
@@ -559,9 +551,8 @@ fun SettingsScreen(
             // CURRENCY SELECTION CARD
             FinTrackCard(
                 modifier = Modifier.fillMaxWidth(),
-                containerColor = SurfaceDark,
                 shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, SurfaceContainerHighDark.copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -572,13 +563,13 @@ fun SettingsScreen(
                         Text(
                             text = "Display Currency",
                             style = CardTitleAmount,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(Space4))
                         Text(
                             text = "Primary transactions recorded in RON",
                             style = MicroMetadata,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -592,9 +583,8 @@ fun SettingsScreen(
             // THEME MODE CARD
             FinTrackCard(
                 modifier = Modifier.fillMaxWidth(),
-                containerColor = SurfaceDark,
                 shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, SurfaceContainerHighDark.copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -616,7 +606,7 @@ fun SettingsScreen(
                         Text(
                             text = "Appearance Theme",
                             style = CardTitleAmount,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -646,9 +636,8 @@ fun SettingsScreen(
             // CSV EXPORT DATA CARD
             FinTrackCard(
                 modifier = Modifier.fillMaxWidth(),
-                containerColor = SurfaceDark,
                 shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, SurfaceContainerHighDark.copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -670,14 +659,14 @@ fun SettingsScreen(
                         Text(
                             text = "Data Export & Reports",
                             style = CardTitleAmount,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
                     Text(
                         text = "Export all recorded transactions, exchange rates, and category metadata as a standard CSV file.",
                         style = BodyRegular,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     FinTrackButton(
@@ -727,9 +716,8 @@ fun SettingsScreen(
             // EUR EXCHANGE RATE CONVERSION CARD
             FinTrackCard(
                 modifier = Modifier.fillMaxWidth(),
-                containerColor = SurfaceDark,
                 shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, SurfaceContainerHighDark.copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -751,14 +739,14 @@ fun SettingsScreen(
                         Text(
                             text = "EUR Exchange Rate Synchronization",
                             style = CardTitleAmount,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
                     Text(
                         text = "Retry fetching official BNR rates for pending EUR transaction conversions.",
                         style = BodyRegular,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     FinTrackButton(
@@ -822,9 +810,9 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = onDismissRetryResult,
             shape = RoundedCornerShape(RadiusXLarge),
-            containerColor = SurfaceDark,
-            titleContentColor = TextPrimary,
-            textContentColor = TextSecondary,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             title = {
                 Text(
                     text = "EUR Conversions Retry Result",
@@ -837,27 +825,27 @@ fun SettingsScreen(
                     Text(
                         text = "• Pending before retry: ${pendingRetryResult.pendingBefore}",
                         style = BodyRegular,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "• Converted successfully: ${pendingRetryResult.convertedSuccessfully}",
                         style = BodyRegular,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "• Still pending: ${pendingRetryResult.stillPending}",
                         style = BodyRegular,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "• Failed: ${pendingRetryResult.failedCount}",
                         style = BodyRegular,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "• Main failure reason: ${pendingRetryResult.mainFailureReason ?: "None"}",
                         style = BodyRegular,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },
@@ -877,9 +865,9 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = onDismissDebugDiagnostic,
             shape = RoundedCornerShape(RadiusXLarge),
-            containerColor = SurfaceDark,
-            titleContentColor = TextPrimary,
-            textContentColor = TextSecondary,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             title = {
                 Text(
                     text = "BNR Endpoint Diagnostic (Debug)",
@@ -892,24 +880,24 @@ fun SettingsScreen(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(Space4)
                 ) {
-                    Text("• Reachable: ${debugDiagnosticResult.isReachable}", style = MicroMetadata, color = TextSecondary)
-                    Text("• HTTP Status: ${debugDiagnosticResult.httpStatus}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Failure Category: ${debugDiagnosticResult.failureCategory}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Publication Dates Parsed: ${debugDiagnosticResult.publicationDatesParsed}", style = MicroMetadata, color = TextSecondary)
-                    Text("• EUR Rate Found: ${debugDiagnosticResult.eurRateFound}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Latest Publication Date: ${debugDiagnosticResult.latestPublicationDate ?: "N/A"}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Requested URL: ${debugDiagnosticResult.requestedUrl}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Final URL: ${debugDiagnosticResult.finalUrl}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Content-Type: ${debugDiagnosticResult.contentType ?: "N/A"}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Content-Encoding: ${debugDiagnosticResult.contentEncoding ?: "None"}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Response Size: ${debugDiagnosticResult.responseByteCount} bytes", style = MicroMetadata, color = TextSecondary)
-                    Text("• Is HTML: ${debugDiagnosticResult.isHtml}", style = MicroMetadata, color = TextSecondary)
-                    Text("• XML Declaration: ${debugDiagnosticResult.hasXmlDeclaration}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Root Element: ${debugDiagnosticResult.rootLocalName ?: "N/A"} (NS: ${debugDiagnosticResult.rootNamespaceUri ?: "None"})", style = MicroMetadata, color = TextSecondary)
-                    Text("• Element Counts: Cubes=${debugDiagnosticResult.cubeElementCount}, Rates=${debugDiagnosticResult.rateElementCount}, EUR=${debugDiagnosticResult.eurRateElementCount}", style = MicroMetadata, color = TextSecondary)
-                    Text("• Stages: A:${if (debugDiagnosticResult.stageA_httpConnection) "PASS" else "FAIL"} B:${if (debugDiagnosticResult.stageB_bodyObtained) "PASS" else "FAIL"} C:${if (debugDiagnosticResult.stageC_xmlOpened) "PASS" else "FAIL"} D:${if (debugDiagnosticResult.stageD_cubeFound) "PASS" else "FAIL"} E:${if (debugDiagnosticResult.stageE_rateFound) "PASS" else "FAIL"} F:${if (debugDiagnosticResult.stageF_eurFound) "PASS" else "FAIL"} G:${if (debugDiagnosticResult.stageG_validRatesProduced) "PASS" else "FAIL"}", style = MicroMetadata, color = TextSecondary)
+                    Text("• Reachable: ${debugDiagnosticResult.isReachable}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• HTTP Status: ${debugDiagnosticResult.httpStatus}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Failure Category: ${debugDiagnosticResult.failureCategory}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Publication Dates Parsed: ${debugDiagnosticResult.publicationDatesParsed}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• EUR Rate Found: ${debugDiagnosticResult.eurRateFound}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Latest Publication Date: ${debugDiagnosticResult.latestPublicationDate ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Requested URL: ${debugDiagnosticResult.requestedUrl}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Final URL: ${debugDiagnosticResult.finalUrl}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Content-Type: ${debugDiagnosticResult.contentType ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Content-Encoding: ${debugDiagnosticResult.contentEncoding ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Response Size: ${debugDiagnosticResult.responseByteCount} bytes", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Is HTML: ${debugDiagnosticResult.isHtml}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• XML Declaration: ${debugDiagnosticResult.hasXmlDeclaration}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Root Element: ${debugDiagnosticResult.rootLocalName ?: "N/A"} (NS: ${debugDiagnosticResult.rootNamespaceUri ?: "None"})", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Element Counts: Cubes=${debugDiagnosticResult.cubeElementCount}, Rates=${debugDiagnosticResult.rateElementCount}, EUR=${debugDiagnosticResult.eurRateElementCount}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Stages: A:${if (debugDiagnosticResult.stageA_httpConnection) "PASS" else "FAIL"} B:${if (debugDiagnosticResult.stageB_bodyObtained) "PASS" else "FAIL"} C:${if (debugDiagnosticResult.stageC_xmlOpened) "PASS" else "FAIL"} D:${if (debugDiagnosticResult.stageD_cubeFound) "PASS" else "FAIL"} E:${if (debugDiagnosticResult.stageE_rateFound) "PASS" else "FAIL"} F:${if (debugDiagnosticResult.stageF_eurFound) "PASS" else "FAIL"} G:${if (debugDiagnosticResult.stageG_validRatesProduced) "PASS" else "FAIL"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (!debugDiagnosticResult.sanitizedPreview.isNullOrBlank()) {
-                        Text("• Preview: ${debugDiagnosticResult.sanitizedPreview}", style = MicroMetadata, color = TextSecondary)
+                        Text("• Preview: ${debugDiagnosticResult.sanitizedPreview}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },
@@ -936,9 +924,9 @@ fun SettingsScreen(
                 copiedToast = false
             },
             shape = RoundedCornerShape(RadiusXLarge),
-            containerColor = SurfaceDark,
-            titleContentColor = TextPrimary,
-            textContentColor = TextSecondary,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             title = {
                 Text(
                     text = "Sync Diagnostics (Debug)",
@@ -964,24 +952,24 @@ fun SettingsScreen(
                         )
                     } else {
                         val record = diagnosticRecord!!
-                        Text("• Timestamp: ${record.formattedTime}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("• Operation: ${record.operation}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("• Timestamp: ${record.formattedTime}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Text("• Operation: ${record.operation}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Text("• Exception Code: ${record.exceptionCode ?: "N/A"}", style = MicroMetadata, color = ExpenseCoral, fontWeight = FontWeight.Bold)
-                        Text("• User UID: ${record.userUid ?: "None"}", style = MicroMetadata, color = TextSecondary)
-                        Text("• Household ID: ${record.householdId ?: "None"}", style = MicroMetadata, color = TextSecondary)
-                        Text("• Message: ${record.exceptionMessage ?: "None"}", style = MicroMetadata, color = TextSecondary)
+                        Text("• User UID: ${record.userUid ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("• Household ID: ${record.householdId ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("• Message: ${record.exceptionMessage ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (!record.stackTraceSnippet.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(Space4))
-                            Text("• Stack Trace Snippet:", style = MicroMetadata, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            Text("• Stack Trace Snippet:", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Surface(
                                 shape = RoundedCornerShape(RadiusSmall),
-                                color = SurfaceContainerDark,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     text = record.stackTraceSnippet,
                                     style = MicroMetadata,
-                                    color = TextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(Space8)
                                 )
                             }

@@ -73,12 +73,6 @@ import com.example.ui.theme.Space2
 import com.example.ui.theme.Space24
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 fun formatLocalizedDateHeader(isoDate: String): String {
     return try {
@@ -161,7 +155,7 @@ fun TransactionsScreen(
                     text = "Transactions",
                     style = SectionHeadline,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 CurrencyToggle(
@@ -181,14 +175,14 @@ fun TransactionsScreen(
                     Text(
                         text = "Search description, category...",
                         style = BodyRegular,
-                        color = TextMuted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = TextSecondary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 trailingIcon = {
@@ -200,18 +194,18 @@ fun TransactionsScreen(
                             Icon(
                                 imageVector = Icons.Default.Clear,
                                 contentDescription = "Clear search",
-                                tint = TextSecondary
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = SurfaceDark,
-                    unfocusedContainerColor = SurfaceDark,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                     focusedBorderColor = CobaltBlue,
-                    unfocusedBorderColor = SurfaceContainerHighDark,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                     cursorColor = CobaltBlue
                 ),
                 keyboardOptions = KeyboardOptions(
@@ -281,8 +275,8 @@ fun TransactionsScreen(
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = CobaltBlue,
                         selectedLabelColor = Color.White,
-                        containerColor = SurfaceContainerDark,
-                        labelColor = TextSecondary
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
 
@@ -308,8 +302,8 @@ fun TransactionsScreen(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = CobaltBlue,
                             selectedLabelColor = Color.White,
-                            containerColor = SurfaceContainerDark,
-                            labelColor = TextSecondary
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                 }
@@ -329,7 +323,7 @@ fun TransactionsScreen(
                         title = "No transactions found",
                         description = "Try adjusting filters or tap + to record a new transaction.",
                         icon = Icons.Default.ReceiptLong,
-                        iconTint = TextMuted,
+                        iconTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         actionLabel = "Add Transaction",
                         onActionClick = onAddTransactionClicked
                     )
@@ -362,12 +356,12 @@ fun TransactionsScreen(
                                 Text(
                                     text = formatLocalizedDateHeader(date),
                                     style = CardTitleAmount,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
 
                                 Surface(
                                     shape = RoundedCornerShape(RadiusSmall),
-                                    color = SurfaceContainerDark,
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
                                     modifier = Modifier.semantics {
                                         contentDescription = "Day total: income +${NumberFormatter.formatAmount(dayIncome)}, expense -${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}"
                                     }
@@ -386,7 +380,7 @@ fun TransactionsScreen(
                                         Text(
                                             text = "/",
                                             style = MicroMetadata,
-                                            color = TextMuted
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                         )
                                         Text(
                                             text = "-${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}",

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,11 +50,6 @@ import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.WarningAmber
 
 @Composable
@@ -84,9 +80,9 @@ fun HouseholdOverviewCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("household_summary_card"),
-        containerColor = SurfaceDark,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(RadiusLarge),
-        border = BorderStroke(1.dp, SurfaceContainerHighDark.copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Header Row: Household Name and Current User Role
@@ -117,7 +113,7 @@ fun HouseholdOverviewCard(
                     Text(
                         text = household.name ?: "Active Household",
                         style = CardTitleAmount,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.testTag("household_name_text")
@@ -128,7 +124,7 @@ fun HouseholdOverviewCard(
                 val (roleBg, roleFg) = when (roleText) {
                     "OWNER" -> IncomeContainer to IncomeEmerald
                     "ADMIN" -> CobaltBlue.copy(alpha = 0.15f) to CobaltBlue
-                    else -> SurfaceContainerHighDark to TextSecondary
+                    else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurfaceVariant
                 }
                 Surface(
                     shape = RoundedCornerShape(RadiusSmall),
@@ -156,7 +152,7 @@ fun HouseholdOverviewCard(
                 Text(
                     text = "Household ID: ${household.householdId ?: "Unknown"}",
                     style = MicroMetadata,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("household_id_text")
                 )
 
@@ -164,14 +160,14 @@ fun HouseholdOverviewCard(
                     text = "Members: ${householdMembers.size}",
                     style = MicroMetadata,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("household_member_count_text")
                 )
             }
 
             Spacer(modifier = Modifier.height(Space12))
             HorizontalDivider(
-                color = SurfaceContainerHighDark.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.outlineVariant,
                 thickness = 1.dp
             )
             Spacer(modifier = Modifier.height(Space12))
@@ -179,7 +175,7 @@ fun HouseholdOverviewCard(
             Text(
                 text = "Household Members",
                 style = SectionHeadline.copy(fontSize = 15.sp),
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(Space8))
@@ -188,7 +184,7 @@ fun HouseholdOverviewCard(
                 Text(
                     text = "No household members found",
                     style = BodyRegular,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = Space8)
                 )
             } else {
@@ -211,7 +207,7 @@ fun HouseholdOverviewCard(
 
                         Surface(
                             shape = RoundedCornerShape(RadiusMedium),
-                            color = SurfaceContainerDark,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("household_member_row")
@@ -233,14 +229,14 @@ fun HouseholdOverviewCard(
                                             .clip(CircleShape)
                                             .background(
                                                 if (isCurrentUser) CobaltBlue.copy(alpha = 0.2f)
-                                                else SurfaceContainerHighDark
+                                                else MaterialTheme.colorScheme.surfaceContainer
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Person,
                                             contentDescription = null,
-                                            tint = if (isCurrentUser) CobaltBlue else TextSecondary,
+                                            tint = if (isCurrentUser) CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
@@ -252,7 +248,7 @@ fun HouseholdOverviewCard(
                                             text = memberDisplayName,
                                             style = BodyRegular,
                                             fontWeight = if (isCurrentUser) FontWeight.Bold else FontWeight.Medium,
-                                            color = TextPrimary,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -260,7 +256,7 @@ fun HouseholdOverviewCard(
                                             Text(
                                                 text = member.email!!,
                                                 style = MicroMetadata,
-                                                color = TextSecondary,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
@@ -296,7 +292,7 @@ fun HouseholdOverviewCard(
                                     val (memRoleBg, memRoleFg) = when (roleBadge) {
                                         "OWNER" -> IncomeContainer to IncomeEmerald
                                         "ADMIN" -> CobaltBlue.copy(alpha = 0.15f) to CobaltBlue
-                                        else -> SurfaceContainerHighDark to TextSecondary
+                                        else -> MaterialTheme.colorScheme.surfaceContainer to MaterialTheme.colorScheme.onSurfaceVariant
                                     }
                                     Surface(
                                         shape = RoundedCornerShape(RadiusSmall),

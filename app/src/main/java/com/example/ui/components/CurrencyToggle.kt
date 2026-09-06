@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,8 +30,6 @@ import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.Space2
 import com.example.ui.theme.Space4
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.TextSecondary
 
 /**
  * Reusable currency selector for FinTrack Design System v1.
@@ -46,7 +45,7 @@ fun FinTrackCurrencySelector(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(RadiusMedium))
-            .background(SurfaceContainerDark)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(Space4),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -59,7 +58,7 @@ fun FinTrackCurrencySelector(
                 label = "currency_selector_bg"
             )
             val textColor by animateColorAsState(
-                targetValue = if (isSelected) Color.White else TextSecondary,
+                targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                 animationSpec = FinTrackMotion.standardTween(),
                 label = "currency_selector_text"
             )

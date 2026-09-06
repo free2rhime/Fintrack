@@ -69,12 +69,6 @@ import com.example.ui.theme.Space2
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.WarningAmber
 import java.util.Locale
 
@@ -94,10 +88,10 @@ fun CsvImportPreviewDialog(
             .fillMaxWidth(0.95f)
             .widthIn(max = 560.dp)
             .padding(Space16),
-        containerColor = SurfaceDark,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(RadiusXLarge),
-        titleContentColor = TextPrimary,
-        textContentColor = TextSecondary,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -111,7 +105,7 @@ fun CsvImportPreviewDialog(
                     text = "CSV Import Preview",
                     style = SectionHeadline,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         },
@@ -141,7 +135,7 @@ fun CsvImportPreviewDialog(
                     MetricCard(
                         title = "Invalid Rows",
                         value = "${previewData.invalidRowsCount}",
-                        textColor = if (previewData.invalidRowsCount > 0) ExpenseCoral else TextPrimary,
+                        textColor = if (previewData.invalidRowsCount > 0) ExpenseCoral else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -174,7 +168,7 @@ fun CsvImportPreviewDialog(
                     text = "Duplicate Transaction Handling:",
                     style = LabelBadgeMedium,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(Space8))
 
@@ -187,10 +181,10 @@ fun CsvImportPreviewDialog(
                         colors = SegmentedButtonDefaults.colors(
                             activeContainerColor = CobaltBlue,
                             activeContentColor = Color.White,
-                            inactiveContainerColor = SurfaceContainerDark,
-                            inactiveContentColor = TextSecondary,
+                            inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             activeBorderColor = CobaltBlue,
-                            inactiveBorderColor = SurfaceContainerHighDark
+                            inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
                         )
                     ) {
                         Text("Skip Existing", style = LabelBadgeMedium)
@@ -203,10 +197,10 @@ fun CsvImportPreviewDialog(
                         colors = SegmentedButtonDefaults.colors(
                             activeContainerColor = CobaltBlue,
                             activeContentColor = Color.White,
-                            inactiveContainerColor = SurfaceContainerDark,
-                            inactiveContentColor = TextSecondary,
+                            inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             activeBorderColor = CobaltBlue,
-                            inactiveBorderColor = SurfaceContainerHighDark
+                            inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
                         )
                     ) {
                         Text("Update Existing", style = LabelBadgeMedium)
@@ -217,7 +211,7 @@ fun CsvImportPreviewDialog(
 
                 Surface(
                     shape = RoundedCornerShape(RadiusMedium),
-                    color = SurfaceContainerDark,
+                    color = MaterialTheme.colorScheme.surfaceContainer,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(Space12)) {
@@ -228,13 +222,13 @@ fun CsvImportPreviewDialog(
                             Text(
                                 text = "New Records to Insert:",
                                 style = BodyRegular,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = "${previewData.newIdsCount}",
                                 style = BodyRegular,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         Spacer(modifier = Modifier.height(Space4))
@@ -246,14 +240,14 @@ fun CsvImportPreviewDialog(
                                 text = if (previewData.duplicateMode == CsvDuplicateMode.SKIP_EXISTING)
                                     "Existing Records (To Skip):" else "Existing Records (To Update):",
                                 style = BodyRegular,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = "${previewData.existingIdsCount}",
                                 style = BodyRegular,
                                 fontWeight = FontWeight.Bold,
                                 color = if (previewData.duplicateMode == CsvDuplicateMode.UPDATE_EXISTING && previewData.existingIdsCount > 0)
-                                    CobaltBlue else TextSecondary
+                                    CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -266,7 +260,7 @@ fun CsvImportPreviewDialog(
                     text = "Exchange Rate Conversion Breakdown:",
                     style = LabelBadgeMedium,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(Space8))
 
@@ -290,7 +284,7 @@ fun CsvImportPreviewDialog(
                     )
                     Spacer(modifier = Modifier.height(Space8))
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = SurfaceContainerDark),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         shape = RoundedCornerShape(RadiusMedium),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -300,7 +294,7 @@ fun CsvImportPreviewDialog(
                                     text = "• [${item.type}] ${item.name} → ${item.subCategory}",
                                     style = BodyRegular,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Spacer(modifier = Modifier.height(Space2))
                             }
@@ -370,18 +364,18 @@ fun CsvImportPreviewDialog(
     if (showUpdateConfirmation) {
         AlertDialog(
             onDismissRequest = { showUpdateConfirmation = false },
-            containerColor = SurfaceDark,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = RoundedCornerShape(RadiusXLarge),
-            titleContentColor = TextPrimary,
-            textContentColor = TextSecondary,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             title = {
-                Text("Confirm Overwrite", style = SectionHeadline, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text("Confirm Overwrite", style = SectionHeadline, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             },
             text = {
                 Text(
                     text = "You have selected 'Update Existing' mode. Importing will overwrite data for ${previewData.existingIdsCount} matching transaction record(s) currently in your database.\n\nA backup will be created and validated before writing. Are you sure you want to proceed?",
                     style = BodyRegular,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -412,10 +406,10 @@ fun CsvImportResultDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(RadiusXLarge),
-        titleContentColor = TextPrimary,
-        textContentColor = TextSecondary,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (result.success) {
@@ -428,7 +422,7 @@ fun CsvImportResultDialog(
                     text = if (result.success) "Import Successful" else "Import Failed",
                     style = SectionHeadline,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         },
@@ -452,24 +446,24 @@ fun CsvImportResultDialog(
                     Text(
                         text = "Transactions have been processed and saved into local storage.",
                         style = BodyRegular,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(Space12))
 
                     // RESULT BREAKDOWN CARDS
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = SurfaceContainerDark),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         shape = RoundedCornerShape(RadiusLarge),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(Space16)) {
                             ResultRow("Transactions Inserted:", "${result.insertedCount}", IncomeEmerald)
                             ResultRow("Transactions Updated:", "${result.updatedCount}", CobaltBlue)
-                            ResultRow("Transactions Skipped:", "${result.skippedCount}", TextSecondary)
-                            ResultRow("Rows Failed / Excluded:", "${result.failedCount}", if (result.failedCount > 0) ExpenseCoral else TextSecondary)
+                            ResultRow("Transactions Skipped:", "${result.skippedCount}", MaterialTheme.colorScheme.onSurfaceVariant)
+                            ResultRow("Rows Failed / Excluded:", "${result.failedCount}", if (result.failedCount > 0) ExpenseCoral else MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(Space8))
-                            ResultRow("Categories Created:", "${result.categoriesCreatedCount}", TextPrimary)
-                            ResultRow("Subcategories Created:", "${result.subcategoriesCreatedCount}", TextPrimary)
+                            ResultRow("Categories Created:", "${result.categoriesCreatedCount}", MaterialTheme.colorScheme.onSurface)
+                            ResultRow("Subcategories Created:", "${result.subcategoriesCreatedCount}", MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.height(Space8))
                             ResultRow("Pending Conversions:", "${result.pendingCount}", ExpenseCoral)
                             ResultRow("Unverified Conversions:", "${result.unverifiedCount}", WarningAmber)
@@ -481,7 +475,7 @@ fun CsvImportResultDialog(
                         Text(
                             text = "Backup Verified & Saved At:\n${result.backupFilePath}",
                             style = MicroMetadata,
-                            color = TextMuted
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -503,17 +497,18 @@ private fun MetricCard(
     title: String,
     value: String,
     modifier: Modifier = Modifier,
-    textColor: Color = TextPrimary
+    textColor: Color = Color.Unspecified
 ) {
+    val resolvedTextColor = if (textColor != Color.Unspecified) textColor else MaterialTheme.colorScheme.onSurface
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(RadiusMedium),
-        colors = CardDefaults.cardColors(containerColor = SurfaceContainerDark)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(modifier = Modifier.padding(Space8)) {
-            Text(title, style = MicroMetadata, color = TextSecondary)
+            Text(title, style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(Space4))
-            Text(value, style = CardTitleAmount, fontWeight = FontWeight.Bold, color = textColor)
+            Text(value, style = CardTitleAmount, fontWeight = FontWeight.Bold, color = resolvedTextColor)
         }
     }
 }
@@ -548,7 +543,7 @@ private fun ResultRow(
             .padding(vertical = Space4),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, style = BodyRegular, color = TextSecondary)
+        Text(label, style = BodyRegular, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = BodyRegular, fontWeight = FontWeight.Bold, color = valueColor)
     }
 }

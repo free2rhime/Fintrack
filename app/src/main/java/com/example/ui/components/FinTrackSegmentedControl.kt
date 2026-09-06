@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,9 +32,6 @@ import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.Space2
 import com.example.ui.theme.Space4
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 /**
  * Reusable segmented control for mutually exclusive choices in FinTrack Design System v1.
@@ -61,7 +59,7 @@ fun FinTrackSegmentedControl(
             // Compact visual track (32dp height, subtle rounded corners)
             Surface(
                 shape = RoundedCornerShape(RadiusMedium),
-                color = SurfaceContainerDark,
+                color = MaterialTheme.colorScheme.surfaceContainer,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(32.dp)
@@ -82,7 +80,7 @@ fun FinTrackSegmentedControl(
                     )
 
                     val textColor by animateColorAsState(
-                        targetValue = if (isSelected) TextPrimary else TextSecondary,
+                        targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                         animationSpec = FinTrackMotion.standardTween(),
                         label = "segmented_control_compact_text_color"
                     )
@@ -123,7 +121,7 @@ fun FinTrackSegmentedControl(
             modifier = modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(RadiusMedium))
-                .background(SurfaceContainerDark)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(Space4),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -137,7 +135,7 @@ fun FinTrackSegmentedControl(
                 )
 
                 val textColor by animateColorAsState(
-                    targetValue = if (isSelected) Color.White else TextSecondary,
+                    targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                     animationSpec = FinTrackMotion.standardTween(),
                     label = "segmented_control_text_color"
                 )

@@ -70,12 +70,6 @@ import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceContainerDark
-import com.example.ui.theme.SurfaceContainerHighDark
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -179,24 +173,24 @@ fun TransactionFormDialog(
     val accounts = listOf("Card", "Cash", "Meal Tickets")
 
     val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedContainerColor = SurfaceContainerDark,
-        unfocusedContainerColor = SurfaceContainerDark,
-        disabledContainerColor = SurfaceContainerDark,
-        errorContainerColor = SurfaceContainerDark,
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        errorContainerColor = MaterialTheme.colorScheme.surfaceContainer,
         focusedBorderColor = CobaltBlue,
-        unfocusedBorderColor = SurfaceContainerHighDark,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
         errorBorderColor = ExpenseCoral,
         focusedLabelColor = CobaltBlue,
-        unfocusedLabelColor = TextSecondary,
-        disabledLabelColor = TextMuted,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
         errorLabelColor = ExpenseCoral,
-        focusedTextColor = TextPrimary,
-        unfocusedTextColor = TextPrimary,
-        disabledTextColor = TextPrimary,
-        errorTextColor = TextPrimary,
-        focusedTrailingIconColor = TextSecondary,
-        unfocusedTrailingIconColor = TextSecondary,
-        disabledTrailingIconColor = TextMuted,
+        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+        errorTextColor = MaterialTheme.colorScheme.onSurface,
+        focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
         cursorColor = CobaltBlue
     )
 
@@ -207,7 +201,7 @@ fun TransactionFormDialog(
                 .widthIn(max = 520.dp)
                 .padding(vertical = Space8),
             shape = RoundedCornerShape(RadiusXLarge),
-            color = SurfaceDark,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 4.dp
         ) {
             Column(
@@ -231,7 +225,7 @@ fun TransactionFormDialog(
                             },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (isDuplicateMode) {
                             Spacer(modifier = Modifier.height(Space4))
@@ -250,7 +244,7 @@ fun TransactionFormDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = TextSecondary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -292,7 +286,7 @@ fun TransactionFormDialog(
                         Text(
                             text = "0.00",
                             style = HeroFinancialDisplay,
-                            color = TextMuted
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     },
                     leadingIcon = {
@@ -307,7 +301,7 @@ fun TransactionFormDialog(
                         Text(
                             text = "RON",
                             style = CardTitleAmount,
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = Space12)
                         )
                     },
@@ -327,14 +321,14 @@ fun TransactionFormDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = SurfaceContainerDark,
-                        unfocusedContainerColor = SurfaceContainerDark,
-                        errorContainerColor = SurfaceContainerDark,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        errorContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         focusedBorderColor = CobaltBlue,
-                        unfocusedBorderColor = SurfaceContainerHighDark,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         errorBorderColor = ExpenseCoral,
                         focusedLabelColor = CobaltBlue,
-                        unfocusedLabelColor = TextSecondary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         errorLabelColor = ExpenseCoral,
                         cursorColor = if (type == "Income") IncomeEmerald else ExpenseCoral
                     ),
@@ -371,7 +365,7 @@ fun TransactionFormDialog(
                         } else null,
                         singleLine = true,
                         colors = textFieldColors,
-                        textStyle = BodyRegular.copy(color = TextPrimary),
+                        textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth()
@@ -386,7 +380,7 @@ fun TransactionFormDialog(
                         ) {
                             suggestions.forEachIndexed { index, sug ->
                                 DropdownMenuItem(
-                                    text = { Text(sug, color = TextPrimary, style = BodyRegular) },
+                                    text = { Text(sug, color = MaterialTheme.colorScheme.onSurface, style = BodyRegular) },
                                     onClick = {
                                         isSuggestionSelected = true
                                         description = sug
@@ -424,7 +418,7 @@ fun TransactionFormDialog(
                         }
                     },
                     colors = textFieldColors,
-                    textStyle = BodyRegular.copy(color = TextPrimary),
+                    textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showDatePicker = true },
@@ -439,7 +433,7 @@ fun TransactionFormDialog(
                         text = "Destination (Optional)",
                         style = LabelBadgeMedium,
                         fontWeight = FontWeight.Medium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(Space8))
 
@@ -461,10 +455,10 @@ fun TransactionFormDialog(
                                         this.role = Role.Tab
                                     },
                                 shape = RoundedCornerShape(RadiusMedium),
-                                color = if (isSelected) CobaltBlue else SurfaceContainerDark,
+                                color = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.surfaceContainer,
                                 border = BorderStroke(
                                     1.dp,
-                                    if (isSelected) CobaltBlue else SurfaceContainerHighDark
+                                    if (isSelected) CobaltBlue else MaterialTheme.colorScheme.outlineVariant
                                 )
                             ) {
                                 Box(
@@ -475,7 +469,7 @@ fun TransactionFormDialog(
                                         text = destName,
                                         style = LabelBadgeMedium,
                                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (isSelected) Color.White else TextSecondary
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -497,7 +491,7 @@ fun TransactionFormDialog(
                         label = { Text("Subcategory (Select First)") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = subCategoryExpanded) },
                         colors = textFieldColors,
-                        textStyle = BodyRegular.copy(color = TextPrimary),
+                        textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth(),
@@ -510,7 +504,7 @@ fun TransactionFormDialog(
                     ) {
                         availableSubcategories.forEach { subName ->
                             DropdownMenuItem(
-                                text = { Text(subName, color = TextPrimary, style = BodyRegular) },
+                                text = { Text(subName, color = MaterialTheme.colorScheme.onSurface, style = BodyRegular) },
                                 onClick = {
                                     subCategory = subName
                                     subCategoryExpanded = false
@@ -536,11 +530,11 @@ fun TransactionFormDialog(
                         Text(
                             text = "Category is auto-assigned based on selected subcategory",
                             style = MicroMetadata,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     colors = textFieldColors,
-                    textStyle = BodyRegular.copy(color = TextPrimary),
+                    textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(RadiusMedium)
                 )
@@ -559,7 +553,7 @@ fun TransactionFormDialog(
                         label = { Text("Account") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded) },
                         colors = textFieldColors,
-                        textStyle = BodyRegular.copy(color = TextPrimary),
+                        textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth(),
@@ -572,7 +566,7 @@ fun TransactionFormDialog(
                     ) {
                         accounts.forEach { acc ->
                             DropdownMenuItem(
-                                text = { Text(getAccountDisplayLabel(acc), color = TextPrimary, style = BodyRegular) },
+                                text = { Text(getAccountDisplayLabel(acc), color = MaterialTheme.colorScheme.onSurface, style = BodyRegular) },
                                 onClick = {
                                     account = acc
                                     accountExpanded = false
@@ -658,7 +652,7 @@ fun TransactionFormDialog(
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel", color = TextSecondary)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         ) {
