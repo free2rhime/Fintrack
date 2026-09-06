@@ -1,10 +1,9 @@
 # FINTRACK CURRENT CONTEXT
 
 > Compact operational context for continuing FinTrack development.
-> Last verified: 2026-09-05
-> Baseline: Phase 13 Final Visual QA Clean Completion (2026-09-05) — GO: PHASE 13 CLEAN
-> Previous baseline: Phase 12 Accessibility + Responsive QA / Phase 11 Motion Foundation Clean Completion (2026-09-05)
-> Previous baseline: Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
+> Last verified: 2026-09-06
+> Baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+> Previous baseline: Phase 13 Final Visual QA Clean Completion (2026-09-05) — GO: PHASE 13 CLEAN / 13baf6de
 > Previous baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
 ## 1. ROLE OF THIS FILE
@@ -24,18 +23,22 @@ For detailed history, decisions and evidence use:
 ```text
 Branch:       main
 Remote:       https://github.com/free2rhime/Fintrack.git
+HEAD:         5b8a82e30567a4d26f4b57683d47812337dc0152
 ```
 
 At the time this context was verified, the repository working tree was synchronized.
 
 Current implementation baseline:
 
-Phase 13 Final Visual QA Clean Completion (`GO — PHASE 13 CLEAN` - 2026-09-05)
-FinTrack Design System v1 verified across full presentation layer (Phases 1–13 complete).
+Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+- **Adaptive Launcher Icon (5b8a82e, a59684a):** Precision 3D ribbon FT monogram vector icon with full-bleed radial gradient background, monochrome knockout for Android 13+ Themed Icons, scaled to 82% for balanced proportions.
+- **Material 3 Semantic Migration (5fb61a7):** Complete presentation-layer migration across 26 files to `MaterialTheme.colorScheme` with dual Light/Dark palette support.
+- **Transaction Description Autocomplete (1dc2fd5):** Case-insensitive prefix matching, active household scoping, excluded deleted/blank descriptions, deduplication, integration in Expense and Income forms.
+- **Dashboard & Period Refinement (d3d5a37, 5d06cfb, 0c5e1bf, ac4081f):** Header currency toggle + compact period dropdown, monthly cash flow spline chart with point interaction, bar chart removed, centralized period filter.
 
 Previous UI/Functional baselines:
 
-Phase 12 Accessibility + Responsive QA (2026-09-05) / Phase 11 Motion Foundation Clean Completion (2026-09-05) / Phase 10 Empty/Loading/Error States (2026-09-05) / Phase 9 Dialogs & Forms Polish (2026-09-05) / Phase 8 Settings & Household Visual Overhaul (2026-09-05) / Phase 7 Categories Visual Overhaul (2026-09-05) / Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
+Phase 13 Final Visual QA Clean Completion (`GO — PHASE 13 CLEAN` - 2026-09-05) / Phase 12 Accessibility + Responsive QA (2026-09-05) / Phase 11 Motion Foundation Clean Completion (2026-09-05) / Phase 10 Empty/Loading/Error States (2026-09-05) / Phase 9 Dialogs & Forms Polish (2026-09-05) / Phase 8 Settings & Household Visual Overhaul (2026-09-05) / Phase 7 Categories Visual Overhaul (2026-09-05) / Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03)
 
 Historical backend / data baselines:
 
@@ -293,6 +296,27 @@ Environments:
 - `migrationId` is omitted from Firestore payloads when null.
 - Expense vs Income semantics must be preserved.
 - Multi-currency support includes RON/EUR.
+- **Description Autocomplete (1dc2fd5):** Case-insensitive prefix description matching via `TransactionDao.getDescriptionSuggestions()`, scoped to active household, excluding deleted (`isDeleted = 0`) and blank entries, deduplicated, limited to 5, integrated into Expense & Income forms in `TransactionFormDialog`. Tested by `TransactionDescriptionAutocompleteTest.kt` (TEST EXISTS).
+- **Layout Optimization (ac4081f):** Compact mode on `FinTrackSegmentedControl`, tightened vertical spacing in `TransactionsScreen`, date display made optional in `FinTrackTransactionRow`.
+
+### Dashboard & Period Filtering
+- **Dashboard Header:** Features currency toggle (RON/EUR) and compact period dropdown (`FinTrackPeriodDropdown`).
+- **Monthly Cash Flow:** Consolidated to interactive spline chart (`FinancialSplineChart`), bar chart and toggle removed (`5d06cfb`). Interactive point selection displays exact values for selected month (Income, Expense, Net). Month/Year labels on X-axis and Income/Expense legend.
+- **Sync Status:** Displayed in Settings screen for diagnostics (`d3d5a37`).
+- **Centralized Period Filtering (0c5e1bf):** Redundant `PeriodSelectorChipRow` removed from `TransactionsScreen` and `AnalyticsScreen`. Filtering logic centralized in `MainViewModel`. Tested by `GlobalPeriodFilterTest.kt` (TEST EXISTS).
+
+### Material 3 Semantic Design System (5fb61a7)
+- Presentation-layer migration across 26 UI files to semantic `MaterialTheme.colorScheme` (`surface`, `onSurface`, `surfaceContainer`, `surfaceContainerHigh`, `outline`, `error`, etc.).
+- Dual-palette support: `DarkColorScheme` and `LightColorScheme` in `Theme.kt`.
+- Foundation tokens in `Color.kt` retained with explicit contrast warnings against direct use on light surfaces.
+
+### Adaptive Launcher Icon (5b8a82e, a59684a)
+- Precision 3D ribbon FT monogram vector icon:
+  - Background (`ic_launcher_background.xml`): Full-bleed radiant cerulean-to-midnight-navy radial gradient (`#41BDFD` -> `#00226E`) with 18dp parallax bleed across 108x108dp viewport.
+  - Foreground (`ic_launcher_foreground.xml`): 3D ribbon FT monogram with swept cyan wings, aerodynamic winglets, white ribbon left stem with triangular fold, right stem with elevation shadow, and soft diagonal floor shadow.
+  - Monochromatic Icon (`ic_launcher_monochrome.xml`): Android 13+ Themed Icons support with 2.46dp physical negative-space knockout separating F and T for dynamic Monet tinting.
+  - Proportional Scale (5b8a82e): Scaled to 82% centered at (55.0, 54.0), providing >3.5dp margin in circular masks across all OEM shapes (Pixel Circle, Samsung Squircle, Xiaomi Teardrop, Stock AOSP).
+  - Configured `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml`; legacy raster JPEG removed.
 
 ### Synchronization
 The architecture contains:
@@ -376,19 +400,30 @@ Outbox failures map to `SyncStatus.PermissionDenied` (for `PERMISSION_DENIED`) o
    - *Phase 11 — Motion Foundation:* STATUS: COMPLETE / AUDIT GO
    - *Phase 12 — Accessibility + Responsive QA:* STATUS: COMPLETE / AUDIT GO
    - *Phase 13 — Final Visual QA:* STATUS: COMPLETE / AUDIT GO (GO — PHASE 13 CLEAN)
-9. **Next Roadmap Item / Housekeeping:**
-   - *Current Status:* Presentation layer verified clean after Phase 13.
-   - *Open Administrative Cleanup Task:* Administrative cleanup script for legacy Firestore documents with `isDeleted == true` created prior to Step 12.3S (separate execution).
-   - *Open Data-Integrity Item (Separate Task):* Audit and cleanup of historical duplicate Category/SubCategory records that already exist in the database from earlier imports prior to Step 12.3L.
-   - *Historical Technical Investigation Context:* Sync permission issues and coroutine lifecycle problems remain preserved in historical memory.
+9. **Post-Phase 13 Functional & UI Modernization (Commits 13baf6de..5b8a82e) — COMPLETE:**
+   - *Description Autocomplete (`1dc2fd5`):* Case-insensitive prefix matching, active household scoping, excluded deleted/blank descriptions, deduplication, integration in Expense and Income forms. (TEST EXISTS: `TransactionDescriptionAutocompleteTest.kt`).
+   - *Dashboard UI & Sync Visibility (`d3d5a37`):* Header currency toggle + compact period dropdown, monthly cash flow spline chart with point interaction, sync status in Settings. (TEST EXISTS: `CategoryAndDashboardFixesTest.kt`).
+   - *Dashboard Spline Consolidation (`5d06cfb`):* Bar chart and toggle removed; Monthly Cash Flow consolidated to spline chart.
+   - *Period Filtering Centralization (`0c5e1bf`):* Redundant period chips removed from Transactions and Analytics. (TEST EXISTS: `GlobalPeriodFilterTest.kt`).
+   - *Transaction Layout Optimization (`ac4081f`):* Compact mode for segmented control, tightened vertical spacing, optional date parameter.
+   - *Merge Baseline Sync (`f9d133d`):* Clean merge of GitHub UI baseline with transaction autocomplete.
+   - *Test Alignment (`5dcd716`):* Aligned `MockTestTransactionRepository` in `CsvImportOrchestratorTest`.
+   - *FinTrack Adaptive Launcher Icon (`a59684a`):* 3D ribbon FT monogram vector icon with full-bleed radial gradient background, monochrome knockout for Android 13+ Themed Icons.
+   - *Material 3 Semantic Migration (`5fb61a7`):* Complete presentation-layer migration across 26 files to `MaterialTheme.colorScheme` with dual Light/Dark palette support.
+   - *Adaptive Icon Proportional Scale (`5b8a82e`):* Scaled FT symbol to 82% for balanced proportions across all Android OEM masks.
+10. **Remaining OPEN Issues & Housekeeping:**
+    - *Sync: Permission Denied (OPEN / under observation):* Preserved as an active monitoring area; do not declare resolved across all unverified network permutations.
+    - *Coroutine Lifecycle / UncompletedCoroutinesError (OPEN / under observation):* Preserved as an active investigation area; no artificial delays or sleeps permitted.
+    - *Administrative Cleanup Task (OPEN):* Administrative script for legacy Firestore documents with `isDeleted == true` created prior to Step 12.3S (separate execution).
+    - *Data-Integrity Cleanup Task (OPEN):* Audit and cleanup of historical duplicate Category/SubCategory records existing prior to Step 12.3L.
+    - *Periodic Outbox Cleanup (P2 Housekeeping):* Periodic purge of old `SUCCESS` outbox records.
 
 ### Verification Layer Status:
-- **Automated Verification:** PASS (380/380 full Android JVM/Robolectric test cases passing, 100/100 Firestore test cases preserved, 8/8 targeted Account UI label tests PASS, assembleDebug PASS).
-- **Physical Device Verification:** PASS (Physical two-device smoke testing on Device A & Device B completed; physical real-device 33-transaction CSV import completed with 33 synced documents; physical real-device transaction & category hard deletion verified with permanent Firestore document removal and clean Synced status; period filter visibility confirmed; complete real historical personal transaction database imported and verified in production Firestore Console).
-
-### Open Housekeeping Areas:
-1. Periodic cleanup of old `SUCCESS` outbox records (P2 housekeeping).
-2. Extended degraded-network profiling if desired.
+- **VERIFIED IN REPOSITORY:** All source code changes and test files in Git HEAD `5b8a82e30567a4d26f4b57683d47812337dc0152` are committed and synchronized with `origin/main`.
+- **TEST EXISTS:** 48 unit/Robolectric test classes present in `app/src/test/java/com/example/` (including `TransactionDescriptionAutocompleteTest`, `GlobalPeriodFilterTest`, `CategoryAndDashboardFixesTest`, `FinTrackMotionTest`, `CsvImportOrchestratorTest`, `Stage9OutboxShieldTest`, etc.).
+- **TEST RESULT VERIFIED:** Historical automated test baselines confirmed from previous documented runs (Phase 13: 72/72 PASS; Full JVM suite: 380/380 PASS; Firestore Rules: 100/100 test cases preserved in `tests/firestore.rules.test.ts`; assembleDebug PASS). *Note: Per explicit workflow constraints, no tests or builds were executed during this documentation-only session.*
+- **PHYSICAL DEVICE SMOKE BASELINE:** Verified PASS on physical Device A and Device B (Steps 12.2, 12.3, 12.3U, 12.3Y, 12.3Z against production Firestore).
+- **UNVERIFIED:** Physical device inspection of the newly completed Material 3 Light palette rendering across all screens.
 
 ## 7. UNKNOWN / NOT FULLY VERIFIED
 
@@ -662,15 +697,26 @@ The documented semantic/test tags are contractual and must not be renamed or rem
 - Phase 11 — Motion Foundation: STATUS: COMPLETE / AUDIT GO
 - Phase 12 — Accessibility + Responsive QA: STATUS: COMPLETE / AUDIT GO
 - Phase 13 — Final Visual QA: STATUS: COMPLETE / AUDIT GO (GO — PHASE 13 CLEAN)
+- Phase 14 — Post-Phase 13 Modernization & Adaptive Icon: STATUS: COMPLETE
+  - Transaction Autocomplete (`1dc2fd5`)
+  - Dashboard Spline Chart & Header Refinement (`d3d5a37`, `5d06cfb`)
+  - Centralized Period Filter (`0c5e1bf`)
+  - Layout Optimization (`ac4081f`)
+  - CsvImportOrchestratorTest Mock Alignment (`5dcd716`)
+  - Material 3 Semantic Migration across 26 UI files (`5fb61a7`)
+  - FinTrack Adaptive Launcher Icon V1 & 82% Proportional Scale (`a59684a`, `5b8a82e`)
 
 **CURRENT VERIFIED STATE:**
-- **PRESENTATION LAYER:** VERIFIED CLEAN AFTER PHASE 13
-- **DESIGN SYSTEM:** FinTrack Design System v1 verified across presentation layer.
+- **PRESENTATION LAYER:** Material 3 semantic migration completed (`5fb61a7`); all 26 UI components consume `MaterialTheme.colorScheme`.
+- **ADAPTIVE LAUNCHER ICON:** Precision 3D ribbon FT monogram vector icon implemented and scaled to 82% for all OEM masks (`5b8a82e`).
+- **TRANSACTIONS AUTOCOMPLETE:** Household-scoped prefix autocomplete for descriptions active in Expense & Income forms (`1dc2fd5`).
+- **DASHBOARD & PERIODS:** Header currency toggle + compact period selector, spline cash flow chart with interactive month selection (`d3d5a37`, `5d06cfb`).
+- **DESIGN SYSTEM:** FinTrack Design System v1 verified across presentation layer with dual Light/Dark palette support.
 - **MOTION:** Centralized FinTrackMotion foundation verified.
 - **ACCESSIBILITY:** Responsive and accessibility hardening completed.
 - **TEST CONTRACTS:** Existing semantic/test tags preserved.
 - **ARCHITECTURAL LOCKS:** Preserved across all 10 protected domains.
-- **BUSINESS LOGIC:** No changes introduced by Phases 7–13.
-- **SYNC / AUTH / RBAC:** Not modified by the UI phases.
+- **BUSINESS LOGIC:** Room/Firestore/Auth/RBAC logic preserved.
+- **SYNC / AUTH / RBAC:** Not modified by the UI/icon phases.
 - **HISTORICAL CONTEXT:** Historical technical investigations regarding sync permissions and coroutine lifecycles remain documented and preserved.
 

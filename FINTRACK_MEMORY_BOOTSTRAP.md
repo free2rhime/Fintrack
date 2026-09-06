@@ -214,6 +214,7 @@ Outbox state is evaluated using direct/finite Room queries and event-driven noti
 FinTrack uses **FinTrack Design System v1**, verified across the entire presentation layer (Phases 1–13):
 
 - **Tokens**: CanvasDark, SurfaceDark, SurfaceContainerDark, SurfaceContainerHighDark, CobaltBlue (navigation/selection/focus), IncomeEmerald (income/positive), ExpenseCoral (expense/destructive), WarningAmber, TextPrimary, TextSecondary, TextMuted, Space4..Space20, RadiusSmall..RadiusXLarge.
+- **Material 3 Semantic Migration**: Completed across presentation layer in `5fb61a7`. Components consume `MaterialTheme.colorScheme` (`surface`, `onSurface`, `surfaceContainer`, `surfaceContainerHigh`, `outline`, `error`, etc.) with dual-palette support (Dark and Light ColorScheme in `Theme.kt`).
 - **Motion Foundation**: Centralized restrained motion via `FinTrackMotion` (`DurationFast` 150ms, `DurationStandard` 200ms, `DurationEmphasized` 250ms, `DurationSyncSpin` 1000ms, `StandardEasing`, `LinearCurve`). No unmanaged coroutine motion jobs; infinite rotation strictly scoped to `BadgeVariant.SYNCING`.
 - **Responsive & Accessibility**: Responsive layouts (<340dp, <360dp, <480dp, max-width 680dp for tablets/foldables), minimum 48dp touch targets for interactive controls, financial polarity not conveyed by color alone, vertical scroll on constrained screens.
 - **Semantic Test Tag Contract**: Contractual test tags (e.g., `dashboard_top_card`, `currency_toggle_*`, `transaction_item_*`, `save_transaction_button`, `analytics_*`, `category_*`, `account_info_card`, `export_csv_button`, etc.) must never be renamed or removed.
@@ -226,18 +227,43 @@ FinTrack uses **FinTrack Design System v1**, verified across the entire presenta
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: Phase 13 Final Visual QA Clean Completion Checkpoint (Phases 1–13 Complete — GO: PHASE 13 CLEAN - 2026-09-05)
-Previous baseline: Phase 12 / Phase 11 / Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03) / Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint
+Git baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+Previous baseline: Phase 13 Final Visual QA Clean Completion Checkpoint (Phases 1–13 Complete — GO: PHASE 13 CLEAN - 2026-09-05) / 13baf6de
 Reported Phase 13 test baseline: 72 executed, 72 passed, 0 failed, 0 errors, 1 intentionally skipped (finalizeTestRoborazziDebug), BUILD SUCCESSFUL, 0 coroutine/memory leaks, 0 UncompletedCoroutinesError
 Reported Phase 13 build: gradle :app:assembleDebug -> BUILD SUCCESSFUL (Debug APK generated)
 Historical Android test baseline: 380/380 PASS (Full Android JVM/Robolectric test cases passing, 0 failed, 0 errors, 0 skipped; 31/31 focused hard-delete/sync tests PASS; 8/8 targeted Account UI label tests PASS)
 Firestore rules test baseline: 100/100 test cases preserved in tests/firestore.rules.test.ts and Firestore test suites
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
-Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS (Transaction & Category permanent deletion verified on physical device and Firestore, SyncStatus = Synced, no tombstones created); Step 12.3Y Real 33-Row CSV Import & Period Filter Visibility Resolution PASS; Step 12.3Z Complete Real Historical Database Import & Production Firestore Console Verification PASS
+Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS; Step 12.3Y Real 33-Row CSV Import & Period Filter Visibility Resolution PASS; Step 12.3Z Complete Real Historical Database Import & Production Firestore Console Verification PASS
 Branch: main
 Remote branch: origin/main
 Working tree: clean / synchronized
 ```
+
+### Verified Developments (Post-Phase 13 Baseline — Commits 13baf6de..5b8a82e)
+- **Adaptive Launcher Icon (5b8a82e & a59684a):** Precision 3D ribbon FT monogram vector adaptive launcher icon:
+  - Background (`ic_launcher_background.xml`): Full-bleed radiant cerulean-to-midnight-navy radial gradient (`#41BDFD` -> `#00226E`) with 18dp parallax bleed across 108x108dp viewport.
+  - Foreground (`ic_launcher_foreground.xml`): 3D ribbon FT monogram featuring swept cyan wings with aerodynamic winglets, white ribbon left stem with triangular fold and fin tip, right stem with elevation shadow, and soft diagonal floor shadow.
+  - Monochromatic Icon (`ic_launcher_monochrome.xml`): Android 13+ Themed Icons support with 2.46dp physical negative-space knockout separating F and T for dynamic Monet tinting.
+  - Proportional Scale (5b8a82e): Scaled to 82% centered at (55.0, 54.0), providing >3.5dp margin in circular masks across all OEM shapes (Pixel Circle, Samsung Squircle, Xiaomi Teardrop, Stock AOSP).
+  - Configured `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml`; legacy raster JPEG removed.
+- **Material 3 Semantic Design System Migration (5fb61a7):** Completed across 26 UI files:
+  - Replaced hardcoded Dark Theme tokens (`CanvasDark`, `SurfaceDark`, `TextPrimary`, etc.) with semantic `MaterialTheme.colorScheme` (`surface`, `onSurface`, `surfaceContainer`, `surfaceContainerHigh`, `outline`, `error`, etc.).
+  - Added full Material 3 Light palette in `Theme.kt` (`LightColorScheme`), pairing with `DarkColorScheme` for unified dual-palette support.
+  - Retained dark-specific tokens in `Color.kt` with explicit caution warnings preventing light-theme contrast contamination.
+- **Transaction Description Autocomplete (1dc2fd5):**
+  - Case-insensitive prefix matching via `TransactionDao.getDescriptionSuggestions()`.
+  - Scoped strictly to active household.
+  - Excludes deleted transactions (`isDeleted = 0`) and empty/blank descriptions.
+  - Deduplication (`DISTINCT`) and `LIMIT` (default 5).
+  - Integrated into both Expense and Income forms in `TransactionFormDialog`.
+  - Dedicated test suite `TransactionDescriptionAutocompleteTest.kt` (TEST EXISTS).
+- **Dashboard & Period Filtering Refinements (d3d5a37, 5d06cfb, 0c5e1bf, ac4081f):**
+  - Currency toggle (RON/EUR) integrated into Dashboard header alongside compact period dropdown (`FinTrackPeriodDropdown`).
+  - Monthly Cash Flow consolidated to interactive spline chart (`FinancialSplineChart`), bar chart and toggle removed (`5d06cfb`). Features point selection, exact month values (Income, Expense, Net), X-axis Month/Year labels, and Income/Expense legend.
+  - Sync status indicator displayed in Settings screen for diagnostics.
+  - Redundant `PeriodSelectorChipRow` removed from `TransactionsScreen` and `AnalyticsScreen` (`0c5e1bf`), centralizing period management. Dedicated test suite `GlobalPeriodFilterTest.kt` (TEST EXISTS).
+  - Compact mode added to `FinTrackSegmentedControl`; transaction row date display made optional; vertical spacing tightened (`ac4081f`).
 
 ### Verified UI Baseline (Phases 7–13 Milestones)
 - **Phase 7 — Categories Visual Overhaul (COMPLETE / AUDIT GO):** CategoriesScreen aligned with FinTrack Design System v1, FinTrackCard containers, RadiusLarge geometry, tonal category icon containers, IncomeEmerald / ExpenseCoral semantic colors, FinTrackSegmentedControl for category type selection, FinTrackEmptyState, responsive 680dp constraint, form standardization, semantic test tags preserved, zero business logic changes.
