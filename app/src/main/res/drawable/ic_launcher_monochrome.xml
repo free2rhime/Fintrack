@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Top Swept Wing -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 28.5,34.0 C 28.5,27.0 33.0,24.0 40.0,24.0 H 68.0 C 74.5,24.0 79.5,22.0 83.0,23.5 C 84.0,24.2 84.2,25.8 83.0,27.5 C 79.5,32.5 76.0,36.0 69.5,36.5 H 38.5 C 34.0,36.5 30.5,35.5 28.5,34.0 Z" />
+
+    <!-- Left Stem (F) with 3dp Negative-Space Gap -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 28.5,34.0 C 31.0,36.5 35.0,36.5 38.5,36.5 V 47.0 H 51.5 L 38.5,59.0 V 69.0 C 38.5,74.5 37.0,79.5 35.5,82.5 C 31.0,79.0 27.5,75.0 27.5,69.0 V 39.0 C 27.5,36.5 28.0,35.0 28.5,34.0 Z" />
+
+    <!-- T Monogram (Crossbar + Right Stem) with 3dp Negative-Space Gap -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 54.5,47.0 H 67.5 C 74.0,47.0 78.5,45.0 81.5,46.5 C 82.5,47.2 82.8,48.8 81.5,50.5 C 78.5,55.0 75.0,58.5 68.5,59.0 H 64.5 V 71.0 C 64.5,76.5 63.0,81.5 61.5,84.5 C 57.0,81.0 53.5,77.0 53.5,71.0 V 59.0 H 41.5 L 54.5,47.0 Z" />
+
+</vector>
