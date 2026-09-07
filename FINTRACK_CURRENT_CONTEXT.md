@@ -463,6 +463,8 @@ Preserve:
 
 ## 9. DEVELOPMENT RULE
 
+Workflow-ul de dezvoltare este guvernat formal de contractul definit în `/AGENTS.md` (aliniat între Android AI Studio și Antigravity).
+
 Before any code change:
 
 1. Inspect current Git state.
@@ -481,7 +483,7 @@ After a change:
 5. Commit and push only when the change is validated.
 6. Update project memory when durable project state changes.
 
-Compilation alone is not proof that a problem is resolved.
+Compilation alone is not proof that a problem is resolved ("compile successful" ≠ "task verified").
 
 ## 10. SYNCHRONIZATION DEBUGGING
 
@@ -503,19 +505,18 @@ For `UncompletedCoroutinesError` or hanging tests, identify the surviving Job/co
 
 Do not automatically select an item from OPEN work.
 
-First identify the explicitly selected user task, then follow:
+First identify the explicitly selected user task, then follow the workflow codified in `/AGENTS.md`:
 
 ```text
 ANALYZE
-→ HYPOTHESIS
+→ DRILL
+→ [RESEARCH]
+→ [ARCHITECTURE]
+→ [DEBUG]
+→ IMPLEMENT
 → VERIFY
-→ MINIMAL CHANGE
-→ COMPILE
-→ TARGETED TESTS
-→ INTERPRET
-→ DIFF
-→ COMMIT/PUSH
-→ MEMORY UPDATE
+→ LAND
+→ [UPDATE PROJECT MEMORY]
 ```
 
 ## 12. VERIFIED UI BASELINE (PHASES 7–13)
