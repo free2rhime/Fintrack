@@ -16,9 +16,11 @@ import com.example.data.repository.TransactionRepository
 import com.example.data.service.ExchangeRateService
 import com.example.data.util.SampleDataSeeder
 import com.example.domain.analytics.CategoryExpenseShare
+import com.example.domain.analytics.CategoryRankingItem
 import com.example.domain.analytics.DashboardMetrics
 import com.example.domain.analytics.FinancialAnalyticsEngine
 import com.example.domain.analytics.MonthlyDataPoint
+import com.example.domain.analytics.SingleSeriesAnalyticsResult
 import com.example.domain.analytics.SmartFinancialInsights
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -153,6 +155,17 @@ data class MainUiState(
     val pendingRetryResult: PendingRetryResult? = null,
     val isRetryingPending: Boolean = false,
     val debugDiagnosticResult: com.example.data.service.BnrDiagnosticResult? = null
+)
+
+data class AnalyticsUiState(
+    val incomeExpenseSelection: String = "Expense",
+    val selectedExpenseCategory: String? = null,
+    val selectedIncomeSource: String? = null,
+    val incomeExpenseResult: SingleSeriesAnalyticsResult = SingleSeriesAnalyticsResult(emptyList(), 0.0, 0.0, 0, "RON"),
+    val expenseCategoryResult: SingleSeriesAnalyticsResult = SingleSeriesAnalyticsResult(emptyList(), 0.0, 0.0, 0, "RON"),
+    val incomeSourceResult: SingleSeriesAnalyticsResult = SingleSeriesAnalyticsResult(emptyList(), 0.0, 0.0, 0, "RON"),
+    val expenseCategoryRankings: List<CategoryRankingItem> = emptyList(),
+    val incomeSourceRankings: List<CategoryRankingItem> = emptyList()
 )
 
 sealed interface HouseholdCreationUiState {
@@ -460,6 +473,104 @@ class MainViewModel(
         initialValue = SmartFinancialInsights()
     )
 
+    // Analytics Interactive Selections
+    private val _analyticsIncomeExpenseSelection = MutableStateFlow("Expense")
+    val analyticsIncomeExpenseSelection: StateFlow<String> = _analyticsIncomeExpenseSelection.asStateFlow()
+
+    private val _analyticsSelectedExpenseCategory = MutableStateFlow<String?>(null)
+    val analyticsSelectedExpenseCategory: StateFlow<String?> = _analyticsSelectedExpenseCategory.asStateFlow()
+
+    private val _analyticsSelectedIncomeSource = MutableStateFlow<String?>(null)
+    val analyticsSelectedIncomeSource: StateFlow<String?> = _analyticsSelectedIncomeSource.asStateFlow()
+
+    // Aggregated AnalyticsUiState reacting to period, currency, transactions, and selections
+    val analyticsUiState: StateFlow<AnalyticsUiState> = combine(
+        periodFilteredTransactions,
+        filterSettings,
+        _analyticsIncomeExpenseSelection,
+        _analyticsSelectedExpenseCategory,
+        _analyticsSelectedIncomeSource
+    ) { txs, settings, incomeExpenseSel, userExpCat, userIncSrc ->
+        val currency = settings.selectedCurrency
+        val period = settings.selectedPeriod
+        val customStart = settings.customStartDate
+        val customEnd = settings.customEndDate
+
+        // 1. Calculate Rankings from domain layer
+        val expRankings = FinancialAnalyticsEngine.calculateExpenseCategoryRankings(txs, currency)
+        val incRankings = FinancialAnalyticsEngine.calculateIncomeSourceRankings(txs, currency)
+
+        // 2. Resolve Expense Category Selection with stable persistence and fallback
+        val effectiveExpCat = when {
+            expRankings.isEmpty() -> null
+            userExpCat != null && expRankings.any { it.categoryName == userExpCat } -> userExpCat
+            else -> expRankings.first().categoryName
+        }
+        if (effectiveExpCat != _analyticsSelectedExpenseCategory.value) {
+            _analyticsSelectedExpenseCategory.value = effectiveExpCat
+        }
+
+        // 3. Resolve Income Source Selection with stable persistence and fallback
+        val effectiveIncSrc = when {
+            incRankings.isEmpty() -> null
+            userIncSrc != null && incRankings.any { it.categoryName == userIncSrc } -> userIncSrc
+            else -> incRankings.first().categoryName
+        }
+        if (effectiveIncSrc != _analyticsSelectedIncomeSource.value) {
+            _analyticsSelectedIncomeSource.value = effectiveIncSrc
+        }
+
+        // 4. Shared Temporal Axis for all three series
+        val contiguousMonths = FinancialAnalyticsEngine.generateContiguousMonthsForPeriod(
+            period = period,
+            customStart = customStart,
+            customEnd = customEnd,
+            referenceDates = txs.map { it.date }
+        )
+
+        // 5. Calculate Series 1: Income or Expense
+        val incomeExpenseResult = FinancialAnalyticsEngine.calculateSingleSeries(
+            transactions = txs,
+            contiguousYearMonths = contiguousMonths,
+            currency = currency,
+            typeFilter = incomeExpenseSel,
+            categoryFilter = null
+        )
+
+        // 6. Calculate Series 2: Selected Expense Category
+        val expenseCategoryResult = FinancialAnalyticsEngine.calculateSingleSeries(
+            transactions = txs,
+            contiguousYearMonths = contiguousMonths,
+            currency = currency,
+            typeFilter = "Expense",
+            categoryFilter = effectiveExpCat
+        )
+
+        // 7. Calculate Series 3: Selected Income Source (Transaction.category for Income)
+        val incomeSourceResult = FinancialAnalyticsEngine.calculateSingleSeries(
+            transactions = txs,
+            contiguousYearMonths = contiguousMonths,
+            currency = currency,
+            typeFilter = "Income",
+            categoryFilter = effectiveIncSrc
+        )
+
+        AnalyticsUiState(
+            incomeExpenseSelection = incomeExpenseSel,
+            selectedExpenseCategory = effectiveExpCat,
+            selectedIncomeSource = effectiveIncSrc,
+            incomeExpenseResult = incomeExpenseResult,
+            expenseCategoryResult = expenseCategoryResult,
+            incomeSourceResult = incomeSourceResult,
+            expenseCategoryRankings = expRankings,
+            incomeSourceRankings = incRankings
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = AnalyticsUiState()
+    )
+
     init {
         viewModelScope.launch {
             authRepository.authState.collect { state ->
@@ -573,6 +684,18 @@ class MainViewModel(
         viewModelScope.launch {
             settingsRepository.updateSelectedCurrency(currency)
         }
+    }
+
+    fun updateAnalyticsIncomeExpenseSelection(selection: String) {
+        _analyticsIncomeExpenseSelection.value = selection
+    }
+
+    fun updateAnalyticsExpenseCategorySelection(categoryName: String?) {
+        _analyticsSelectedExpenseCategory.value = categoryName
+    }
+
+    fun updateAnalyticsIncomeSourceSelection(sourceName: String?) {
+        _analyticsSelectedIncomeSource.value = sourceName
     }
 
     fun updateCustomDateRange(startDate: String, endDate: String) {

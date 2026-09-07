@@ -3,6 +3,7 @@ package com.example
 import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
 import com.example.domain.analytics.FinancialAnalyticsEngine
+import java.util.Calendar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -232,5 +233,168 @@ class FinancialAnalyticsEngineTest {
             )
         )
         assertTrue(resCatMismatch.isEmpty())
+    }
+
+    @Test
+    fun testGenerateContiguousMonthsForPeriodLast6Months() {
+        // Fixed calendar for 2026-06-15 (June 2026)
+        val fixedCal = Calendar.getInstance().apply {
+            set(2026, Calendar.JUNE, 15)
+        }
+        val months = FinancialAnalyticsEngine.generateContiguousMonthsForPeriod(
+            period = "Last 6 Months",
+            referenceCal = fixedCal
+        )
+        assertEquals(6, months.size)
+        assertEquals("2026-01", months.first())
+        assertEquals("2026-06", months.last())
+        assertEquals(listOf("2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06"), months)
+    }
+
+    @Test
+    fun testGenerateContiguousMonthsForPeriodLast3MonthsAndLast12Months() {
+        val fixedCal = Calendar.getInstance().apply {
+            set(2026, Calendar.JUNE, 15)
+        }
+        val months3 = FinancialAnalyticsEngine.generateContiguousMonthsForPeriod(
+            period = "Last 3 Months",
+            referenceCal = fixedCal
+        )
+        assertEquals(3, months3.size)
+        assertEquals(listOf("2026-04", "2026-05", "2026-06"), months3)
+
+        val months12 = FinancialAnalyticsEngine.generateContiguousMonthsForPeriod(
+            period = "Last 12 Months",
+            referenceCal = fixedCal
+        )
+        assertEquals(12, months12.size)
+        assertEquals("2025-07", months12.first())
+        assertEquals("2026-06", months12.last())
+    }
+
+    @Test
+    fun testGenerateContiguousMonthsYearToDate() {
+        val fixedCal = Calendar.getInstance().apply {
+            set(2026, Calendar.APRIL, 10)
+        }
+        val ytdMonths = FinancialAnalyticsEngine.generateContiguousMonthsForPeriod(
+            period = "Year To Date",
+            referenceCal = fixedCal
+        )
+        assertEquals(4, ytdMonths.size)
+        assertEquals(listOf("2026-01", "2026-02", "2026-03", "2026-04"), ytdMonths)
+    }
+
+    @Test
+    fun testGenerateContiguousMonthsCustomRangeAndAllTime() {
+        val customMonths = FinancialAnalyticsEngine.generateContiguousMonthsForPeriod(
+            period = "Custom Range",
+            customStart = "2026-02-10",
+            customEnd = "2026-05-20"
+        )
+        assertEquals(4, customMonths.size)
+        assertEquals(listOf("2026-02", "2026-03", "2026-04", "2026-05"), customMonths)
+
+        val allTimeMonths = FinancialAnalyticsEngine.generateContiguousMonthsForPeriod(
+            period = "All Time",
+            referenceDates = listOf("2025-11-01", "2026-01-15", "2026-02-28")
+        )
+        assertEquals(4, allTimeMonths.size)
+        assertEquals(listOf("2025-11", "2025-12", "2026-01", "2026-02"), allTimeMonths)
+    }
+
+    @Test
+    fun testSingleSeriesZeroFillAndAverageDividedByAllMonths() {
+        // Example from prompt:
+        // Filter: Last 6 Months (Jan - Jun)
+        // Transactions only in Jan (1500), Mar (1200), Jun (720) for "Groceries"
+        // Expected: Jan=1500, Feb=0, Mar=1200, Apr=0, May=0, Jun=720
+        // Total = 3420, Monthly Average = 3420 / 6 = 570 (NOT 3420 / 3)
+        val txs = listOf(
+            TransactionEntity(id = "1", date = "2026-01-10", description = "T1", amountRON = 1500.0, amountEUR = 300.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-10", type = "Expense", account = "A", category = "Groceries", subCategory = "Food"),
+            TransactionEntity(id = "2", date = "2026-03-05", description = "T2", amountRON = 1200.0, amountEUR = 240.0, exchangeRate = 5.0, exchangeRateDate = "2026-03-05", type = "Expense", account = "A", category = "Groceries", subCategory = "Food"),
+            TransactionEntity(id = "3", date = "2026-06-20", description = "T3", amountRON = 720.0, amountEUR = 144.0, exchangeRate = 5.0, exchangeRateDate = "2026-06-20", type = "Expense", account = "A", category = "Groceries", subCategory = "Food")
+        )
+        val months = listOf("2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06")
+
+        val result = FinancialAnalyticsEngine.calculateSingleSeries(
+            transactions = txs,
+            contiguousYearMonths = months,
+            currency = "RON",
+            categoryFilter = "Groceries"
+        )
+
+        assertEquals(6, result.dataPoints.size)
+        assertEquals(1500.0, result.dataPoints[0].value, 0.01)
+        assertEquals(0.0, result.dataPoints[1].value, 0.01) // Feb zero-filled
+        assertEquals(1200.0, result.dataPoints[2].value, 0.01)
+        assertEquals(0.0, result.dataPoints[3].value, 0.01) // Apr zero-filled
+        assertEquals(0.0, result.dataPoints[4].value, 0.01) // May zero-filled
+        assertEquals(720.0, result.dataPoints[5].value, 0.01)
+
+        assertEquals(3420.0, result.total, 0.01)
+        assertEquals(570.0, result.monthlyAverage, 0.01) // exactly 3420 / 6
+        assertEquals(6, result.monthCount)
+    }
+
+    @Test
+    fun testExpenseCategoryRankingsSortedDescendingByShare() {
+        val txs = listOf(
+            TransactionEntity(id = "1", date = "2026-01-10", description = "Groceries", amountRON = 1000.0, amountEUR = 200.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-10", type = "Expense", account = "A", category = "Groceries", subCategory = "Food"),
+            TransactionEntity(id = "2", date = "2026-01-12", description = "Restaurants", amountRON = 500.0, amountEUR = 100.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-12", type = "Expense", account = "A", category = "Restaurants", subCategory = "Food"),
+            TransactionEntity(id = "3", date = "2026-01-15", description = "Transport", amountRON = 300.0, amountEUR = 60.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-15", type = "Expense", account = "A", category = "Transport", subCategory = "Bus"),
+            TransactionEntity(id = "4", date = "2026-01-18", description = "Bills", amountRON = 200.0, amountEUR = 40.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-18", type = "Expense", account = "A", category = "Bills", subCategory = "Energy")
+        )
+        // Total expense = 2000. Groceries = 1000 (50%), Restaurants = 500 (25%), Transport = 300 (15%), Bills = 200 (10%)
+        val rankings = FinancialAnalyticsEngine.calculateExpenseCategoryRankings(txs, "RON")
+        assertEquals(4, rankings.size)
+        assertEquals("Groceries", rankings[0].categoryName)
+        assertEquals(50.0, rankings[0].percentage, 0.1)
+
+        assertEquals("Restaurants", rankings[1].categoryName)
+        assertEquals(25.0, rankings[1].percentage, 0.1)
+
+        assertEquals("Transport", rankings[2].categoryName)
+        assertEquals(15.0, rankings[2].percentage, 0.1)
+
+        assertEquals("Bills", rankings[3].categoryName)
+        assertEquals(10.0, rankings[3].percentage, 0.1)
+    }
+
+    @Test
+    fun testIncomeSourceRankingsSortedDescendingByShare() {
+        val txs = listOf(
+            TransactionEntity(id = "1", date = "2026-01-10", description = "Salary", amountRON = 8000.0, amountEUR = 1600.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-10", type = "Income", account = "A", category = "Salary", subCategory = "Main"),
+            TransactionEntity(id = "2", date = "2026-01-12", description = "Freelance", amountRON = 1500.0, amountEUR = 300.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-12", type = "Income", account = "A", category = "Freelance", subCategory = "Dev"),
+            TransactionEntity(id = "3", date = "2026-01-15", description = "Investments", amountRON = 500.0, amountEUR = 100.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-15", type = "Income", account = "A", category = "Investments", subCategory = "Dividends")
+        )
+        // Total income = 10000. Salary = 80%, Freelance = 15%, Investments = 5%
+        val rankings = FinancialAnalyticsEngine.calculateIncomeSourceRankings(txs, "RON")
+        assertEquals(3, rankings.size)
+        assertEquals("Salary", rankings[0].categoryName)
+        assertEquals(80.0, rankings[0].percentage, 0.1)
+
+        assertEquals("Freelance", rankings[1].categoryName)
+        assertEquals(15.0, rankings[1].percentage, 0.1)
+
+        assertEquals("Investments", rankings[2].categoryName)
+        assertEquals(5.0, rankings[2].percentage, 0.1)
+    }
+
+    @Test
+    fun testSingleSeriesEurModeExcludesUnverifiedTransactions() {
+        val txs = listOf(
+            createTx("1", "Expense", 500.0, 100.0, "OFFICIAL", "BNR_OFFICIAL"),
+            createTx("2", "Expense", 250.0, 50.0, "UNVERIFIED", "SYNTHETIC")
+        )
+        val months = listOf("2026-08")
+        val result = FinancialAnalyticsEngine.calculateSingleSeries(
+            transactions = txs,
+            contiguousYearMonths = months,
+            currency = "EUR",
+            typeFilter = "Expense"
+        )
+        assertEquals(100.0, result.total, 0.01)
+        assertEquals(100.0, result.monthlyAverage, 0.01)
     }
 }

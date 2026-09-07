@@ -261,21 +261,17 @@ class GlobalPeriodFilterTest {
         composeTestRule.setContent {
             FinTrackTheme {
                 AnalyticsScreen(
-                    metrics = DashboardMetrics(),
+                    analyticsUiState = com.example.ui.AnalyticsUiState(),
                     filterSettings = FilterSettings(selectedPeriod = "Last Month"),
-                    categoryExpenseShares = emptyList(),
-                    categoryIncomeShares = emptyList(),
-                    monthlyDataPoints = emptyList(),
-                    insights = SmartFinancialInsights(),
                     onCurrencyChanged = {}
                 )
             }
         }
 
-        // Currency toggles and smart insights card should be present
+        // Currency toggles and section card should be present
         composeTestRule.onNodeWithTag("currency_toggle_RON").assertIsDisplayed()
         composeTestRule.onNodeWithTag("currency_toggle_EUR").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("analytics_smart_insights_card").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("analytics_income_expense_card").assertIsDisplayed()
 
         // Period chips should NOT exist on AnalyticsScreen
         composeTestRule.onNodeWithTag("period_chip_Last_Month").assertDoesNotExist()

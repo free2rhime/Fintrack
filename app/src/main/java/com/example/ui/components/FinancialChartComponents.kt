@@ -25,6 +25,18 @@ import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.ui.platform.testTag
+import com.example.domain.analytics.SingleSeriesDataPoint
+import com.example.ui.theme.RadiusMedium
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -852,6 +864,327 @@ fun SavingsTrendLineChart(
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/**
+ * Reusable single-series spline chart designed for FinTrack Analytics.
+ * Renders a smooth Bézier curve for a single financial series (Income, Expense, Category, or Source).
+ * Strictly matches the geometry, grid, Bézier smoothing, typography, active point indicator,
+ * and tap interaction of [MonthlyCashFlowSplineChart] while ensuring zero regressions on Dashboard.
+ */
+@Composable
+fun SingleSeriesSplineChart(
+    dataPoints: List<SingleSeriesDataPoint>,
+    currency: String,
+    lineColor: Color,
+    modifier: Modifier = Modifier
+) {
+    if (dataPoints.isEmpty()) {
+        FinTrackEmptyState(
+            title = "No Activity",
+            description = "No data recorded for this period",
+            icon = Icons.Default.ShowChart,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+            compact = true,
+            modifier = modifier
+                .fillMaxWidth()
+                .height(180.dp)
+        )
+        return
+    }
+
+    var selectedIndex by remember(dataPoints) {
+        mutableStateOf(dataPoints.indices.lastOrNull() ?: 0)
+    }
+
+    val maxVal = (dataPoints.maxOfOrNull { it.value } ?: 100.0).coerceAtLeast(10.0)
+    val activePoint = dataPoints.getOrNull(selectedIndex) ?: dataPoints.lastOrNull()
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Active data point indicator exposing exact value and selected month
+        if (activePoint != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(RadiusSmall))
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .padding(horizontal = Space12, vertical = Space8),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = activePoint.monthYearLabel,
+                    style = LabelBadgeMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(lineColor)
+                    )
+                    Spacer(modifier = Modifier.width(Space4))
+                    Text(
+                        text = "${NumberFormatter.formatAmount(activePoint.value)} $currency",
+                        style = MicroMetadata,
+                        color = lineColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(Space8))
+        }
+
+        val gridColor = MaterialTheme.colorScheme.outlineVariant
+        val indicatorColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .pointerInput(dataPoints) {
+                    detectTapGestures { offset ->
+                        if (dataPoints.isNotEmpty()) {
+                            val totalWidth = size.width.toFloat()
+                            val count = dataPoints.size
+                            val stepX = if (count > 1) totalWidth / (count - 1).toFloat() else totalWidth / 2f
+                            val tappedIndex = if (count > 1 && stepX > 0f) {
+                                ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, count - 1)
+                            } else 0
+                            selectedIndex = tappedIndex
+                        }
+                    }
+                }
+        ) {
+            val width = size.width
+            val height = size.height
+            val bottomPadding = 20.dp.toPx()
+            val availableHeight = height - bottomPadding
+
+            // 3 Horizontal Grid lines
+            for (i in 1..3) {
+                val y = availableHeight * (i / 4f)
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, y),
+                    end = Offset(width, y),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            val count = dataPoints.size
+            val stepX = if (count > 1) width / (count - 1) else width / 2f
+
+            val splinePath = Path()
+            val areaPath = Path()
+            val points = mutableListOf<Offset>()
+
+            dataPoints.forEachIndexed { index, dp ->
+                val x = if (count > 1) index * stepX else width / 2f
+                val y = availableHeight - ((dp.value / maxVal) * (availableHeight - 10.dp.toPx())).toFloat()
+                points.add(Offset(x, y))
+            }
+
+            if (points.isNotEmpty()) {
+                splinePath.moveTo(points[0].x, points[0].y)
+                areaPath.moveTo(points[0].x, availableHeight)
+                areaPath.lineTo(points[0].x, points[0].y)
+
+                for (i in 0 until points.size - 1) {
+                    val p1 = points[i]
+                    val p2 = points[i + 1]
+                    val controlX1 = p1.x + (p2.x - p1.x) / 2f
+                    val controlX2 = p1.x + (p2.x - p1.x) / 2f
+
+                    splinePath.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
+                    areaPath.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
+                }
+
+                areaPath.lineTo(points.last().x, availableHeight)
+                areaPath.close()
+
+                // Draw area gradient
+                drawPath(
+                    path = areaPath,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(lineColor.copy(alpha = 0.22f), Color.Transparent),
+                        startY = 0f,
+                        endY = availableHeight
+                    )
+                )
+
+                // Draw smooth spline line
+                drawPath(
+                    path = splinePath,
+                    color = lineColor,
+                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+
+            // Vertical indicator dashed line for selected point
+            if (selectedIndex in points.indices) {
+                val highlightX = points[selectedIndex].x
+                drawLine(
+                    color = indicatorColor,
+                    start = Offset(highlightX, 0f),
+                    end = Offset(highlightX, availableHeight),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
+                )
+            }
+
+            // Draw data points with highlight on selected point
+            points.forEachIndexed { idx, pt ->
+                val isSelected = idx == selectedIndex
+                if (isSelected) {
+                    drawCircle(color = lineColor.copy(alpha = 0.35f), radius = 9.dp.toPx(), center = pt)
+                    drawCircle(color = lineColor, radius = 5.dp.toPx(), center = pt)
+                    drawCircle(color = Color.White, radius = 2.dp.toPx(), center = pt)
+                } else {
+                    drawCircle(color = lineColor.copy(alpha = 0.25f), radius = 5.dp.toPx(), center = pt)
+                    drawCircle(color = lineColor, radius = 3.dp.toPx(), center = pt)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(Space8))
+
+        // Month X-Axis labels — wraps vertically ("Jan\n2026")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            dataPoints.forEachIndexed { index, dp ->
+                val isSelected = index == selectedIndex
+                val parts = dp.monthYearLabel.trim().split(" ")
+                val monthPart = parts.firstOrNull() ?: dp.monthYearLabel
+                val yearPart = if (parts.size > 1) parts.drop(1).joinToString(" ") else ""
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable { selectedIndex = index }
+                        .padding(horizontal = 2.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = monthPart,
+                        style = MicroMetadata,
+                        fontSize = 10.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    if (yearPart.isNotEmpty()) {
+                        Text(
+                            text = yearPart,
+                            style = MicroMetadata,
+                            fontSize = 9.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Reusable dropdown selector component adhering strictly to Material 3 and FinTrack design system.
+ * Displays the currently selected item label on the button (e.g. "[ Groceries ▼ ]"),
+ * and allows custom item rendering in the expanded menu (e.g. "Groceries · 32.4%").
+ */
+@Composable
+fun <T> FinTrackDropdownSelector(
+    selectedItem: T?,
+    items: List<T>,
+    onItemSelected: (T) -> Unit,
+    itemLabel: (T) -> String,
+    modifier: Modifier = Modifier,
+    testTag: String = "fintrack_dropdown_selector",
+    itemDropdownLabel: ((T) -> String)? = null
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        Surface(
+            onClick = { expanded = !expanded },
+            shape = RoundedCornerShape(RadiusMedium),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .defaultMinSize(minHeight = 40.dp)
+                .testTag(testTag)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.padding(horizontal = Space12, vertical = Space8)
+            ) {
+                Text(
+                    text = if (selectedItem != null) itemLabel(selectedItem) else "Select option",
+                    style = LabelBadgeMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(Space8))
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Select option",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(RadiusSmall))
+        ) {
+            items.forEach { item ->
+                val isSelected = item == selectedItem
+                val displayDropdownText = itemDropdownLabel?.invoke(item) ?: itemLabel(item)
+
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = displayDropdownText,
+                                style = LabelBadgeMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = CobaltBlue,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    },
+                    onClick = {
+                        onItemSelected(item)
+                        expanded = false
+                    },
+                    modifier = Modifier.testTag("${testTag}_item_${itemLabel(item).replace(" ", "_")}")
+                )
+            }
         }
     }
 }

@@ -47,6 +47,27 @@ data class SmartFinancialInsights(
     val savingsTrendText: String = "Stable"
 )
 
+data class SingleSeriesDataPoint(
+    val yearMonth: String, // e.g., "2026-03"
+    val monthYearLabel: String, // e.g., "Mar 2026"
+    val value: Double
+)
+
+data class SingleSeriesAnalyticsResult(
+    val dataPoints: List<SingleSeriesDataPoint>,
+    val total: Double,
+    val monthlyAverage: Double,
+    val monthCount: Int,
+    val currency: String
+)
+
+data class CategoryRankingItem(
+    val categoryName: String,
+    val totalAmount: Double,
+    val percentage: Double,
+    val transactionCount: Int
+)
+
 object FinancialAnalyticsEngine {
 
     /**
@@ -397,7 +418,7 @@ object FinancialAnalyticsEngine {
         }
     }
 
-    private fun formatYearMonthLabel(yearMonth: String): String {
+    fun formatYearMonthLabel(yearMonth: String): String {
         return try {
             val parts = yearMonth.split("-")
             if (parts.size == 2) {
@@ -409,6 +430,211 @@ object FinancialAnalyticsEngine {
         } catch (e: Exception) {
             yearMonth
         }
+    }
+
+    /**
+     * Generates a contiguous, chronological list of "yyyy-MM" strings representing the full temporal axis
+     * of the specified filter period.
+     */
+    fun generateContiguousMonthsForPeriod(
+        period: String,
+        customStart: String = "",
+        customEnd: String = "",
+        referenceDates: List<String> = emptyList(),
+        referenceCal: Calendar = Calendar.getInstance()
+    ): List<String> {
+        val sdfMonth = SimpleDateFormat("yyyy-MM", Locale.US)
+        val currentYearMonth = sdfMonth.format(referenceCal.time)
+
+        when (period) {
+            "Last Month" -> return listOf(currentYearMonth)
+            "Previous Month" -> {
+                val prevCal = (referenceCal.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
+                return listOf(sdfMonth.format(prevCal.time))
+            }
+            "Last 3 Months" -> {
+                val startCal = (referenceCal.clone() as Calendar).apply { add(Calendar.MONTH, -2) }
+                return generateMonthsBetween(sdfMonth.format(startCal.time), currentYearMonth)
+            }
+            "Last 6 Months" -> {
+                val startCal = (referenceCal.clone() as Calendar).apply { add(Calendar.MONTH, -5) }
+                return generateMonthsBetween(sdfMonth.format(startCal.time), currentYearMonth)
+            }
+            "Last 12 Months" -> {
+                val startCal = (referenceCal.clone() as Calendar).apply { add(Calendar.MONTH, -11) }
+                return generateMonthsBetween(sdfMonth.format(startCal.time), currentYearMonth)
+            }
+            "Year To Date" -> {
+                val calStart = (referenceCal.clone() as Calendar).apply { set(Calendar.MONTH, Calendar.JANUARY) }
+                return generateMonthsBetween(sdfMonth.format(calStart.time), currentYearMonth)
+            }
+            "Custom Range" -> {
+                val startYm = if (customStart.length >= 7) customStart.substring(0, 7) else {
+                    val minDate = referenceDates.minOrNull()
+                    if (minDate != null && minDate.length >= 7) minDate.substring(0, 7) else currentYearMonth
+                }
+                val endYm = if (customEnd.length >= 7) customEnd.substring(0, 7) else currentYearMonth
+                return generateMonthsBetween(startYm, endYm)
+            }
+            "All Time" -> {
+                val validDates = referenceDates.filter { it.length >= 7 }
+                if (validDates.isEmpty()) return listOf(currentYearMonth)
+                val minYm = validDates.minOrNull()!!.substring(0, 7)
+                val maxYm = validDates.maxOrNull()!!.substring(0, 7)
+                return generateMonthsBetween(minYm, maxYm)
+            }
+            else -> return listOf(currentYearMonth)
+        }
+    }
+
+    /**
+     * Generates all year-month ("yyyy-MM") strings between start and end (inclusive).
+     */
+    fun generateMonthsBetween(startYearMonth: String, endYearMonth: String): List<String> {
+        if (startYearMonth > endYearMonth) return listOf(startYearMonth)
+        val result = mutableListOf<String>()
+        val sdf = SimpleDateFormat("yyyy-MM", Locale.US)
+        val cal = Calendar.getInstance().apply {
+            time = try { sdf.parse(startYearMonth) } catch (e: Exception) { null } ?: return listOf(startYearMonth)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val endCal = Calendar.getInstance().apply {
+            time = try { sdf.parse(endYearMonth) } catch (e: Exception) { null } ?: return listOf(endYearMonth)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        while (!cal.after(endCal)) {
+            result.add(sdf.format(cal.time))
+            cal.add(Calendar.MONTH, 1)
+        }
+        return result
+    }
+
+    /**
+     * Computes a single series (Income, Expense, specific Category, or specific Income Source)
+     * over a complete, contiguous temporal axis of months. Missing months are populated with 0.0.
+     * Monthly Average is calculated strictly as total / contiguousMonths.size.
+     */
+    fun calculateSingleSeries(
+        transactions: List<TransactionEntity>,
+        contiguousYearMonths: List<String>,
+        currency: String,
+        typeFilter: String? = null,
+        categoryFilter: String? = null
+    ): SingleSeriesAnalyticsResult {
+        val useRon = currency == "RON"
+
+        // Pre-filter candidate transactions
+        val filtered = transactions.filter { tx ->
+            val matchesType = typeFilter == null || tx.type.equals(typeFilter, ignoreCase = true)
+            val matchesCategory = categoryFilter == null || tx.category.equals(categoryFilter, ignoreCase = true)
+            val matchesCurrency = if (useRon) true else {
+                tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL" && tx.exchangeRate > 0.0
+            }
+            matchesType && matchesCategory && matchesCurrency
+        }
+
+        // Group by year-month ("yyyy-MM")
+        val groupedByYm = filtered.groupBy {
+            if (it.date.length >= 7) it.date.substring(0, 7) else it.date
+        }
+
+        val dataPoints = contiguousYearMonths.map { ym ->
+            val txsInMonth = groupedByYm[ym] ?: emptyList()
+            val monthSum = txsInMonth.sumOf { if (useRon) it.amountRON else it.amountEUR }
+            SingleSeriesDataPoint(
+                yearMonth = ym,
+                monthYearLabel = formatYearMonthLabel(ym),
+                value = roundTwoDecimals(monthSum)
+            )
+        }
+
+        val total = roundTwoDecimals(dataPoints.sumOf { it.value })
+        val monthCount = contiguousYearMonths.size
+        val avg = if (monthCount > 0) roundTwoDecimals(total / monthCount) else 0.0
+
+        return SingleSeriesAnalyticsResult(
+            dataPoints = dataPoints,
+            total = total,
+            monthlyAverage = avg,
+            monthCount = monthCount,
+            currency = currency
+        )
+    }
+
+    /**
+     * Calculates rankings of Expense categories sorted descending by their percentage share
+     * of total expenses in the period.
+     */
+    fun calculateExpenseCategoryRankings(
+        transactions: List<TransactionEntity>,
+        currency: String
+    ): List<CategoryRankingItem> {
+        val useRon = currency == "RON"
+        val filtered = if (useRon) {
+            transactions.filter { it.type == "Expense" }
+        } else {
+            transactions.filter {
+                it.type == "Expense" &&
+                it.conversionStatus == "OFFICIAL" &&
+                it.exchangeRateSource == "BNR_OFFICIAL" &&
+                it.exchangeRate > 0.0
+            }
+        }
+
+        val totalExpense = filtered.sumOf { if (useRon) it.amountRON else it.amountEUR }
+        if (totalExpense <= 0.0 && filtered.isEmpty()) return emptyList()
+
+        return filtered
+            .groupBy { it.category }
+            .map { (cat, txList) ->
+                val catSum = txList.sumOf { if (useRon) it.amountRON else it.amountEUR }
+                val pct = if (totalExpense > 0.0) roundOneDecimal((catSum / totalExpense) * 100.0) else 0.0
+                CategoryRankingItem(
+                    categoryName = cat,
+                    totalAmount = roundTwoDecimals(catSum),
+                    percentage = pct,
+                    transactionCount = txList.size
+                )
+            }
+            .sortedByDescending { it.totalAmount }
+    }
+
+    /**
+     * Calculates rankings of Income sources (which are Income categories) sorted descending by their percentage share
+     * of total income in the period.
+     */
+    fun calculateIncomeSourceRankings(
+        transactions: List<TransactionEntity>,
+        currency: String
+    ): List<CategoryRankingItem> {
+        val useRon = currency == "RON"
+        val filtered = if (useRon) {
+            transactions.filter { it.type == "Income" }
+        } else {
+            transactions.filter {
+                it.type == "Income" &&
+                it.conversionStatus == "OFFICIAL" &&
+                it.exchangeRateSource == "BNR_OFFICIAL" &&
+                it.exchangeRate > 0.0
+            }
+        }
+
+        val totalIncome = filtered.sumOf { if (useRon) it.amountRON else it.amountEUR }
+        if (totalIncome <= 0.0 && filtered.isEmpty()) return emptyList()
+
+        return filtered
+            .groupBy { it.category }
+            .map { (cat, txList) ->
+                val catSum = txList.sumOf { if (useRon) it.amountRON else it.amountEUR }
+                val pct = if (totalIncome > 0.0) roundOneDecimal((catSum / totalIncome) * 100.0) else 0.0
+                CategoryRankingItem(
+                    categoryName = cat,
+                    totalAmount = roundTwoDecimals(catSum),
+                    percentage = pct,
+                    transactionCount = txList.size
+                )
+            }
+            .sortedByDescending { it.totalAmount }
     }
 
     private fun roundTwoDecimals(value: Double): Double {

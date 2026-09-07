@@ -92,6 +92,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
     val categoryIncomeShares by viewModel.categoryIncomeShares.collectAsStateWithLifecycle()
     val monthlyDataPoints by viewModel.monthlyDataPoints.collectAsStateWithLifecycle()
     val smartInsights by viewModel.smartInsights.collectAsStateWithLifecycle()
+    val analyticsUiState by viewModel.analyticsUiState.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val migrationUiState by viewModel.migrationUiState.collectAsStateWithLifecycle()
@@ -161,13 +162,14 @@ fun FinTrackApp(viewModel: MainViewModel) {
                     )
 
                     2 -> AnalyticsScreen(
-                        metrics = metrics,
+                        analyticsUiState = analyticsUiState,
                         filterSettings = filterSettings,
-                        categoryExpenseShares = categoryExpenseShares,
-                        categoryIncomeShares = categoryIncomeShares,
-                        monthlyDataPoints = monthlyDataPoints,
-                        insights = smartInsights,
-                        onCurrencyChanged = { viewModel.updateSelectedCurrency(it) }
+                        hasIncompleteEurData = metrics.hasIncompleteEurData,
+                        excludedNonOfficialCount = metrics.excludedNonOfficialCount,
+                        onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
+                        onIncomeExpenseSelectionChanged = { viewModel.updateAnalyticsIncomeExpenseSelection(it) },
+                        onExpenseCategorySelectionChanged = { viewModel.updateAnalyticsExpenseCategorySelection(it) },
+                        onIncomeSourceSelectionChanged = { viewModel.updateAnalyticsIncomeSourceSelection(it) }
                     )
 
                     3 -> CategoriesScreen(
