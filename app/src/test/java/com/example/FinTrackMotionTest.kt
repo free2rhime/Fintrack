@@ -32,16 +32,36 @@ class FinTrackMotionTest {
 
     @Test
     fun testMotionTokenConstants() {
+        assertEquals(0, FinTrackMotion.DurationInstant)
+        assertEquals(120, FinTrackMotion.DurationMicro)
         assertEquals(150, FinTrackMotion.DurationFast)
         assertEquals(200, FinTrackMotion.DurationStandard)
+        assertEquals(220, FinTrackMotion.DurationV2Standard)
         assertEquals(250, FinTrackMotion.DurationEmphasized)
+        assertEquals(350, FinTrackMotion.DurationV2Emphasized)
+        assertEquals(600, FinTrackMotion.DurationChartSweep)
         assertEquals(1000, FinTrackMotion.DurationSyncSpin)
         assertEquals(FastOutSlowInEasing, FinTrackMotion.StandardEasing)
+        assertEquals(FastOutSlowInEasing, FinTrackMotion.StandardDecelerate)
         assertEquals(LinearEasing, FinTrackMotion.LinearCurve)
+        assertNotNull(FinTrackMotion.EmphasizedCubic)
+    }
+
+    @Test
+    fun testSpringSpecs() {
+        assertNotNull(FinTrackMotion.InteractiveSpring)
+        assertNotNull(FinTrackMotion.InteractiveSpringDp)
+        assertNotNull(FinTrackMotion.ContentSpring)
+        assertNotNull(FinTrackMotion.ContentSpringDp)
+        assertNotNull(FinTrackMotion.interactiveSpring<Float>())
+        assertNotNull(FinTrackMotion.contentSpring<Float>())
     }
 
     @Test
     fun testTweenSpecs() {
+        val micro = FinTrackMotion.microTween<Float>()
+        assertEquals(120, micro.durationMillis)
+
         val fast = FinTrackMotion.fastTween<Float>()
         assertEquals(150, fast.durationMillis)
         assertEquals(FastOutSlowInEasing, fast.easing)
@@ -50,9 +70,15 @@ class FinTrackMotionTest {
         assertEquals(200, standard.durationMillis)
         assertEquals(FastOutSlowInEasing, standard.easing)
 
+        val standardV2 = FinTrackMotion.standardV2Tween<Float>()
+        assertEquals(220, standardV2.durationMillis)
+
         val emphasized = FinTrackMotion.emphasizedTween<Float>()
         assertEquals(250, emphasized.durationMillis)
         assertEquals(FastOutSlowInEasing, emphasized.easing)
+
+        val emphasizedV2 = FinTrackMotion.emphasizedV2Tween<Float>()
+        assertEquals(350, emphasizedV2.durationMillis)
     }
 
     @Test

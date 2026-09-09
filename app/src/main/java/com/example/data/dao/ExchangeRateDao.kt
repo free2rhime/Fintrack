@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.data.model.ExchangeRateEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ExchangeRateDao {
@@ -16,6 +17,12 @@ interface ExchangeRateDao {
 
     @Query("SELECT * FROM exchange_rates WHERE source = 'BNR_OFFICIAL' AND status = 'OFFICIAL'")
     suspend fun getAllOfficialRates(): List<ExchangeRateEntity>
+
+    @Query("SELECT * FROM exchange_rates WHERE source = 'BNR_OFFICIAL' AND status = 'OFFICIAL' AND rate > 0.0 ORDER BY effectiveDate DESC, date DESC LIMIT 1")
+    fun getLatestOfficialRateFlow(): Flow<ExchangeRateEntity?>
+
+    @Query("SELECT * FROM exchange_rates WHERE source = 'BNR_OFFICIAL' AND status = 'OFFICIAL' AND rate > 0.0 ORDER BY effectiveDate DESC, date DESC LIMIT 1")
+    suspend fun getLatestOfficialRate(): ExchangeRateEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRate(rate: ExchangeRateEntity)

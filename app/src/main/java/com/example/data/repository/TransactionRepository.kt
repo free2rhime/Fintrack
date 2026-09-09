@@ -1,11 +1,13 @@
 package com.example.data.repository
 
+import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.service.BnrDiagnosticResult
 import com.example.data.service.BnrRateResult
 import com.example.data.util.CsvImportFinalResult
 import com.example.data.util.CsvPreviewData
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import java.io.File
 
 data class PreparedRepairItem(
@@ -25,6 +27,9 @@ data class PendingRetryResult(
 interface TransactionRepository {
     val allTransactions: Flow<List<TransactionEntity>>
         get() = getTransactions(null)
+
+    val latestOfficialRate: Flow<ExchangeRateEntity?>
+        get() = flowOf(null)
 
     fun getTransactions(householdId: String? = null): Flow<List<TransactionEntity>>
 

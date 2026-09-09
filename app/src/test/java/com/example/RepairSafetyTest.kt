@@ -56,6 +56,8 @@ class RepairSafetyTest {
             override suspend fun deleteUnverifiedRatesForDate(date: String): Int = 0
             override suspend fun insertAllRates(rates: List<com.example.data.model.ExchangeRateEntity>) {}
             override suspend fun getAllOfficialRates(): List<com.example.data.model.ExchangeRateEntity> = emptyList()
+            override fun getLatestOfficialRateFlow(): kotlinx.coroutines.flow.Flow<com.example.data.model.ExchangeRateEntity?> = kotlinx.coroutines.flow.flowOf(null)
+            override suspend fun getLatestOfficialRate(): com.example.data.model.ExchangeRateEntity? = null
             override suspend fun deleteAllRates() {}
         }
         val service = ExchangeRateService(mockDao)

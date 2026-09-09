@@ -397,4 +397,66 @@ class FinancialAnalyticsEngineTest {
         assertEquals(100.0, result.total, 0.01)
         assertEquals(100.0, result.monthlyAverage, 0.01)
     }
+
+    @Test
+    fun testMonthlyDataPoints_sortedChronologicallySameYear() {
+        val txs = listOf(
+            TransactionEntity(id = "1", date = "2026-04-10", description = "T1", amountRON = 100.0, amountEUR = 20.0, exchangeRate = 5.0, exchangeRateDate = "2026-04-10", type = "Expense", account = "A", category = "Food", subCategory = "Groceries"),
+            TransactionEntity(id = "2", date = "2026-08-15", description = "T2", amountRON = 200.0, amountEUR = 40.0, exchangeRate = 5.0, exchangeRateDate = "2026-08-15", type = "Expense", account = "A", category = "Food", subCategory = "Groceries"),
+            TransactionEntity(id = "3", date = "2026-02-05", description = "T3", amountRON = 300.0, amountEUR = 60.0, exchangeRate = 5.0, exchangeRateDate = "2026-02-05", type = "Expense", account = "A", category = "Food", subCategory = "Groceries"),
+            TransactionEntity(id = "4", date = "2026-01-20", description = "T4", amountRON = 400.0, amountEUR = 80.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-20", type = "Expense", account = "A", category = "Food", subCategory = "Groceries")
+        )
+
+        val points = FinancialAnalyticsEngine.calculateMonthlyDataPoints(txs, "RON")
+        val labels = points.map { it.monthYearLabel }
+
+        // Expected chronological order: Jan 2026, Feb 2026, Apr 2026, Aug 2026
+        // (Old alphabetical bug yielded: Apr 2026, Aug 2026, Feb 2026, Jan 2026)
+        assertEquals(4, points.size)
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-01"), labels[0])
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-02"), labels[1])
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-04"), labels[2])
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-08"), labels[3])
+    }
+
+    @Test
+    fun testMonthlyDataPoints_sortedChronologicallyAcrossCalendarYears() {
+        val txs = listOf(
+            TransactionEntity(id = "1", date = "2026-03-10", description = "T1", amountRON = 100.0, amountEUR = 20.0, exchangeRate = 5.0, exchangeRateDate = "2026-03-10", type = "Expense", account = "A", category = "Food", subCategory = "Groceries"),
+            TransactionEntity(id = "2", date = "2025-11-05", description = "T2", amountRON = 200.0, amountEUR = 40.0, exchangeRate = 5.0, exchangeRateDate = "2025-11-05", type = "Expense", account = "A", category = "Food", subCategory = "Groceries"),
+            TransactionEntity(id = "3", date = "2026-01-15", description = "T3", amountRON = 300.0, amountEUR = 60.0, exchangeRate = 5.0, exchangeRateDate = "2026-01-15", type = "Expense", account = "A", category = "Food", subCategory = "Groceries"),
+            TransactionEntity(id = "4", date = "2025-12-25", description = "T4", amountRON = 400.0, amountEUR = 80.0, exchangeRate = 5.0, exchangeRateDate = "2025-12-25", type = "Expense", account = "A", category = "Food", subCategory = "Groceries"),
+            TransactionEntity(id = "5", date = "2026-02-14", description = "T5", amountRON = 500.0, amountEUR = 100.0, exchangeRate = 5.0, exchangeRateDate = "2026-02-14", type = "Expense", account = "A", category = "Food", subCategory = "Groceries"),
+            TransactionEntity(id = "6", date = "2026-04-01", description = "T6", amountRON = 600.0, amountEUR = 120.0, exchangeRate = 5.0, exchangeRateDate = "2026-04-01", type = "Expense", account = "A", category = "Food", subCategory = "Groceries")
+        )
+
+        val points = FinancialAnalyticsEngine.calculateMonthlyDataPoints(txs, "RON")
+        val labels = points.map { it.monthYearLabel }
+
+        // Expected chronological order spanning calendar years: Nov 2025, Dec 2025, Jan 2026, Feb 2026, Mar 2026, Apr 2026
+        // (Old alphabetical bug yielded: Dec 2025, Feb 2026, Jan 2026, Mar 2026, Nov 2025)
+        assertEquals(6, points.size)
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2025-11"), labels[0])
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2025-12"), labels[1])
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-01"), labels[2])
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-02"), labels[3])
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-03"), labels[4])
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-04"), labels[5])
+    }
+
+    @Test
+    fun testMonthlyDataPoints_emptyAndSingleMonth() {
+        val emptyPoints = FinancialAnalyticsEngine.calculateMonthlyDataPoints(emptyList(), "RON")
+        assertTrue(emptyPoints.isEmpty())
+
+        val singleTx = listOf(
+            TransactionEntity(id = "1", date = "2026-05-15", description = "T1", amountRON = 150.0, amountEUR = 30.0, exchangeRate = 5.0, exchangeRateDate = "2026-05-15", type = "Income", account = "A", category = "Salary", subCategory = "Main")
+        )
+        val singlePoints = FinancialAnalyticsEngine.calculateMonthlyDataPoints(singleTx, "RON")
+        assertEquals(1, singlePoints.size)
+        assertEquals(FinancialAnalyticsEngine.formatYearMonthLabel("2026-05"), singlePoints[0].monthYearLabel)
+        assertEquals(150.0, singlePoints[0].income, 0.01)
+        assertEquals(0.0, singlePoints[0].expense, 0.01)
+        assertEquals(150.0, singlePoints[0].balance, 0.01)
+    }
 }

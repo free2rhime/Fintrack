@@ -92,6 +92,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
     val categoryIncomeShares by viewModel.categoryIncomeShares.collectAsStateWithLifecycle()
     val monthlyDataPoints by viewModel.monthlyDataPoints.collectAsStateWithLifecycle()
     val smartInsights by viewModel.smartInsights.collectAsStateWithLifecycle()
+    val recentTransactions by viewModel.recentTransactions.collectAsStateWithLifecycle()
     val analyticsUiState by viewModel.analyticsUiState.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
@@ -142,8 +143,11 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         monthlyDataPoints = monthlyDataPoints,
                         categoryShares = categoryExpenseShares,
                         smartInsights = smartInsights,
+                        recentTransactions = recentTransactions,
                         onPeriodSelected = { viewModel.updateSelectedPeriod(it) },
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
+                        onViewAllActivity = { viewModel.selectTab(1) },
+                        onTransactionClicked = { tx -> viewModel.openEditTransactionDialog(tx) },
                         syncStatus = syncStatus
                     )
 

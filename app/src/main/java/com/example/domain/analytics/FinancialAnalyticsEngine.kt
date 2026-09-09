@@ -19,7 +19,12 @@ data class DashboardMetrics(
     val periodLabel: String = "Last Month",
     val transactionCount: Int = 0,
     val excludedNonOfficialCount: Int = 0,
-    val hasIncompleteEurData: Boolean = false
+    val hasIncompleteEurData: Boolean = false,
+    val secondaryCurrency: String = if (currency == "RON") "EUR" else "RON",
+    val secondaryCurrencyBalance: Double? = null,
+    val latestBnrRate: Double? = null,
+    val effectiveBnrDate: String? = null,
+    val bnrStatus: String? = null
 )
 
 data class CategoryExpenseShare(
@@ -44,7 +49,9 @@ data class SmartFinancialInsights(
     val largestIncomeMonth: String = "N/A",
     val largestIncomeMonthAmount: Double = 0.0,
     val monthOverMonthExpenseChangePercent: Double = 0.0,
-    val savingsTrendText: String = "Stable"
+    val savingsTrendText: String = "Stable",
+    val savingsRatio: Double? = null,
+    val expenseVelocity: Double? = null
 )
 
 data class SingleSeriesDataPoint(
@@ -151,40 +158,50 @@ object FinancialAnalyticsEngine {
     fun calculateMetrics(
         transactions: List<TransactionEntity>,
         currency: String,
-        periodLabel: String
+        periodLabel: String,
+        latestBnrRate: Double? = null,
+        effectiveBnrDate: String? = null,
+        bnrStatus: String? = null
     ): DashboardMetrics {
         val useRon = currency == "RON"
 
-        var incomeSum = 0.0
-        var expenseSum = 0.0
+        var incomeRon = 0.0
+        var expenseRon = 0.0
+        var incomeEur = 0.0
+        var expenseEur = 0.0
         val categoryExpenses = mutableMapOf<String, Double>()
-        var excludedNonOfficialCount = 0
+        var nonOfficialEurCount = 0
 
         for (tx in transactions) {
-            val isOfficial = tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL" && tx.exchangeRate > 0.0
-            if (useRon) {
-                val amount = tx.amountRON
+            val isOfficialEur = tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL" && tx.exchangeRate > 0.0
+            val amtRon = tx.amountRON
+
+            if (tx.type == "Income") {
+                incomeRon += amtRon
+            } else if (tx.type == "Expense") {
+                expenseRon += amtRon
+                if (useRon) {
+                    categoryExpenses[tx.category] = (categoryExpenses[tx.category] ?: 0.0) + amtRon
+                }
+            }
+
+            if (isOfficialEur) {
+                val amtEur = tx.amountEUR
                 if (tx.type == "Income") {
-                    incomeSum += amount
+                    incomeEur += amtEur
                 } else if (tx.type == "Expense") {
-                    expenseSum += amount
-                    categoryExpenses[tx.category] = (categoryExpenses[tx.category] ?: 0.0) + amount
+                    expenseEur += amtEur
+                    if (!useRon) {
+                        categoryExpenses[tx.category] = (categoryExpenses[tx.category] ?: 0.0) + amtEur
+                    }
                 }
             } else {
-                if (isOfficial) {
-                    val amount = tx.amountEUR
-                    if (tx.type == "Income") {
-                        incomeSum += amount
-                    } else if (tx.type == "Expense") {
-                        expenseSum += amount
-                        categoryExpenses[tx.category] = (categoryExpenses[tx.category] ?: 0.0) + amount
-                    }
-                } else {
-                    excludedNonOfficialCount++
-                }
+                nonOfficialEurCount++
             }
         }
 
+        val incomeSum = if (useRon) incomeRon else incomeEur
+        val expenseSum = if (useRon) expenseRon else expenseEur
         val balance = incomeSum - expenseSum
         val savingsRate = if (incomeSum > 0.0) ((incomeSum - expenseSum) / incomeSum) * 100.0 else 0.0
         val expensePressure = if (incomeSum > 0.0) (expenseSum / incomeSum) * 100.0 else 0.0
@@ -193,6 +210,13 @@ object FinancialAnalyticsEngine {
         val topCategory = topCategoryEntry?.key ?: "N/A"
         val topCategoryAmt = topCategoryEntry?.value ?: 0.0
         val concentrationPct = if (expenseSum > 0.0) (topCategoryAmt / expenseSum) * 100.0 else 0.0
+
+        val secondaryCurrency = if (useRon) "EUR" else "RON"
+        val secondaryCurrencyBalance = if (nonOfficialEurCount == 0) {
+            roundTwoDecimals(if (useRon) (incomeEur - expenseEur) else (incomeRon - expenseRon))
+        } else {
+            null
+        }
 
         return DashboardMetrics(
             totalIncome = roundTwoDecimals(incomeSum),
@@ -206,8 +230,13 @@ object FinancialAnalyticsEngine {
             currency = currency,
             periodLabel = periodLabel,
             transactionCount = transactions.size,
-            excludedNonOfficialCount = excludedNonOfficialCount,
-            hasIncompleteEurData = (!useRon) && (excludedNonOfficialCount > 0)
+            excludedNonOfficialCount = if (useRon) 0 else nonOfficialEurCount,
+            hasIncompleteEurData = (!useRon) && (nonOfficialEurCount > 0),
+            secondaryCurrency = secondaryCurrency,
+            secondaryCurrencyBalance = secondaryCurrencyBalance,
+            latestBnrRate = latestBnrRate,
+            effectiveBnrDate = effectiveBnrDate,
+            bnrStatus = bnrStatus
         )
     }
 
@@ -255,27 +284,29 @@ object FinancialAnalyticsEngine {
             if (it.date.length >= 7) it.date.substring(0, 7) else it.date
         }
 
-        return grouped.map { (yearMonth, txList) ->
-            var inc = 0.0
-            var exp = 0.0
-            for (tx in txList) {
-                if (useRon) {
-                    val amt = tx.amountRON
-                    if (tx.type == "Income") inc += amt else exp += amt
-                } else {
-                    if (tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL" && tx.exchangeRate > 0.0) {
-                        val amt = tx.amountEUR
+        return grouped.entries
+            .sortedBy { it.key }
+            .map { (yearMonth, txList) ->
+                var inc = 0.0
+                var exp = 0.0
+                for (tx in txList) {
+                    if (useRon) {
+                        val amt = tx.amountRON
                         if (tx.type == "Income") inc += amt else exp += amt
+                    } else {
+                        if (tx.conversionStatus == "OFFICIAL" && tx.exchangeRateSource == "BNR_OFFICIAL" && tx.exchangeRate > 0.0) {
+                            val amt = tx.amountEUR
+                            if (tx.type == "Income") inc += amt else exp += amt
+                        }
                     }
                 }
+                MonthlyDataPoint(
+                    monthYearLabel = formatYearMonthLabel(yearMonth),
+                    income = roundTwoDecimals(inc),
+                    expense = roundTwoDecimals(exp),
+                    balance = roundTwoDecimals(inc - exp)
+                )
             }
-            MonthlyDataPoint(
-                monthYearLabel = formatYearMonthLabel(yearMonth),
-                income = roundTwoDecimals(inc),
-                expense = roundTwoDecimals(exp),
-                balance = roundTwoDecimals(inc - exp)
-            )
-        }.sortedBy { it.monthYearLabel }
     }
 
     /**

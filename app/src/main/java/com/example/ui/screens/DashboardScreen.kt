@@ -1,12 +1,9 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,69 +19,44 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PieChart
-import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.model.FilterSettings
+import com.example.data.model.TransactionEntity
 import com.example.data.repository.SyncStatus
-import com.example.data.util.NumberFormatter
 import com.example.domain.analytics.CategoryExpenseShare
 import com.example.domain.analytics.DashboardMetrics
 import com.example.domain.analytics.MonthlyDataPoint
 import com.example.domain.analytics.SmartFinancialInsights
-import com.example.ui.components.BadgeVariant
 import com.example.ui.components.CategoryDistributionChart
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackCard
 import com.example.ui.components.FinTrackPeriodDropdown
-import com.example.ui.components.FinTrackStatusBadge
-import com.example.ui.components.FinTrackSyncStatus
+import com.example.ui.components.FinancialPulseCard
 import com.example.ui.components.MonthlyCashFlowSplineChart
-import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseContainer
-import com.example.ui.theme.ExpenseCoral
-import com.example.ui.theme.FinTrackMotion
-import com.example.ui.theme.HeroFinancialDisplay
-import com.example.ui.theme.IncomeContainer
-import com.example.ui.theme.IncomeEmerald
-import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.components.RecentActivitySection
+import com.example.ui.components.UnifiedHeroCanvas
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusMedium
-import com.example.ui.theme.RadiusSmall
-import com.example.ui.theme.RadiusXLarge
 import com.example.ui.theme.SectionHeadline
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
-import com.example.ui.theme.Space2
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space24
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.WarningAmber
 
 @Composable
 fun DashboardScreen(
@@ -95,6 +67,9 @@ fun DashboardScreen(
     smartInsights: SmartFinancialInsights,
     onPeriodSelected: (String) -> Unit,
     onCurrencyChanged: (String) -> Unit,
+    recentTransactions: List<TransactionEntity> = emptyList(),
+    onViewAllActivity: () -> Unit = {},
+    onTransactionClicked: (TransactionEntity) -> Unit = {},
     syncStatus: SyncStatus = SyncStatus.SignedOut,
     modifier: Modifier = Modifier
 ) {
@@ -109,467 +84,200 @@ fun DashboardScreen(
                 .fillMaxWidth()
                 .widthIn(max = 680.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 80.dp)
+                .padding(bottom = Space24)
         ) {
-        // Dashboard Header Region: Title + Currency Toggle ([ RON ] [ EUR ])
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Space16, vertical = Space8),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Dashboard",
-                style = SectionHeadline,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            CurrencyToggle(
-                selectedCurrency = filterSettings.selectedCurrency,
-                onCurrencyChanged = onCurrencyChanged
-            )
-        }
+            // Dashboard Header Region: Title + Currency Toggle ([ RON ] [ EUR ])
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Space16, vertical = Space8),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Dashboard",
+                    style = SectionHeadline,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                CurrencyToggle(
+                    selectedCurrency = filterSettings.selectedCurrency,
+                    onCurrencyChanged = onCurrencyChanged
+                )
+            }
 
-        // Context Controls: Compact Period Selector Dropdown
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Space16, vertical = Space4),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FinTrackPeriodDropdown(
-                selectedPeriod = filterSettings.selectedPeriod,
-                onPeriodSelected = onPeriodSelected
-            )
-        }
-
-        // Optional EUR / BNR Incomplete Warning
-        if (metrics.hasIncompleteEurData) {
-            Spacer(modifier = Modifier.height(Space12))
-            FinTrackCard(
+            // UNIFIED HERO CANVAS — Precision Fintech + Editorial Wealth Narrative (FinTrack Phase 3B Checkpoint 4.1)
+            UnifiedHeroCanvas(
+                metrics = metrics,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Space16)
-                    .testTag("eur_incomplete_warning_card"),
-                shape = RoundedCornerShape(RadiusMedium),
-                border = BorderStroke(1.dp, WarningAmber.copy(alpha = 0.3f)),
-                contentPadding = Space12
+            )
+
+            Spacer(modifier = Modifier.height(Space12))
+
+            // Context Controls: Compact Period Selector Dropdown
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Space16, vertical = Space4),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(WarningAmber.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Warning",
-                            tint = WarningAmber,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(Space12))
-                    Text(
-                        text = "EUR totals are incomplete: ${metrics.excludedNonOfficialCount} transaction(s) pending or unverified BNR exchange rate excluded. Complete RON data remains available.",
-                        style = MicroMetadata,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Space16))
-
-        // HERO BALANCE CARD (Tonal Surface Hierarchy, RadiusXLarge = 24dp)
-        FinTrackCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Space16)
-                .testTag("dashboard_top_card"),
-            shape = RoundedCornerShape(RadiusXLarge),
-            tonalElevation = 2.dp,
-            contentPadding = Space24
-        ) {
-            Column {
-                Text(
-                    text = "NET BALANCE",
-                    style = LabelBadgeMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 1.sp
+                FinTrackPeriodDropdown(
+                    selectedPeriod = filterSettings.selectedPeriod,
+                    onPeriodSelected = onPeriodSelected
                 )
-                Spacer(modifier = Modifier.height(Space8))
-                AnimatedContent(
-                    targetState = formatCeilNetBalance(metrics.balance, metrics.currency),
-                    transitionSpec = { FinTrackMotion.contentFade() },
-                    label = "dashboard_balance_amount"
-                ) { formattedBalance ->
-                    Text(
-                        text = formattedBalance,
-                        style = HeroFinancialDisplay,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+            }
 
-                Spacer(modifier = Modifier.height(Space24))
-
-                // Income & Expense Split — Single horizontal row: Income Left, Expense Right
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            // Optional EUR / BNR Incomplete Warning
+            if (metrics.hasIncompleteEurData) {
+                Spacer(modifier = Modifier.height(Space12))
+                FinTrackCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Space16)
+                        .testTag("eur_incomplete_warning_card"),
+                    shape = RoundedCornerShape(RadiusMedium),
+                    border = BorderStroke(1.dp, FinTrackTheme.colors.healthWarning.copy(alpha = 0.3f)),
+                    contentPadding = Space12
                 ) {
-                    // Total Income (Left)
                     Row(
-                        modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(28.dp)
                                 .clip(CircleShape)
-                                .background(IncomeContainer),
+                                .background(FinTrackTheme.colors.healthWarning.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowDownward,
-                                contentDescription = "Income",
-                                tint = IncomeEmerald,
-                                modifier = Modifier.size(18.dp)
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Warning",
+                                tint = FinTrackTheme.colors.healthWarning,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(Space8))
-                        Column(modifier = Modifier.weight(1f, fill = false)) {
-                            Text(
-                                text = "Income",
-                                style = LabelBadgeMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(Space2))
-                            Text(
-                                text = "+${formatCeilAmount(metrics.totalIncome, metrics.currency)}",
-                                style = CardTitleAmount,
-                                color = IncomeEmerald,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(Space12))
-
-                    // Total Expense (Right)
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(ExpenseContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowUpward,
-                                contentDescription = "Expense",
-                                tint = ExpenseCoral,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(Space8))
-                        Column(modifier = Modifier.weight(1f, fill = false)) {
-                            Text(
-                                text = "Expense",
-                                style = LabelBadgeMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(Space2))
-                            Text(
-                                text = "-${formatCeilAmount(metrics.totalExpense, metrics.currency)}",
-                                style = CardTitleAmount,
-                                color = ExpenseCoral,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(Space12))
+                        Text(
+                            text = "EUR totals are incomplete: ${metrics.excludedNonOfficialCount} transaction(s) pending or unverified BNR exchange rate excluded. Complete RON data remains available.",
+                            style = MicroMetadata,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(Space20))
+            Spacer(modifier = Modifier.height(Space16))
 
-        // FINANCIAL RATIO CARDS (Row 1: Savings Rate & Expense Pressure)
-        // Notice: "KEY FINANCIAL RATIOS" visible heading is intentionally removed.
-        val isZeroIncome = metrics.totalIncome <= 0.0
+            // FINANCIAL PULSE CARD (Precision Fintech + Editorial Wealth Narrative - Checkpoint 4.2)
+            val isZeroIncome = metrics.totalIncome <= 0.0
+            FinancialPulseCard(
+                insights = smartInsights,
+                savingsRate = if (isZeroIncome) null else metrics.savingsRate,
+                expenseVelocity = if (isZeroIncome) null else metrics.expensePressure,
+                modifier = Modifier.padding(horizontal = Space16)
+            )
 
-        val savingsVariant = when {
-            isZeroIncome -> BadgeVariant.NEUTRAL
-            metrics.savingsRate >= 20.0 -> BadgeVariant.SUCCESS
-            metrics.savingsRate >= 0.0 -> BadgeVariant.WARNING
-            else -> BadgeVariant.ERROR
-        }
+            Spacer(modifier = Modifier.height(Space20))
 
-        val pressureVariant = when {
-            isZeroIncome -> BadgeVariant.NEUTRAL
-            metrics.expensePressure < 60.0 -> BadgeVariant.SUCCESS
-            metrics.expensePressure <= 80.0 -> BadgeVariant.WARNING
-            else -> BadgeVariant.ERROR
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Space16),
-            horizontalArrangement = Arrangement.spacedBy(Space12)
-        ) {
-            // Savings Rate Card
+            // MONTHLY CASH FLOW CHART (Tonal Container, Spline Chart only)
             FinTrackCard(
                 modifier = Modifier
-                    .weight(1f)
-                    .testTag("card_savings_rate"),
+                    .fillMaxWidth()
+                    .padding(horizontal = Space16),
                 shape = RoundedCornerShape(RadiusLarge),
                 contentPadding = Space16
             ) {
                 Column {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Space8)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                .background(FinTrackTheme.colors.brandAccent.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Savings,
-                                contentDescription = "Savings",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                imageVector = Icons.Default.TrendingUp,
+                                contentDescription = null,
+                                tint = FinTrackTheme.colors.brandAccent,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
+                        Spacer(modifier = Modifier.width(Space8))
                         Text(
-                            text = "Savings Rate",
-                            style = LabelBadgeMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Monthly Cash Flow",
+                            style = SectionHeadline,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(Space12))
+                    Spacer(modifier = Modifier.height(Space16))
 
-                    FinTrackStatusBadge(
-                        label = if (isZeroIncome) "N/A" else "${metrics.savingsRate}% saved",
-                        variant = savingsVariant
+                    MonthlyCashFlowSplineChart(
+                        dataPoints = monthlyDataPoints,
+                        currency = metrics.currency
                     )
                 }
             }
 
-            // Expense Pressure Card
+            Spacer(modifier = Modifier.height(Space20))
+
+            // CATEGORY BREAKDOWN CHART (Tonal Container)
             FinTrackCard(
                 modifier = Modifier
-                    .weight(1f)
-                    .testTag("card_expense_pressure"),
+                    .fillMaxWidth()
+                    .padding(horizontal = Space16),
                 shape = RoundedCornerShape(RadiusLarge),
                 contentPadding = Space16
             ) {
                 Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Space8)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                .background(FinTrackTheme.colors.brandAccent.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Speed,
-                                contentDescription = "Pressure",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                imageVector = Icons.Default.PieChart,
+                                contentDescription = null,
+                                tint = FinTrackTheme.colors.brandAccent,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
+                        Spacer(modifier = Modifier.width(Space8))
                         Text(
-                            text = "Expense Pressure",
-                            style = LabelBadgeMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Spending by Category",
+                            style = SectionHeadline,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(Space12))
+                    Spacer(modifier = Modifier.height(Space16))
 
-                    FinTrackStatusBadge(
-                        label = if (isZeroIncome) "N/A" else "${metrics.expensePressure}% used",
-                        variant = pressureVariant
+                    CategoryDistributionChart(
+                        categoryShares = categoryShares,
+                        currency = metrics.currency
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(Space20))
+
+            // RECENT ACTIVITY STREAM (Checkpoint 4.2)
+            RecentActivitySection(
+                transactions = recentTransactions,
+                selectedCurrency = filterSettings.selectedCurrency,
+                onViewAllClicked = onViewAllActivity,
+                onTransactionClicked = onTransactionClicked,
+                modifier = Modifier.padding(horizontal = Space16)
+            )
         }
-
-        Spacer(modifier = Modifier.height(Space12))
-
-        // FINANCIAL RATIO CARDS (Row 2: Top Expense Category & Concentration)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Space16),
-            horizontalArrangement = Arrangement.spacedBy(Space12)
-        ) {
-            // Top Expense Category
-            FinTrackCard(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(RadiusLarge),
-                contentPadding = Space16
-            ) {
-                Column {
-                    Text(
-                        text = "Top Category",
-                        style = LabelBadgeMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(Space8))
-                    Text(
-                        text = metrics.topExpenseCategory.ifBlank { "None" },
-                        style = CardTitleAmount,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(Space4))
-                    Text(
-                        text = NumberFormatter.formatCurrency(metrics.topExpenseCategoryAmount, metrics.currency),
-                        style = MicroMetadata,
-                        color = CobaltBlue
-                    )
-                }
-            }
-
-            // Concentration Share
-            FinTrackCard(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(RadiusLarge),
-                contentPadding = Space16
-            ) {
-                Column {
-                    Text(
-                        text = "Concentration",
-                        style = LabelBadgeMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(Space8))
-                    Text(
-                        text = "${metrics.categoryConcentrationPercent}%",
-                        style = CardTitleAmount,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(Space4))
-                    Text(
-                        text = "of total spending",
-                        style = MicroMetadata,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Space24))
-
-        // MONTHLY CASH FLOW CHART (Tonal Container, Spline Chart only)
-        FinTrackCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Space16),
-            shape = RoundedCornerShape(RadiusLarge),
-            contentPadding = Space16
-        ) {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(CobaltBlue.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.TrendingUp,
-                            contentDescription = null,
-                            tint = CobaltBlue,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(Space8))
-                    Text(
-                        text = "Monthly Cash Flow",
-                        style = SectionHeadline,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(Space16))
-
-                MonthlyCashFlowSplineChart(
-                    dataPoints = monthlyDataPoints,
-                    currency = metrics.currency
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Space20))
-
-        // CATEGORY BREAKDOWN CHART (Tonal Container)
-        FinTrackCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Space16),
-            shape = RoundedCornerShape(RadiusLarge),
-            contentPadding = Space16
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(CobaltBlue.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PieChart,
-                            contentDescription = null,
-                            tint = CobaltBlue,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(Space8))
-                    Text(
-                        text = "Spending by Category",
-                        style = SectionHeadline,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(Space16))
-
-                CategoryDistributionChart(
-                    categoryShares = categoryShares,
-                    currency = metrics.currency
-                )
-            }
-        }
-    }
     }
 }
 
@@ -594,4 +302,14 @@ internal fun formatCeilAmount(amount: Double, currency: String): String {
     val df = java.text.DecimalFormat("#,##0", symbols)
     return "${df.format(rounded)} $currency"
 }
+
+internal fun formatCeilDigits(amount: Double): String {
+    val rounded = kotlin.math.ceil(kotlin.math.abs(amount)).toLong()
+    val symbols = java.text.DecimalFormatSymbols(java.util.Locale.US).apply {
+        groupingSeparator = ' '
+    }
+    val df = java.text.DecimalFormat("#,##0", symbols)
+    return df.format(rounded)
+}
+
 

@@ -1,44 +1,124 @@
 package com.example.ui.theme
 
+import android.content.Context
+import android.provider.Settings
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 
-// ==========================================
-// FinTrack Design System v1 — Motion Foundation
-// Restrained, predictable, finite-by-default motion tokens.
-// ==========================================
+// =============================================================================
+// FinTrack Motion System v2
+// Direction: Precision Fintech (Restrained, deterministic, tactile, spring-based)
+// =============================================================================
 
 object FinTrackMotion {
-    // Duration Tokens (milliseconds)
-    const val DurationFast = 150
-    const val DurationStandard = 200
-    const val DurationEmphasized = 250
-    const val DurationSyncSpin = 1000
+    // -------------------------------------------------------------------------
+    // 1. DURATION TOKENS (milliseconds)
+    // -------------------------------------------------------------------------
+    const val DurationInstant = 0
+    const val DurationMicro = 120          // Micro interactions, chip selections, icon states
+    const val DurationFast = 150           // DS v1 backward-compatibility
+    const val DurationStandard = 200       // DS v1 backward-compatibility
+    const val DurationV2Standard = 220     // Menus, sheet expansion, tab transitions
+    const val DurationEmphasized = 250     // DS v1 backward-compatibility
+    const val DurationV2Emphasized = 350   // Screen transitions, hero crossfades
+    const val DurationChartSweep = 600     // Spline path initial draw-in
+    const val DurationSyncSpin = 1000      // Sync spinner cycle
 
-    // Easing Curves
+    // -------------------------------------------------------------------------
+    // 2. EASING CURVES
+    // -------------------------------------------------------------------------
     val StandardEasing: Easing = FastOutSlowInEasing
+    val StandardDecelerate: Easing = FastOutSlowInEasing
+    val StandardDecel: Easing = FastOutSlowInEasing
     val LinearCurve: Easing = LinearEasing
+    val EmphasizedCubic: Easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
 
-    // Standard Tween Specs
+    // -------------------------------------------------------------------------
+    // 3. COMPOSE SPRING PHYSICS (v2 Centralized Specs)
+    // -------------------------------------------------------------------------
+    /**
+     * Interactive Spring:
+     * DampingRatioMediumBouncy, StiffnessMedium.
+     * Used for direct touch manipulation, selection pills, and tactile feedback.
+     */
+    val InteractiveSpring: SpringSpec<Float> = spring(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessMedium
+    )
+
+    val InteractiveSpringDp: SpringSpec<Dp> = spring(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessMedium
+    )
+
+    /**
+     * Content Spring:
+     * DampingRatioNoBouncy, StiffnessLow.
+     * Used for content transitions, layout reflows, and smooth state updates without overshoot.
+     */
+    val ContentSpring: SpringSpec<Float> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+
+    val ContentSpringDp: SpringSpec<Dp> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+
+    fun <T> interactiveSpring(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessMedium,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> contentSpring(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessLow,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    // -------------------------------------------------------------------------
+    // 4. STANDARD TWEEN SPECS
+    // -------------------------------------------------------------------------
+    fun <T> microTween(easing: Easing = StandardDecelerate): TweenSpec<T> =
+        tween(durationMillis = DurationMicro, easing = easing)
+
     fun <T> fastTween(easing: Easing = StandardEasing): TweenSpec<T> =
         tween(durationMillis = DurationFast, easing = easing)
 
     fun <T> standardTween(easing: Easing = StandardEasing): TweenSpec<T> =
         tween(durationMillis = DurationStandard, easing = easing)
 
+    fun <T> standardV2Tween(easing: Easing = StandardDecelerate): TweenSpec<T> =
+        tween(durationMillis = DurationV2Standard, easing = easing)
+
     fun <T> emphasizedTween(easing: Easing = StandardEasing): TweenSpec<T> =
         tween(durationMillis = DurationEmphasized, easing = easing)
 
-    // Reusable Presentation Transitions
+    fun <T> emphasizedV2Tween(easing: Easing = EmphasizedCubic): TweenSpec<T> =
+        tween(durationMillis = DurationV2Emphasized, easing = easing)
+
+    // -------------------------------------------------------------------------
+    // 5. REUSABLE PRESENTATION TRANSITIONS
+    // -------------------------------------------------------------------------
     /**
      * Subtle content fade for value updates (e.g. net balance or metric changes).
      * Enters smoothly with fade-in and exits with fade-out.
@@ -54,10 +134,46 @@ object FinTrackMotion {
 
 @Immutable
 data class FinTrackMotionTokens(
+    val durationInstant: Int = FinTrackMotion.DurationInstant,
+    val durationMicro: Int = FinTrackMotion.DurationMicro,
     val durationFast: Int = FinTrackMotion.DurationFast,
     val durationStandard: Int = FinTrackMotion.DurationStandard,
+    val durationV2Standard: Int = FinTrackMotion.DurationV2Standard,
     val durationEmphasized: Int = FinTrackMotion.DurationEmphasized,
-    val durationSyncSpin: Int = FinTrackMotion.DurationSyncSpin
+    val durationV2Emphasized: Int = FinTrackMotion.DurationV2Emphasized,
+    val durationChartSweep: Int = FinTrackMotion.DurationChartSweep,
+    val durationSyncSpin: Int = FinTrackMotion.DurationSyncSpin,
+    val interactiveSpring: SpringSpec<Float> = FinTrackMotion.InteractiveSpring,
+    val contentSpring: SpringSpec<Float> = FinTrackMotion.ContentSpring,
+    val standardDecelerate: Easing = FinTrackMotion.StandardDecelerate,
+    val emphasizedCubic: Easing = FinTrackMotion.EmphasizedCubic
 )
 
 val LocalFinTrackMotion = staticCompositionLocalOf { FinTrackMotionTokens() }
+
+/**
+ * Checks system accessibility settings to determine if transition animations
+ * are disabled (Scale = 0). Allows graceful degradation for motion sensitivity.
+ */
+@Composable
+fun isReducedMotionEnabled(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        try {
+            val resolver = context.contentResolver
+            val transitionScale = Settings.Global.getFloat(
+                resolver,
+                Settings.Global.TRANSITION_ANIMATION_SCALE,
+                1.0f
+            )
+            val animatorScale = Settings.Global.getFloat(
+                resolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1.0f
+            )
+            transitionScale == 0f || animatorScale == 0f
+        } catch (_: Throwable) {
+            false
+        }
+    }
+}

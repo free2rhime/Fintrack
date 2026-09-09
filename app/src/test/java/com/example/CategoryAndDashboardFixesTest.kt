@@ -209,6 +209,13 @@ class CategoryAndDashboardFixesTest {
         // Secondary indicator formatting: ceiling behavior, no decimals
         assertEquals("12 346 RON", com.example.ui.screens.formatCeilAmount(12345.10, "RON"))
         assertEquals("1 500 EUR", com.example.ui.screens.formatCeilAmount(1499.50, "EUR"))
+
+        // Decoupled digits formatting: ceiling behavior, space thousand separators, no currency
+        assertEquals("86 646", com.example.ui.screens.formatCeilDigits(86645.72))
+        assertEquals("131 556", com.example.ui.screens.formatCeilDigits(131555.20))
+        assertEquals("1 250 000", com.example.ui.screens.formatCeilDigits(1250000.0))
+        assertEquals("12 345 678", com.example.ui.screens.formatCeilDigits(12345678.0))
+        assertEquals("0", com.example.ui.screens.formatCeilDigits(0.0))
     }
 
     @Test

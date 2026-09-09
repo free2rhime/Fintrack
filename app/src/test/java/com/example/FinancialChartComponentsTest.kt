@@ -6,8 +6,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.example.domain.analytics.CategoryExpenseShare
+import com.example.domain.analytics.MonthlyDataPoint
 import com.example.domain.analytics.SingleSeriesDataPoint
+import com.example.ui.components.CategoryDistributionChart
 import com.example.ui.components.FinTrackDropdownSelector
+import com.example.ui.components.MonthlyCashFlowSplineChart
 import com.example.ui.components.SingleSeriesSplineChart
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -64,6 +68,64 @@ class FinancialChartComponentsTest {
         // Clicking on "Feb" shows 0.00 RON (zero value handled properly)
         composeTestRule.onNodeWithText("Feb").performClick()
         composeTestRule.onNodeWithText("0.00 RON").assertIsDisplayed()
+    }
+
+    @Test
+    fun testMonthlyCashFlowSplineChartRendersHudAndSwitchesMonths() {
+        val points = listOf(
+            MonthlyDataPoint("Jan 2026", income = 5000.0, expense = 2500.0, balance = 2500.0),
+            MonthlyDataPoint("Feb 2026", income = 6000.0, expense = 3000.0, balance = 3000.0),
+            MonthlyDataPoint("Mar 2026", income = 4500.0, expense = 4000.0, balance = 500.0)
+        )
+
+        composeTestRule.setContent {
+            MonthlyCashFlowSplineChart(
+                dataPoints = points,
+                currency = "RON"
+            )
+        }
+
+        // Canvas and HUD are present
+        composeTestRule.onNodeWithTag("cash_flow_spline_canvas").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("cash_flow_hud").assertIsDisplayed()
+
+        // Default active point is Mar 2026 (last point)
+        composeTestRule.onNodeWithText("Mar 2026").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Net: +500.00 RON").assertIsDisplayed()
+
+        // Click on Jan 2026
+        composeTestRule.onNodeWithTag("month_x_label_0").performClick()
+        composeTestRule.onNodeWithText("Jan 2026").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Net: +2 500.00 RON").assertIsDisplayed()
+    }
+
+    @Test
+    fun testCategoryDistributionChartRendersDonutHudAndItems() {
+        val shares = listOf(
+            CategoryExpenseShare(categoryName = "Groceries", totalAmount = 3000.0, percentage = 60.0, transactionCount = 12),
+            CategoryExpenseShare(categoryName = "Utilities", totalAmount = 2000.0, percentage = 40.0, transactionCount = 4)
+        )
+
+        composeTestRule.setContent {
+            CategoryDistributionChart(
+                categoryShares = shares,
+                currency = "RON"
+            )
+        }
+
+        // Donut box, canvas, HUD, and share items are rendered
+        composeTestRule.onNodeWithTag("category_donut_box").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("category_donut_canvas").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("category_donut_hud").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("category_share_item_0").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("category_share_item_1").assertIsDisplayed()
+
+        // Default selected category is top item (Groceries, 60%)
+        composeTestRule.onNodeWithText("60%").assertIsDisplayed()
+
+        // Clicking on Utilities selects it
+        composeTestRule.onNodeWithTag("category_share_item_1").performClick()
+        composeTestRule.onNodeWithText("40%").assertIsDisplayed()
     }
 
     @Test

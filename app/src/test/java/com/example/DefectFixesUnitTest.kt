@@ -7,6 +7,7 @@ import com.example.data.repository.RoomTransactionRepository
 import com.example.data.service.ExchangeRateService
 import com.example.data.util.NumberFormatter
 import com.example.domain.analytics.FinancialAnalyticsEngine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -220,6 +221,14 @@ class FakeExchangeRateDao : ExchangeRateDao {
 
     override suspend fun getAllOfficialRates(): List<ExchangeRateEntity> {
         return memory.values.toList()
+    }
+
+    override fun getLatestOfficialRateFlow(): Flow<ExchangeRateEntity?> {
+        return flowOf(memory.values.filter { it.status == "OFFICIAL" && it.rate > 0.0 }.maxByOrNull { it.effectiveDate })
+    }
+
+    override suspend fun getLatestOfficialRate(): ExchangeRateEntity? {
+        return memory.values.filter { it.status == "OFFICIAL" && it.rate > 0.0 }.maxByOrNull { it.effectiveDate }
     }
 
     override suspend fun deleteUnverifiedRatesForDate(date: String): Int {

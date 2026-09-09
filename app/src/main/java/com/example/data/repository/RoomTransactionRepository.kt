@@ -32,6 +32,9 @@ class RoomTransactionRepository(
 ) : TransactionRepository {
     private val syncMutex = Mutex()
 
+    override val latestOfficialRate: Flow<ExchangeRateEntity?> =
+        exchangeRateDao.getLatestOfficialRateFlow()
+
     override fun getTransactions(householdId: String?): Flow<List<TransactionEntity>> {
         return transactionDao.getAllTransactions(householdId)
     }

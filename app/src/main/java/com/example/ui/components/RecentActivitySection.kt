@@ -1,0 +1,308 @@
+package com.example.ui.components
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.example.data.model.TransactionEntity
+import com.example.data.util.NumberFormatter
+import com.example.ui.theme.BodyRegular
+import com.example.ui.theme.CardTitleAmount
+import com.example.ui.theme.FinTrackMotion
+import com.example.ui.theme.FinTrackTheme
+import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MicroMetadata
+import com.example.ui.theme.RadiusLarge
+import com.example.ui.theme.RadiusMedium
+import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.Space12
+import com.example.ui.theme.Space16
+import com.example.ui.theme.Space2
+import com.example.ui.theme.Space4
+import com.example.ui.theme.Space8
+import com.example.ui.theme.isReducedMotionEnabled
+
+/**
+ * RecentActivitySection — Dashboard preview stream presenting the 3 latest household transactions.
+ *
+ * Stateless component displaying:
+ * 1. Section Header: "Recent Activity" title + "View All Activity" action link
+ * 2. 3 latest transactions in a compact presentation with category anchors, signed amounts, and dates
+ * 3. Quiet, graceful empty state if no transactions exist
+ * 4. Touch target >= 48dp on clickable transaction items
+ */
+@Composable
+fun RecentActivitySection(
+    transactions: List<TransactionEntity>,
+    selectedCurrency: String,
+    onViewAllClicked: () -> Unit,
+    onTransactionClicked: (TransactionEntity) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val isReducedMotion = isReducedMotionEnabled()
+    val previewTransactions = transactions.take(3)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("recent_activity_section")
+    ) {
+        // Section Header Row: Title + "View All Activity" Action Link
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = Space8),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recent Activity",
+                style = SectionHeadline,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            TextButton(
+                onClick = onViewAllClicked,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .testTag("view_all_activity_button")
+                    .semantics {
+                        contentDescription = "View All Activity"
+                        role = Role.Button
+                    }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Space4)
+                ) {
+                    Text(
+                        text = "View All",
+                        style = LabelBadgeMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = FinTrackTheme.colors.brandAccent
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = FinTrackTheme.colors.brandAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        if (previewTransactions.isEmpty()) {
+            // Calm, quiet empty state
+            FinTrackCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("recent_activity_empty_state"),
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                shape = RoundedCornerShape(RadiusLarge),
+                contentPadding = Space16
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = Space8),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(FinTrackTheme.colors.surfaceSecondary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ReceiptLong,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(Space8))
+                    Text(
+                        text = "No Recent Activity",
+                        style = CardTitleAmount,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(Space4))
+                    Text(
+                        text = "Transactions will appear here as you record them.",
+                        style = MicroMetadata,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            // 3 latest transactions stream
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Space8)
+            ) {
+                previewTransactions.forEach { tx ->
+                    RecentTransactionPreviewItem(
+                        transaction = tx,
+                        selectedCurrency = selectedCurrency,
+                        onClick = { onTransactionClicked(tx) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentTransactionPreviewItem(
+    transaction: TransactionEntity,
+    selectedCurrency: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isIncome = transaction.type == "Income"
+    val useRon = selectedCurrency == "RON"
+
+    val rawAmount = if (useRon) transaction.amountRON else transaction.amountEUR
+    val formattedAmount = NumberFormatter.formatAmount(rawAmount)
+    val signedAmountStr = if (isIncome) "+$formattedAmount $selectedCurrency" else "-$formattedAmount $selectedCurrency"
+
+    val categoryIcon = resolveCategoryIcon(transaction.category, isIncome)
+    val categoryColor = if (isIncome) FinTrackTheme.colors.income else FinTrackTheme.colors.expense
+    val containerColor = if (isIncome) FinTrackTheme.colors.incomeContainer else FinTrackTheme.colors.expenseContainer
+
+    val titleText = transaction.description.ifBlank { transaction.category }
+    val subtitleText = if (transaction.description.isNotBlank()) {
+        "${transaction.category} • ${transaction.date}"
+    } else {
+        transaction.date
+    }
+
+    val accessibleDesc = "${if (isIncome) "Income" else "Expense"}: $titleText, $signedAmountStr, ${transaction.date}"
+
+    FinTrackCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
+            .testTag("recent_tx_item_${transaction.id}")
+            .semantics {
+                contentDescription = accessibleDesc
+            },
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(RadiusLarge),
+        contentPadding = Space12,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 48.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Category Visual Anchor (40dp circle)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(containerColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = categoryIcon,
+                    contentDescription = null,
+                    tint = categoryColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(Space12))
+
+            // Transaction Info: Title & Subtitle
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = Space8)
+            ) {
+                Text(
+                    text = titleText,
+                    style = BodyRegular,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("recent_tx_desc_${transaction.id}")
+                )
+                Spacer(modifier = Modifier.height(Space2))
+                Text(
+                    text = subtitleText,
+                    style = MicroMetadata,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Signed Amount & Optional Status
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = signedAmountStr,
+                    style = CardTitleAmount,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isIncome) FinTrackTheme.colors.income else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    modifier = Modifier.testTag("recent_tx_amount_${transaction.id}")
+                )
+
+                // If in EUR and conversion is unverified or pending, render concise micro status
+                if (!useRon && transaction.conversionStatus != "OFFICIAL") {
+                    val statusText = when {
+                        transaction.conversionStatus?.startsWith("PENDING") == true -> "Pending"
+                        transaction.conversionStatus?.startsWith("FAILED") == true -> "Failed"
+                        else -> "Unverified"
+                    }
+                    Text(
+                        text = statusText,
+                        style = MicroMetadata,
+                        color = FinTrackTheme.colors.healthWarning
+                    )
+                }
+            }
+        }
+    }
+}

@@ -13,17 +13,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.RadiusLarge
+import com.example.ui.theme.FinTrackTheme
+import com.example.ui.theme.RadiusCard
 import com.example.ui.theme.Space16
 
 /**
- * Reusable tonal card primitive for FinTrack Design System v1.
- * Adheres strictly to Material 3 tonal surface elevation and 8dp grid spacing.
+ * Reusable surface card primitive for FinTrack Design System v2.
+ * Adheres strictly to Material 3 surface elevation, 1dp subtle micro-border,
+ * and 8dp grid spacing discipline.
  */
 @Composable
 fun FinTrackCard(
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(RadiusLarge),
+    shape: Shape = RoundedCornerShape(RadiusCard),
     containerColor: Color = Color.Unspecified,
     contentColor: Color = Color.Unspecified,
     border: BorderStroke? = null,
@@ -35,8 +37,10 @@ fun FinTrackCard(
     val resolvedContainerColor = if (containerColor != Color.Unspecified) {
         containerColor
     } else {
-        MaterialTheme.colorScheme.surfaceContainer
+        FinTrackTheme.colors.surfacePrimary
     }
+
+    val resolvedBorder = border ?: BorderStroke(1.dp, FinTrackTheme.colors.borderSubtle)
 
     Surface(
         modifier = if (onClick != null) {
@@ -46,12 +50,13 @@ fun FinTrackCard(
         },
         shape = shape,
         color = resolvedContainerColor,
-        contentColor = contentColor,
+        contentColor = if (contentColor != Color.Unspecified) contentColor else MaterialTheme.colorScheme.onSurface,
         tonalElevation = tonalElevation,
-        border = border
+        border = resolvedBorder
     ) {
         Box(modifier = Modifier.padding(contentPadding)) {
             content()
         }
     }
 }
+

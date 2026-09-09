@@ -13,6 +13,8 @@ import com.example.data.util.CsvBackupManager
 import com.example.data.util.MigrationPreflightHelper
 import com.example.data.util.PreflightBackupResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -45,6 +47,8 @@ class MigrationPreflightHelperTest {
         override suspend fun getOfficialRateForDate(date: String): ExchangeRateEntity? = rates.find { (it.date == date || it.requestedDate == date) && it.source == "BNR_OFFICIAL" && it.status == "OFFICIAL" }
         override suspend fun getRateForDate(date: String): ExchangeRateEntity? = rates.find { it.date == date || it.requestedDate == date }
         override suspend fun getAllOfficialRates(): List<ExchangeRateEntity> = rates.filter { it.status == "OFFICIAL" }
+        override fun getLatestOfficialRateFlow(): Flow<ExchangeRateEntity?> = flowOf(rates.filter { it.status == "OFFICIAL" && it.rate > 0.0 }.maxByOrNull { it.effectiveDate ?: it.date })
+        override suspend fun getLatestOfficialRate(): ExchangeRateEntity? = rates.filter { it.status == "OFFICIAL" && it.rate > 0.0 }.maxByOrNull { it.effectiveDate ?: it.date }
         override suspend fun deleteUnverifiedRatesForDate(date: String): Int = 0
         override suspend fun deleteAllRates() { rates.clear() }
     }

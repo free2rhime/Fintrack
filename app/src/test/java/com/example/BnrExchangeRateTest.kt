@@ -8,6 +8,7 @@ import com.example.data.repository.RoomTransactionRepository
 import com.example.data.service.BnrRateResult
 import com.example.data.service.ExchangeRateService
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -34,6 +35,8 @@ class BnrExchangeRateTest {
             override suspend fun deleteUnverifiedRatesForDate(date: String): Int = 0
             override suspend fun insertAllRates(rates: List<ExchangeRateEntity>) { rates.forEach { cache[it.date] = it } }
             override suspend fun getAllOfficialRates(): List<ExchangeRateEntity> = cache.values.filter { it.status == "OFFICIAL" }
+            override fun getLatestOfficialRateFlow(): Flow<ExchangeRateEntity?> = flowOf(cache.values.filter { it.status == "OFFICIAL" && it.rate > 0.0 }.maxByOrNull { it.effectiveDate })
+            override suspend fun getLatestOfficialRate(): ExchangeRateEntity? = cache.values.filter { it.status == "OFFICIAL" && it.rate > 0.0 }.maxByOrNull { it.effectiveDate }
             override suspend fun deleteAllRates() { cache.clear() }
         }
         exchangeRateService = ExchangeRateService(mockRateDao)

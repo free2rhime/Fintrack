@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.FinTrackDatabase
 import com.example.data.model.CategoryEntity
+import com.example.data.model.ExchangeRateEntity
 import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.AuthRepository
@@ -385,6 +386,15 @@ class MainViewModel(
         initialValue = emptyList()
     )
 
+    // Recent 3 transactions preview for Dashboard (authoritative order: date DESC, createdAt DESC)
+    val recentTransactions: StateFlow<List<TransactionEntity>> = allTransactions.map { txList ->
+        txList.take(3)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     // Filtered transactions for Transactions screen (reacting to period, search, and category filter)
     val filteredTransactions: StateFlow<List<TransactionEntity>> = combine(
         allTransactions,
@@ -409,15 +419,26 @@ class MainViewModel(
         initialValue = emptyList()
     )
 
+    // Authoritative Latest BNR Rate
+    val latestOfficialBnrRate: StateFlow<ExchangeRateEntity?> = transactionRepository.latestOfficialRate.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
     // Dashboard Metrics
     val dashboardMetrics: StateFlow<DashboardMetrics> = combine(
         periodFilteredTransactions,
-        filterSettings
-    ) { txs, settings ->
+        filterSettings,
+        transactionRepository.latestOfficialRate
+    ) { txs, settings, latestRate ->
         FinancialAnalyticsEngine.calculateMetrics(
             transactions = txs,
             currency = settings.selectedCurrency,
-            periodLabel = settings.selectedPeriod
+            periodLabel = settings.selectedPeriod,
+            latestBnrRate = latestRate?.rate,
+            effectiveBnrDate = latestRate?.effectiveDate,
+            bnrStatus = latestRate?.status
         )
     }.stateIn(
         scope = viewModelScope,
