@@ -1,8 +1,9 @@
 # FINTRACK CURRENT CONTEXT
 
 > Compact operational context for continuing FinTrack development.
-> Last verified: 2026-09-06
-> Baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+> Last verified: 2026-09-10
+> Baseline: Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
+> Previous baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
 > Previous baseline: Phase 13 Final Visual QA Clean Completion (2026-09-05) — GO: PHASE 13 CLEAN / 13baf6de
 > Previous baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
@@ -23,14 +24,27 @@ For detailed history, decisions and evidence use:
 ```text
 Branch:       main
 Remote:       https://github.com/free2rhime/Fintrack.git
-HEAD:         5b8a82e30567a4d26f4b57683d47812337dc0152
+HEAD:         3e1bf3fc21bac75d041725a56839dc10f5b4f62a
+Status:       Synchronized with origin/main (0 ahead, 0 behind)
 ```
 
-At the time this context was verified, the repository working tree was synchronized.
+At the time this context was verified, the repository working tree was synchronized and clean.
 
 Current implementation baseline:
 
-Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
+- **Phase 3D / Material 3 Expressive Migration (COMPLETE & SIGNED OFF):** Full migration across M3-1 through M3-11:
+  - M3-1: Foundation tokens (Color, Shape, Type, Spacing, Motion)
+  - M3-2: Global shell & Expressive navigation
+  - M3-3: Dashboard Hero & Financial Pulse
+  - M3-4: Transactions & Recent Activity hierarchy
+  - M3-5: Add/Edit/Duplicate Transaction Expressive experience
+  - M3-6: Analytics Expressive exploration surfaces
+  - M3-7: Categories Gallery with accordions & RBAC
+  - M3-8: Settings + Household Control Center
+  - M3-9: Auth Screen Expressive hero identity & state motion
+  - M3-10: Full cross-screen verification, polish, and quality sign-off (12/12 M3FinalVerificationTest PASS, 84/84 cross-milestone PASS, full unit suite PASS, assembleDebug PASS)
+  - M3-11: Final Git release checkpoint, commit (`3e1bf3f`) and push to origin/main — COMPLETE
 - **Adaptive Launcher Icon (5b8a82e, a59684a):** Precision 3D ribbon FT monogram vector icon with full-bleed radial gradient background, monochrome knockout for Android 13+ Themed Icons, scaled to 82% for balanced proportions.
 - **Material 3 Semantic Migration (5fb61a7):** Complete presentation-layer migration across 26 files to `MaterialTheme.colorScheme` with dual Light/Dark palette support.
 - **Transaction Description Autocomplete (1dc2fd5):** Case-insensitive prefix matching, active household scoping, excluded deleted/blank descriptions, deduplication, integration in Expense and Income forms.
@@ -503,9 +517,13 @@ For `UncompletedCoroutinesError` or hanging tests, identify the surviving Job/co
 
 ## 11. CURRENT NEXT-STEP POLICY
 
-Do not automatically select an item from OPEN work.
+Phase 3D — Material 3 Expressive Migration is COMPLETE, VERIFIED, AND SIGNED OFF (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a`).
 
-First identify the explicitly selected user task, then follow the workflow codified in `/AGENTS.md`:
+**There is currently NO authorized next implementation task or next M3 milestone.**
+
+Do NOT automatically select or begin any new feature, refactoring, or architectural change. Future development must be explicitly requested and authorized by the user, starting from Git commit `3e1bf3fc21bac75d041725a56839dc10f5b4f62a`.
+
+When a new task is authorized, follow the workflow codified in `/AGENTS.md`:
 
 ```text
 ANALYZE
@@ -641,35 +659,56 @@ The following architectural layers remain explicitly protected from visual/UI mo
 
 Future visual work must NOT modify these protected layers unless explicitly declared as a separate technical phase.
 
-## 14. TEST & BUILD BASELINE (PHASE 13)
+## 14. TEST & BUILD BASELINE (PHASE 3D M3-10 / M3-11)
 
-Reported Phase 13 verification results:
+Reported Phase 3D verification results at commit `3e1bf3fc21bac75d041725a56839dc10f5b4f62a`:
 
-**Phase 13 Unit Tests:**
+**Dedicated M3-10 Test Suite:**
+```text
+gradle :app:testDebugUnitTest --tests "com.example.M3FinalVerificationTest"
+Result: 12 tests executed, 12 passed, 0 failed, BUILD SUCCESSFUL
+```
+
+**Cross-Milestone M3 Test Suites (M3-3 through M3-9):**
+```text
+gradle :app:testDebugUnitTest \
+  --tests "com.example.Checkpoint6DashboardAssemblyTest" \
+  --tests "com.example.M3AddTransactionExpressiveTest" \
+  --tests "com.example.M3AnalyticsExpressiveMigrationTest" \
+  --tests "com.example.M3CategoriesExpressiveMigrationTest" \
+  --tests "com.example.M3SettingsHouseholdExpressiveMigrationTest" \
+  --tests "com.example.M3AuthExpressiveMigrationTest"
+Result: 84 tests executed, 84 passed, 0 failed, BUILD SUCCESSFUL
+```
+
+**Full Repository Unit Tests:**
 ```text
 gradle :app:testDebugUnitTest
-
-Result:
-- 72 tests executed
-- 72 passed
-- 0 failed
-- 0 errors
-- 1 intentionally skipped (finalizeTestRoborazziDebug)
-- BUILD SUCCESSFUL
-- 0 coroutine/memory leaks detected
-- 0 UncompletedCoroutinesError detected
+Result: BUILD SUCCESSFUL, 100% tests passing across all modules, 0 failures, 0 errors, 0 coroutine leaks
 ```
 
-**Phase 13 Build:**
+**Debug APK Build:**
 ```text
 gradle :app:assembleDebug
-
-Result:
-- BUILD SUCCESSFUL
-- Debug APK generated successfully
+Result: BUILD SUCCESSFUL in 1-5s, Debug APK generated cleanly
 ```
 
-*(Note: These are the reported Phase 13 verification results from the test suite execution. Automated checks remain repeatable).*
+**Git Working Tree Hygiene:**
+```text
+git diff --check -> 0 errors
+git status --short -> tracked working tree clean, local main == origin/main
+```
+
+Deliberately excluded untracked / scratch artifacts:
+- `.agent/` (IDE internal state)
+- `FinTrack_Antigravity_Audit_Chat1.md` (local scratch notes)
+- `FirestoreSyncRepository_cc0c42d.kt` (prior snapshot backup)
+- `agents_*.txt` (prior agent backup files)
+- `app/src/test/java/com/example/OutboundSyncEngineReliabilityTest.kt` (unrelated prior test)
+- `dist/` (build output)
+- `firestore-debug.log` (runtime log)
+- `git_history*.txt` (scratch files)
+- `package-lock.json` (unrelated lockfile)
 
 ## 15. SEMANTIC TEST TAG CONTRACT
 
@@ -699,25 +738,30 @@ The documented semantic/test tags are contractual and must not be renamed or rem
 - Phase 12 — Accessibility + Responsive QA: STATUS: COMPLETE / AUDIT GO
 - Phase 13 — Final Visual QA: STATUS: COMPLETE / AUDIT GO (GO — PHASE 13 CLEAN)
 - Phase 14 — Post-Phase 13 Modernization & Adaptive Icon: STATUS: COMPLETE
-  - Transaction Autocomplete (`1dc2fd5`)
-  - Dashboard Spline Chart & Header Refinement (`d3d5a37`, `5d06cfb`)
-  - Centralized Period Filter (`0c5e1bf`)
-  - Layout Optimization (`ac4081f`)
-  - CsvImportOrchestratorTest Mock Alignment (`5dcd716`)
-  - Material 3 Semantic Migration across 26 UI files (`5fb61a7`)
-  - FinTrack Adaptive Launcher Icon V1 & 82% Proportional Scale (`a59684a`, `5b8a82e`)
+- Phase 3D — Material 3 Expressive Migration (M3-1 through M3-11): STATUS: COMPLETE / SIGNED OFF (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a`)
+  - M3-1: Expressive Foundation & Semantic Tokens: COMPLETE
+  - M3-2: Global Shell & Floating Expressive Navigation: COMPLETE
+  - M3-3: Dashboard Hero Canvas & Financial Pulse: COMPLETE
+  - M3-4: Transactions & Recent Activity Hierarchy: COMPLETE
+  - M3-5: Add/Edit/Duplicate Transaction Expressive Creation: COMPLETE
+  - M3-6: Analytics Financial Flow Exploration Surfaces: COMPLETE
+  - M3-7: Categories Gallery Accordion & RBAC: COMPLETE
+  - M3-8: Settings + Household Control Center: COMPLETE
+  - M3-9: Authentication Screen Expressive Identity & Motion: COMPLETE
+  - M3-10: Cross-Screen Audit, Polish & Quality Gate: COMPLETE
+  - M3-11: Final Git Checkpoint, Release Safety & Push: COMPLETE
 
-**CURRENT VERIFIED STATE:**
-- **PRESENTATION LAYER:** Material 3 semantic migration completed (`5fb61a7`); all 26 UI components consume `MaterialTheme.colorScheme`.
-- **ADAPTIVE LAUNCHER ICON:** Precision 3D ribbon FT monogram vector icon implemented and scaled to 82% for all OEM masks (`5b8a82e`).
-- **TRANSACTIONS AUTOCOMPLETE:** Household-scoped prefix autocomplete for descriptions active in Expense & Income forms (`1dc2fd5`).
-- **DASHBOARD & PERIODS:** Header currency toggle + compact period selector, spline cash flow chart with interactive month selection (`d3d5a37`, `5d06cfb`).
-- **DESIGN SYSTEM:** FinTrack Design System v1 verified across presentation layer with dual Light/Dark palette support.
-- **MOTION:** Centralized FinTrackMotion foundation verified.
-- **ACCESSIBILITY:** Responsive and accessibility hardening completed.
-- **TEST CONTRACTS:** Existing semantic/test tags preserved.
-- **ARCHITECTURAL LOCKS:** Preserved across all 10 protected domains.
-- **BUSINESS LOGIC:** Room/Firestore/Auth/RBAC logic preserved.
-- **SYNC / AUTH / RBAC:** Not modified by the UI/icon phases.
-- **HISTORICAL CONTEXT:** Historical technical investigations regarding sync permissions and coroutine lifecycles remain documented and preserved.
+**CURRENT VERIFIED STATE (COMMIT 3e1bf3f):**
+- **MATERIAL 3 EXPRESSIVE UI:** Complete presentation-layer migration to Material 3 Expressive design language across all screens and components.
+- **DASHBOARD:** Unified Hero financial pulse canvas, Net Worth display, responsive metrics, M3 tonal grouped cash-flow spline chart (`ShapeGroupedContainer`), and category distribution panels.
+- **TRANSACTIONS:** Expressive date-grouped surfaces, contextual transaction badges, quick duplicate/delete actions, and description prefix autocomplete.
+- **TRANSACTION CREATION:** Tactile creation sheet, account/category selectors, auto BNR RON-native conversion logic.
+- **ANALYTICS:** Expressive exploration cards, category rank distribution, smart insights integration, strict global period filter consumption (no local period dropdown).
+- **CATEGORIES:** Expressive gallery accordions, subcategory expansion chips, OWNER vs MEMBER RBAC restrictions.
+- **SETTINGS & HOUSEHOLD:** Control Center architecture with grouped panels (Account, Appearance, Data, Household), owner invite controls, and member roles.
+- **AUTHENTICATION:** 72dp squircle hero identity badge, animated state transitions with reduced-motion fallback, Google Sign-In button, and debug UID tooling.
+- **GLOBAL NAVIGATION:** Floating pill bottom navigation bar with fluid indicator pill and labeled destinations.
+- **ACCESSIBILITY & RESPONSIVENESS:** All primary interactive elements have >=48dp touch targets; responsive across 360dp, 390dp, 412dp, and 600dp+; reduced-motion graceful degradation.
+- **ARCHITECTURAL LOCKS:** Room SQLite persistence, OutboundSyncEngine FIFO queue & FAILED outbox shielding, Firestore bidirectional sync, Firebase Auth, RBAC, and BNR conversion math strictly preserved.
+- **STOPPING POINT:** Phase 3D is fully completed, verified, committed, pushed to `origin/main`, and signed off. There is currently NO authorized next implementation task. Future work must start from commit `3e1bf3fc21bac75d041725a56839dc10f5b4f62a`.
 

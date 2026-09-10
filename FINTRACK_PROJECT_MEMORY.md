@@ -1,8 +1,9 @@
 # FINTRACK PROJECT MEMORY v2
 
 > Canonical compact operational memory for the FinTrack project.
-> Last reconciled: 2026-09-06
-> Current verified Git checkpoint: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+> Last reconciled: 2026-09-10
+> Current verified Git checkpoint: Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
+> Previous functional baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
 > Previous functional baseline: Phase 13 Final Visual QA Clean Completion Checkpoint (Phases 1–13 Complete — GO: PHASE 13 CLEAN) / 13baf6de
 > Previous functional baseline: Phase 12 / Phase 11 / Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03) / Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
 
@@ -49,17 +50,30 @@ Never silently turn historical information into current state.
 
 # 2. CURRENT CHECKPOINT — VERIFIED
 
-Repository state verified on 2026-09-06:
+Repository state verified on 2026-09-10:
 
 ```text
 Branch:       main
 Remote:       https://github.com/free2rhime/Fintrack.git
-HEAD:         5b8a82e30567a4d26f4b57683d47812337dc0152
+HEAD:         3e1bf3fc21bac75d041725a56839dc10f5b4f62a
+Status:       Synchronized with origin/main (0 ahead, 0 behind)
 ```
 
 Current implementation baseline:
 
-Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
+- **Phase 3D / Material 3 Expressive Migration (COMPLETE & SIGNED OFF):** Full migration across M3-1 through M3-11:
+  - M3-1: Foundation tokens (Color, Shape, Type, Spacing, Motion)
+  - M3-2: Global shell & Expressive navigation
+  - M3-3: Dashboard Hero & Financial Pulse
+  - M3-4: Transactions & Recent Activity hierarchy
+  - M3-5: Add/Edit/Duplicate Transaction Expressive experience
+  - M3-6: Analytics Expressive exploration surfaces
+  - M3-7: Categories Gallery with accordions & RBAC
+  - M3-8: Settings + Household Control Center
+  - M3-9: Auth Screen Expressive hero identity & state motion
+  - M3-10: Full cross-screen verification, polish, and quality sign-off (12/12 M3FinalVerificationTest PASS, 84/84 cross-milestone PASS, full unit suite PASS, assembleDebug PASS)
+  - M3-11: Final Git release checkpoint, commit (`3e1bf3f`) and push to origin/main — COMPLETE
 - **Adaptive Launcher Icon (5b8a82e, a59684a):** Precision 3D ribbon FT monogram vector icon with full-bleed radial gradient background, monochrome knockout for Android 13+ Themed Icons, scaled to 82% for balanced proportions.
 - **Material 3 Semantic Migration (5fb61a7):** Complete presentation-layer migration across 26 files to `MaterialTheme.colorScheme` with dual Light/Dark palette support.
 - **Transaction Description Autocomplete (1dc2fd5):** Case-insensitive prefix matching, active household scoping, excluded deleted/blank descriptions, deduplication, integration in Expense and Income forms.
@@ -213,7 +227,96 @@ refactor(ui): complete Material 3 semantic design system migration
 
 5b8a82e
 feat(ui): scale down FT symbol in adaptive icon for balanced proportions
+
+        ↓
+
+7c30002
+docs(memory): update FinTrack project memory to current main
+
+        ↓
+
+d18f009
+chore: clean up .env.example file
+
+        ↓
+
+9072229
+docs: codify agent development workflow in AGENTS.md
+
+        ↓
+
+5046124
+feat: implement AnalyticsUiState and chart components
+
+        ↓
+
+ac669dd
+feat(ui): complete FinTrack Phase 3B dashboard modernization
+
+        ↓
+
+cd8a043
+feat(ui): update dashboard visual and theme system
+
+        ↓
+
+edb5456
+refactor: update component styling and architecture
+
+        ↓
+
+3e1bf3f
+feat(ui): complete Material 3 Expressive Phase 3D migration
 ```
+
+---
+
+# PHASE 3D — MATERIAL 3 EXPRESSIVE — FINAL BASELINE
+
+> **STATUS: COMPLETE, VERIFIED & SIGNED OFF**
+> **Baseline Commit:** `3e1bf3fc21bac75d041725a56839dc10f5b4f62a`
+> **Date:** 2026-09-10
+> **Remote Status:** Synchronized with `origin/main` (0 ahead, 0 behind)
+
+### 1. Overview & Scope (M3-1 through M3-11)
+Phase 3D executed a complete visual and interaction overhaul of FinTrack from the legacy bordered-card visual system to a cohesive **Material 3 Expressive** design architecture:
+
+- **M3-1 Foundation Tokens:** Established Expressive Typography (`HeroFinancialDisplay`, `SectionHeadline`, `BodyRegular`), Shape scale (`ShapeGroupedContainer` 28dp, `ShapeFloatingActionButton` 18dp squircle, `RadiusLarge`, `RadiusXLarge`), centralized spring motion (`FinTrackMotion.InteractiveSpring`), and semantic color tokens with Light/Dark palette parity.
+- **M3-2 Global Shell & Expressive Navigation:** Floating pill bottom navigation bar elevated above scroll surfaces with fluid pill indicator and labeled destinations.
+- **M3-3 Dashboard Expressive Migration:** Redesigned Hero canvas with Net Worth display, financial pulse metrics, tonal grouped containers (`ShapeGroupedContainer`), cash-flow spline chart, and category breakdown panels.
+- **M3-4 Transactions & Recent Activity:** Expressive date-grouped surfaces, contextual polarity badges (IncomeEmerald / ExpenseCoral), and quick duplicate/delete actions.
+- **M3-5 Add/Edit/Duplicate Transaction Experience:** Tactile modal creation sheet, account and category selectors with autocomplete integration, and preserved BNR RON-native conversion logic.
+- **M3-6 Analytics Exploration Surfaces:** Visual exploration cards, category rank distribution, smart insights card integration, and strict global period filter consumption (no local period dropdown).
+- **M3-7 Categories Gallery:** Expressive category accordions, subcategory expansion chips, and strict OWNER vs MEMBER RBAC controls.
+- **M3-8 Settings + Household Control Center:** Control Center architecture with grouped panels (Account, Appearance, Data, Household), owner invite controls, and member roles.
+- **M3-9 Authentication Screen:** 72dp squircle hero identity badge, animated state transitions (`SignedOut`, `SigningIn`, `AuthError`) with reduced-motion fallback, Google Sign-In button, and debug UID tooling.
+- **M3-10 Full Cross-Screen Verification & Polish:** Elimination of legacy 1dp bordered cards in Dashboard charts in favor of `ShapeGroupedContainer` tonal panels, AutoMirrored vector icon migration, and 12-test comprehensive suite `M3FinalVerificationTest.kt`.
+- **M3-11 Final Git Release Checkpoint & Push:** Staged only approved 15 files, verified clean build and tests, committed `3e1bf3f` and pushed to `origin/main`.
+
+### 2. Architectural Invariants Preserved
+The migration was strictly presentation-layer (UI/UX) and preserved all core system contracts:
+- **Room SQLite Persistence:** Offline-first architecture, entities, DAOs, and migrations intact.
+- **Firestore Bidirectional Synchronization:** Firestore snapshot listeners, inbound `REMOVED` processing, and echo suppression intact.
+- **OutboundSyncEngine FIFO Queue:** Sequential mutation processing, exponential retry backoff, and FAILED outbox shielding from inbound overwrites intact.
+- **Firebase Authentication & Credential Manager:** Google Sign-In with Credential Manager, token exchange, and test UID debug tools intact.
+- **Household Isolation & RBAC:** Strict household scoping (no synthetic fallback households); OWNER vs MEMBER permissions (OWNER-only member management and category mutations).
+- **Financial Analytics & Calculations:** `FinancialAnalyticsEngine` remains the single source of truth; zero UI-level duplicated calculations.
+- **BNR Currency Conversion:** Automatic RON/EUR conversion, historical rate resolution, and weekend/holiday fallbacks intact.
+- **Global Period Filter Architecture:** Centralized in `MainViewModel`; redundant local period controls excluded from Analytics and Transactions.
+- **Zero Unauthenticated Data Leaks:** Pre-authentication state in `AuthScreen` reveals zero currency, accounts, or financial balances.
+- **Accessibility & Responsive Standards:** Minimum 48dp touch targets on all primary interactive elements; responsive across 360dp, 390dp, 412dp, and 600dp+; reduced-motion graceful degradation.
+
+### 3. Verification Evidence & Quality Gate Results
+- **Dedicated M3-10 Test Suite (`M3FinalVerificationTest.kt`):** 12/12 PASSED.
+- **Cross-Milestone M3 Test Suites (M3-3 through M3-9):** 84/84 PASSED.
+- **Full Unit Test Suite (`:app:testDebugUnitTest`):** 100% PASSED across all packages (0 failures, 0 errors, 0 coroutine leaks).
+- **Debug APK Build (`:app:assembleDebug`):** BUILD SUCCESSFUL (1-5s).
+- **Working Tree Cleanliness:** `git diff --check` passed with 0 errors.
+
+### 4. Baseline & Next-Step Policy
+- **Phase 3D is COMPLETE, VERIFIED, AND SIGNED OFF.**
+- **Authoritative Git Commit:** `3e1bf3fc21bac75d041725a56839dc10f5b4f62a` on branch `main`.
+- **Next Task Status:** UNAUTHORIZED / NOT STARTED. Do not start any new milestone or modify code without explicit user instruction. All future development must begin from commit `3e1bf3fc21bac75d041725a56839dc10f5b4f62a`.
 
 ---
 

@@ -227,18 +227,36 @@ FinTrack uses **FinTrack Design System v1**, verified across the entire presenta
 At the time this bootstrap was updated:
 
 ```text
-Git baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
-Previous baseline: Phase 13 Final Visual QA Clean Completion Checkpoint (Phases 1–13 Complete — GO: PHASE 13 CLEAN - 2026-09-05) / 13baf6de
-Reported Phase 13 test baseline: 72 executed, 72 passed, 0 failed, 0 errors, 1 intentionally skipped (finalizeTestRoborazziDebug), BUILD SUCCESSFUL, 0 coroutine/memory leaks, 0 UncompletedCoroutinesError
-Reported Phase 13 build: gradle :app:assembleDebug -> BUILD SUCCESSFUL (Debug APK generated)
+Git baseline: Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
+Previous baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+Reported Phase 3D test baseline: 12/12 M3FinalVerificationTest PASS, 84/84 cross-milestone M3 tests PASS, 100% full unit test suite PASS (`:app:testDebugUnitTest`), 0 coroutine/memory leaks, 0 UncompletedCoroutinesError
+Reported Phase 3D build: gradle :app:assembleDebug -> BUILD SUCCESSFUL (Debug APK generated in 1-5s)
 Historical Android test baseline: 380/380 PASS (Full Android JVM/Robolectric test cases passing, 0 failed, 0 errors, 0 skipped; 31/31 focused hard-delete/sync tests PASS; 8/8 targeted Account UI label tests PASS)
 Firestore rules test baseline: 100/100 test cases preserved in tests/firestore.rules.test.ts and Firestore test suites
 GitHub Actions baseline: Build Debug APK (.github/workflows/build-apk.yml) with safe Firebase configuration secret injection
 Physical Device Smoke baseline: Step 12.2 PASS on Device A and Device B; Step 12.3 CSV Import real-device verification PASS; Step 12.3U Hard Delete real-device verification PASS; Step 12.3Y Real 33-Row CSV Import & Period Filter Visibility Resolution PASS; Step 12.3Z Complete Real Historical Database Import & Production Firestore Console Verification PASS
 Branch: main
 Remote branch: origin/main
-Working tree: clean / synchronized
+Working tree: clean / synchronized (0 ahead, 0 behind origin/main at 3e1bf3f)
 ```
+
+### Verified Phase 3D — Material 3 Expressive Migration (COMPLETE & SIGNED OFF)
+Commit `3e1bf3fc21bac75d041725a56839dc10f5b4f62a` establishes the verified Material 3 Expressive baseline across the entire application:
+- **M3-1 Foundation Tokens:** Expressive Typography scale (`HeroFinancialDisplay`, `SectionHeadline`, `BodyRegular`, etc.), Shape scale (`ShapeGroupedContainer`, `ShapeFloatingActionButton`, `RadiusLarge`, etc.), Motion springs (`FinTrackMotion.InteractiveSpring`), and semantic color tokens.
+- **M3-2 Global Shell & Expressive Navigation:** Floating pill bottom navigation bar with fluid indicator pill, labeled destinations, and elevated z-index above scroll surfaces.
+- **M3-3 Dashboard Expressive Migration:** Unified Hero financial pulse canvas with net balance, responsive metrics, M3 tonal grouped cash-flow spline chart and category distribution panels.
+- **M3-4 Transactions & Recent Activity Hierarchy:** Expressive date-grouped transaction containers, contextual expense/income indicators, and quick-action transaction menus.
+- **M3-5 Add/Edit/Duplicate Transaction Experience:** Tactile expressive creation sheet, category/account selectors with autocomplete, and preserved BNR RON-native conversion logic.
+- **M3-6 Analytics Exploration Surfaces:** Expressive visual exploration cards, category rank distribution, smart insights integration, and strict global period filter consumption (no local period selector).
+- **M3-7 Categories Gallery:** Expressive category accordion cards, subcategory expansion chips, and strict OWNER vs MEMBER RBAC controls.
+- **M3-8 Settings + Household Control Center:** Expressive grouped panels for Account, Appearance (Light/Dark/System), Data (CSV Import/Export), and Household management (Owner invite controls, member roles).
+- **M3-9 Authentication Screen:** Expressive 72dp squircle hero identity badge, animated state transitions (SignedOut, SigningIn, AuthError) with reduced-motion fallback, Google Sign-In button, and debug UID tooling.
+- **M3-10 Verification, Polish & Quality Gate:** Cross-screen audit, upgraded chart surfaces to `ShapeGroupedContainer`, AutoMirrored icon migration, and 12-test comprehensive suite `M3FinalVerificationTest.kt`.
+- **M3-11 Git Release Checkpoint & Push:** Staged only approved 15 files, verified clean build and tests, committed `3e1bf3f` and pushed to `origin/main`.
+
+### Non-Negotiable Rules & Invariants
+- **IMPORTANT WORKFLOW RULE**: Phase 3D is fully completed, verified, and signed off. Do NOT continue Phase 3D or modify its baseline without explicit user authorization. All future work starts from commit `3e1bf3fc21bac75d041725a56839dc10f5b4f62a`.
+- **Architectural Locks Intact:** Room SQLite, Firestore sync, OutboundSyncEngine FIFO queue & FAILED outbox shielding, Firebase Auth & Google Credential Manager, household isolation, OWNER/MEMBER RBAC, FinancialAnalyticsEngine calculation authority, BNR conversion, centralized global period filter, touch targets $\ge 48\,\text{dp}$, reduced-motion graceful degradation, and zero financial data leakage in unauthenticated state.
 
 ### Verified Developments (Post-Phase 13 Baseline — Commits 13baf6de..5b8a82e)
 - **Adaptive Launcher Icon (5b8a82e & a59684a):** Precision 3D ribbon FT monogram vector adaptive launcher icon:
