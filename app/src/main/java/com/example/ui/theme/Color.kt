@@ -71,10 +71,11 @@ val HealthNeutralDark = Color(0xFF94A3B8)         // Slate 400
 // -----------------------------------------------------------------------------
 // 3. UNIVERSAL SURFACES & BRAND TOKENS
 // -----------------------------------------------------------------------------
-// SurfaceHeroDarkMidnight: The Financial Apex Hero Card is rendered on this
-// high-contrast inverted dark midnight surface across BOTH light and dark themes.
-val SurfaceHeroDarkMidnight = Color(0xFF0F172A)   // Dark Midnight (#0F172A)
-val SurfaceHeroBorder = Color(0xFF334155)         // Slate 700 subtle border for hero card
+// SurfaceHero: Adaptive Financial Apex Hero Card surface
+val SurfaceHeroLight = Color(0xFFFFFFFF)          // Crisp Luminous White (Hero surface in light mode)
+val SurfaceHeroBorderLight = Color(0xFFE2E8F0)    // Slate 200 subtle border for hero card in light mode
+val SurfaceHeroDarkMidnight = Color(0xFF0F172A)   // Dark Midnight (#0F172A) (Hero surface in dark mode)
+val SurfaceHeroBorder = Color(0xFF334155)         // Slate 700 subtle border for hero card in dark mode
 
 val BrandPrimaryLight = Color(0xFF1E3A8A)         // Deep Sapphire
 val BrandPrimaryDark = Color(0xFF3B82F6)          // Vivid Cobalt
@@ -92,6 +93,10 @@ data class FinTrackColors(
     val surfacePrimary: Color,
     val surfaceSecondary: Color,
     val surfaceHero: Color,
+    val surfaceHeroBorder: Color,
+    val textPrimary: Color,
+    val textSecondary: Color,
+    val textMuted: Color,
     val surfaceElevated: Color,
     val surfaceSelected: Color,
     val borderSubtle: Color,
@@ -121,7 +126,11 @@ val LightFinTrackColors = FinTrackColors(
     pageBackground = PageBackgroundLight,
     surfacePrimary = SurfacePrimaryLight,
     surfaceSecondary = SurfaceSecondaryLight,
-    surfaceHero = SurfaceHeroDarkMidnight,
+    surfaceHero = SurfaceHeroLight,
+    surfaceHeroBorder = SurfaceHeroBorderLight,
+    textPrimary = TextPrimaryLight,
+    textSecondary = TextSecondaryLight,
+    textMuted = TextMutedLight,
     surfaceElevated = SurfaceElevatedLight,
     surfaceSelected = SurfaceSelectedLight,
     borderSubtle = BorderSubtleLight,
@@ -152,6 +161,10 @@ val DarkFinTrackColors = FinTrackColors(
     surfacePrimary = SurfacePrimaryDark,
     surfaceSecondary = SurfaceSecondaryDark,
     surfaceHero = SurfaceHeroDarkMidnight,
+    surfaceHeroBorder = SurfaceHeroBorder,
+    textPrimary = TextPrimaryDark,
+    textSecondary = TextSecondaryDark,
+    textMuted = TextMutedDark,
     surfaceElevated = SurfaceElevatedDark,
     surfaceSelected = SurfaceSelectedDark,
     borderSubtle = BorderSubtleDark,

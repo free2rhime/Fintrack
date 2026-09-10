@@ -175,6 +175,7 @@ fun DashboardScreen(
                 insights = smartInsights,
                 savingsRate = if (isZeroIncome) null else metrics.savingsRate,
                 expenseVelocity = if (isZeroIncome) null else metrics.expensePressure,
+                periodLabel = metrics.periodLabel,
                 modifier = Modifier.padding(horizontal = Space16)
             )
 

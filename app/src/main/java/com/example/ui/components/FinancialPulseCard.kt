@@ -18,11 +18,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoGraph
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,20 +60,27 @@ import com.example.ui.theme.isReducedMotionEnabled
 import java.util.Locale
 import kotlin.math.abs
 
+private enum class PulseMetricType {
+    SAVINGS_RATIO,
+    EXPENSE_VELOCITY
+}
+
 /**
  * FinancialPulseCard — Precision Fintech + Editorial Wealth Narrative.
  *
  * Stateless component consuming authoritative SmartFinancialInsights data.
  * Displays:
- * 1. Editorial narrative prose derived from SmartFinancialInsights
+ * 1. Editorial narrative prose derived from SmartFinancialInsights (period-aware)
  * 2. Dual progress presentation: Savings Ratio vs Expense Velocity
- * 3. Graceful empty/degraded state when insight data is newly initialized or missing
+ * 3. Explainable metric affordances (dialog info with formula and business context)
+ * 4. Graceful empty/degraded state when insight data is newly initialized or missing
  */
 @Composable
 fun FinancialPulseCard(
     insights: SmartFinancialInsights,
     savingsRate: Double? = null,
     expenseVelocity: Double? = null,
+    periodLabel: String = "This Month",
     modifier: Modifier = Modifier
 ) {
     val effectiveSavingsRatio: Double? = savingsRate ?: insights.savingsRatio
@@ -79,6 +93,67 @@ fun FinancialPulseCard(
             effectiveExpenseVelocity == null
 
     val isReducedMotion = isReducedMotionEnabled()
+    var activeMetricInfo by remember { mutableStateOf<PulseMetricType?>(null) }
+
+    // Contextual explanation dialog for metrics
+    if (activeMetricInfo != null) {
+        val (title, description, formula) = when (activeMetricInfo) {
+            PulseMetricType.SAVINGS_RATIO -> Triple(
+                "Savings Ratio",
+                "Indicates the percentage of household cash inflow retained after all expenses are deducted during the active period.",
+                "Formula: (Net Surplus ÷ Total Income) × 100"
+            )
+            PulseMetricType.EXPENSE_VELOCITY -> Triple(
+                "Expense Velocity",
+                "Indicates the burn rate of your income. High velocity (>80%) suggests cashflow pressure, while balanced velocity ensures capital accumulation.",
+                "Formula: (Total Expenses ÷ Total Income) × 100"
+            )
+            null -> Triple("", "", "")
+        }
+
+        AlertDialog(
+            onDismissRequest = { activeMetricInfo = null },
+            title = {
+                Text(
+                    text = title,
+                    style = SectionHeadline,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Space8)) {
+                    Text(
+                        text = description,
+                        style = BodyRegular,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(RadiusSmall))
+                            .background(FinTrackTheme.colors.surfaceSecondary)
+                            .padding(Space8)
+                    ) {
+                        Text(
+                            text = formula,
+                            style = MicroMetadata,
+                            fontWeight = FontWeight.SemiBold,
+                            color = FinTrackTheme.colors.textPrimary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { activeMetricInfo = null },
+                    modifier = Modifier.testTag("pulse_info_dialog_dismiss")
+                ) {
+                    Text("Got it")
+                }
+            },
+            modifier = Modifier.testTag("pulse_metric_dialog")
+        )
+    }
 
     FinTrackCard(
         modifier = modifier
@@ -90,47 +165,31 @@ fun FinancialPulseCard(
         contentPadding = Space16
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Header: Icon + Title + Trend Badge
+            // Header: Icon + Title (Clean editorial header, redundant status badge removed)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(FinTrackTheme.colors.brandAccent.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoGraph,
-                            contentDescription = "Financial Pulse",
-                            tint = FinTrackTheme.colors.brandAccent,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(Space8))
-                    Text(
-                        text = "Financial Pulse",
-                        style = SectionHeadline,
-                        color = MaterialTheme.colorScheme.onSurface
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(FinTrackTheme.colors.brandAccent.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoGraph,
+                        contentDescription = "Financial Pulse",
+                        tint = FinTrackTheme.colors.brandAccent,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-
-                if (!isNewlyInitialized && insights.savingsTrendText.isNotBlank() && insights.savingsTrendText != "N/A") {
-                    val badgeVariant = when (insights.savingsTrendText) {
-                        "Strong Capital Growth" -> BadgeVariant.SUCCESS
-                        "Positive Savings Rate" -> BadgeVariant.SUCCESS
-                        "High Expense Ratio" -> BadgeVariant.WARNING
-                        else -> BadgeVariant.NEUTRAL
-                    }
-                    FinTrackStatusBadge(
-                        label = insights.savingsTrendText,
-                        variant = badgeVariant
-                    )
-                }
+                Spacer(modifier = Modifier.width(Space8))
+                Text(
+                    text = "Financial Pulse",
+                    style = SectionHeadline,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
 
             Spacer(modifier = Modifier.height(Space12))
@@ -144,7 +203,11 @@ fun FinancialPulseCard(
                     modifier = Modifier.testTag("financial_pulse_empty_state")
                 )
             } else {
-                // Editorial Narrative Prose derived authoritatively from SmartFinancialInsights
+                // Editorial Narrative Prose derived authoritatively and period-aware from SmartFinancialInsights
+                val isMonthPeriod = periodLabel.equals("This Month", ignoreCase = true) ||
+                        periodLabel.equals("Last Month", ignoreCase = true) ||
+                        periodLabel.equals("Previous Month", ignoreCase = true)
+
                 val narrativeBuilder = StringBuilder()
                 if (effectiveSavingsRatio != null && effectiveSavingsRatio > 0.0) {
                     narrativeBuilder.append("You're saving ${formatOneDecimal(effectiveSavingsRatio)}% of household income this period.")
@@ -159,12 +222,18 @@ fun FinancialPulseCard(
                     }
                 }
 
-                if (insights.monthOverMonthExpenseChangePercent != 0.0) {
+                if (isMonthPeriod && insights.monthOverMonthExpenseChangePercent != 0.0) {
                     val momChange = insights.monthOverMonthExpenseChangePercent
                     if (momChange > 0.0) {
                         narrativeBuilder.append(" Expenses are running +${formatOneDecimal(momChange)}% vs previous month.")
                     } else {
                         narrativeBuilder.append(" Expenses decreased by ${formatOneDecimal(abs(momChange))}% vs previous month.")
+                    }
+                } else if (!isMonthPeriod) {
+                    if (insights.largestExpenseMonth != "N/A" && insights.largestExpenseMonth.isNotBlank()) {
+                        narrativeBuilder.append(" Peak monthly outflow observed in ${insights.largestExpenseMonth}.")
+                    } else {
+                        narrativeBuilder.append(" Expense trend is available for the selected period.")
                     }
                 } else if (insights.largestExpenseMonth != "N/A" && insights.largestExpenseMonth.isNotBlank()) {
                     narrativeBuilder.append(" Peak monthly outflow observed in ${insights.largestExpenseMonth}.")
@@ -191,7 +260,7 @@ fun FinancialPulseCard(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(Space12)
                     ) {
-                        // 1. Savings Ratio Bar
+                        // 1. Savings Ratio Bar with Info Affordance
                         if (hasSavings && effectiveSavingsRatio != null) {
                             val ratioValue = effectiveSavingsRatio
                             val clampedSavings = (ratioValue / 100.0).coerceIn(0.0, 1.0).toFloat()
@@ -208,11 +277,13 @@ fun FinancialPulseCard(
                                 progressColor = FinTrackTheme.colors.income,
                                 valueTestTag = "financial_pulse_savings_ratio",
                                 barTestTag = "pulse_savings_progress",
+                                infoTestTag = "pulse_savings_ratio_info",
+                                onInfoClick = { activeMetricInfo = PulseMetricType.SAVINGS_RATIO },
                                 accessibilityDesc = "Savings Ratio: ${formatOneDecimal(ratioValue)} percent"
                             )
                         }
 
-                        // 2. Expense Velocity Bar
+                        // 2. Expense Velocity Bar with Info Affordance
                         if (hasVelocity && effectiveExpenseVelocity != null) {
                             val velocityValue = effectiveExpenseVelocity
                             val clampedVelocity = (abs(velocityValue) / 100.0).coerceIn(0.0, 1.0).toFloat()
@@ -237,6 +308,8 @@ fun FinancialPulseCard(
                                 progressColor = velocityColor,
                                 valueTestTag = "financial_pulse_expense_velocity",
                                 barTestTag = "pulse_velocity_progress",
+                                infoTestTag = "pulse_expense_velocity_info",
+                                onInfoClick = { activeMetricInfo = PulseMetricType.EXPENSE_VELOCITY },
                                 accessibilityDesc = "Expense Velocity: $formattedVelocityStr"
                             )
                         }
@@ -255,6 +328,8 @@ private fun PulseMetricBar(
     progressColor: Color,
     valueTestTag: String,
     barTestTag: String,
+    infoTestTag: String,
+    onInfoClick: () -> Unit,
     accessibilityDesc: String,
     modifier: Modifier = Modifier
 ) {
@@ -266,11 +341,29 @@ private fun PulseMetricBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = label,
-                style = LabelBadgeMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = LabelBadgeMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                IconButton(
+                    onClick = onInfoClick,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .testTag(infoTestTag)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Explain $label",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
             Text(
                 text = formattedValue,
                 style = CardTitleAmount,

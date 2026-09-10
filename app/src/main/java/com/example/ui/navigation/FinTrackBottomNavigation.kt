@@ -1,6 +1,7 @@
 package com.example.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.expandHorizontally
@@ -128,8 +129,15 @@ fun FinTrackBottomNavigation(
         Surface(
             shape = ShapePill,
             color = FinTrackTheme.colors.surfaceElevated,
-            border = BorderStroke(1.dp, FinTrackTheme.colors.borderSubtle),
-            shadowElevation = 4.dp,
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (FinTrackTheme.colors.isDark) {
+                    FinTrackTheme.colors.borderStandard.copy(alpha = 0.55f)
+                } else {
+                    FinTrackTheme.colors.borderSubtle
+                }
+            ),
+            shadowElevation = 6.dp,
             modifier = Modifier
                 .padding(horizontal = horizontalMargin)
                 .widthIn(max = 520.dp)
@@ -172,7 +180,9 @@ fun FinTrackBottomNavigation(
                             )
                             .border(
                                 width = 1.dp,
-                                color = FinTrackTheme.colors.borderActive.copy(alpha = 0.35f),
+                                color = FinTrackTheme.colors.borderActive.copy(
+                                    alpha = if (FinTrackTheme.colors.isDark) 0.35f else 0.25f
+                                ),
                                 shape = ShapePill
                             )
                     )
@@ -186,19 +196,25 @@ fun FinTrackBottomNavigation(
                 ) {
                     BottomNavItem.values().forEach { item ->
                         val isSelected = selectedTabIndex == item.tabIndex
-                        val targetWeight = if (isSelected) 1.65f else 1.0f
+                        val targetWeight = if (isSelected) {
+                            if (screenWidth < BreakpointCompactWidth) 1.75f else 1.65f
+                        } else 1.0f
 
                         val itemWeight by animateFloatAsState(
                             targetValue = targetWeight,
-                            animationSpec = if (reducedMotion) snap() else FinTrackMotion.interactiveSpring(),
+                            animationSpec = if (reducedMotion) snap() else FinTrackMotion.contentSpring(),
                             label = "navItemWeight_${item.tabIndex}"
                         )
 
-                        val iconColor = if (isSelected) {
-                            FinTrackTheme.colors.brandAccent
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-                        }
+                        val animatedIconColor by animateColorAsState(
+                            targetValue = if (isSelected) {
+                                FinTrackTheme.colors.brandAccent
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                            },
+                            animationSpec = if (reducedMotion) snap() else FinTrackMotion.fastTween(),
+                            label = "navIconColor_${item.tabIndex}"
+                        )
 
                         val isInitialUnmeasured = tabWidths.isEmpty() && isSelected
 
@@ -222,7 +238,9 @@ fun FinTrackBottomNavigation(
                                             )
                                             .border(
                                                 width = 1.dp,
-                                                color = FinTrackTheme.colors.borderActive.copy(alpha = 0.35f),
+                                                color = FinTrackTheme.colors.borderActive.copy(
+                                                    alpha = if (FinTrackTheme.colors.isDark) 0.35f else 0.25f
+                                                ),
                                                 shape = ShapePill
                                             )
                                     } else {
@@ -251,13 +269,13 @@ fun FinTrackBottomNavigation(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier
-                                    .padding(horizontal = 6.dp)
+                                    .padding(horizontal = if (screenWidth < BreakpointCompactWidth) 3.dp else 6.dp)
                                     .fillMaxHeight()
                             ) {
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = null, // Semantics hoisted to parent tab container
-                                    tint = iconColor,
+                                    tint = animatedIconColor,
                                     modifier = Modifier.size(20.dp)
                                 )
 
@@ -275,7 +293,7 @@ fun FinTrackBottomNavigation(
                                             )
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Spacer(modifier = Modifier.width(if (screenWidth < BreakpointCompactWidth) 3.5.dp else 5.dp))
                                         Text(
                                             text = item.title,
                                             maxLines = 1,

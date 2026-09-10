@@ -98,7 +98,7 @@ fun UnifiedHeroCanvas(
             .testTag("dashboard_top_card"),
         shape = ShapeHero,
         color = FinTrackTheme.colors.surfaceHero,
-        border = BorderStroke(1.dp, SurfaceHeroBorder)
+        border = BorderStroke(1.dp, FinTrackTheme.colors.surfaceHeroBorder)
     ) {
         BoxWithConstraints(
             modifier = Modifier
@@ -119,7 +119,7 @@ fun UnifiedHeroCanvas(
                     Text(
                         text = "NET BALANCE",
                         style = LabelBadge,
-                        color = TextSecondaryDark,
+                        color = FinTrackTheme.colors.textSecondary,
                         letterSpacing = 1.sp
                     )
 
@@ -127,7 +127,7 @@ fun UnifiedHeroCanvas(
                         Box(
                             modifier = Modifier
                                 .clip(ShapePill)
-                                .background(Color(0xFF1E293B))
+                                .background(FinTrackTheme.colors.surfaceSecondary)
                                 .padding(horizontal = Space8, vertical = Space2)
                                 .testTag("hero_period_badge"),
                             contentAlignment = Alignment.Center
@@ -136,7 +136,7 @@ fun UnifiedHeroCanvas(
                                 text = metrics.periodLabel,
                                 style = LabelMicro,
                                 fontWeight = FontWeight.SemiBold,
-                                color = TextSecondaryDark
+                                color = FinTrackTheme.colors.textSecondary
                             )
                         }
                     }
@@ -147,7 +147,7 @@ fun UnifiedHeroCanvas(
                 // Primary Net Balance (Financial Apex)
                 val isNegative = metrics.balance < 0.0
                 val balancePrefix = if (isNegative) "-" else ""
-                val balanceDigits = formatCeilDigits(metrics.balance)
+                val balanceDigits = formatHeroNetBalanceDigits(metrics.balance)
                 val balanceText = buildAnnotatedString {
                     append(balancePrefix)
                     append(balanceDigits)
@@ -157,7 +157,7 @@ fun UnifiedHeroCanvas(
                             fontSize = CurrencyUnitDecoupled.fontSize,
                             fontWeight = CurrencyUnitDecoupled.fontWeight,
                             letterSpacing = CurrencyUnitDecoupled.letterSpacing,
-                            color = TextSecondaryDark
+                            color = FinTrackTheme.colors.textSecondary
                         )
                     ) {
                         append(metrics.currency)
@@ -185,7 +185,7 @@ fun UnifiedHeroCanvas(
                     Text(
                         text = balanceText,
                         style = displayStyle,
-                        color = TextPrimaryDark,
+                        color = FinTrackTheme.colors.textPrimary,
                         softWrap = true,
                         maxLines = 2,
                         overflow = TextOverflow.Clip,
@@ -203,7 +203,7 @@ fun UnifiedHeroCanvas(
                     if (metrics.secondaryCurrencyBalance != null) {
                         val secNegative = metrics.secondaryCurrencyBalance!! < 0.0
                         val secPrefix = if (secNegative) "-" else ""
-                        val secDigits = formatCeilDigits(metrics.secondaryCurrencyBalance!!)
+                        val secDigits = formatHeroNetBalanceDigits(metrics.secondaryCurrencyBalance!!)
                         val secText = buildAnnotatedString {
                             append("≈ ")
                             append(secPrefix)
@@ -213,7 +213,7 @@ fun UnifiedHeroCanvas(
                                 SpanStyle(
                                     fontSize = CurrencyUnitDecoupled.fontSize,
                                     fontWeight = CurrencyUnitDecoupled.fontWeight,
-                                    color = TextMutedDark
+                                    color = FinTrackTheme.colors.textMuted
                                 )
                             ) {
                                 append(metrics.secondaryCurrency)
@@ -222,13 +222,13 @@ fun UnifiedHeroCanvas(
                         Text(
                             text = secText,
                             style = MetricFinancialRegular,
-                            color = TextSecondaryDark
+                            color = FinTrackTheme.colors.textSecondary
                         )
                     } else {
                         Text(
                             text = "≈ ${metrics.secondaryCurrency} unavailable",
                             style = LabelMicro,
-                            color = TextMutedDark
+                            color = FinTrackTheme.colors.textMuted
                         )
                     }
                 }
@@ -244,7 +244,7 @@ fun UnifiedHeroCanvas(
                 Text(
                     text = narrativeText,
                     style = LabelMicro,
-                    color = if (metrics.balance >= 0.0) HealthPositiveDark else HealthCriticalDark,
+                    color = if (metrics.balance >= 0.0) FinTrackTheme.colors.healthPositive else FinTrackTheme.colors.healthCritical,
                     modifier = Modifier.testTag("hero_wealth_narrative")
                 )
 
@@ -255,7 +255,7 @@ fun UnifiedHeroCanvas(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(ShapeInset)
-                        .background(Color(0xFF1E293B).copy(alpha = 0.6f))
+                        .background(FinTrackTheme.colors.surfaceSecondary)
                         .padding(horizontal = Space8, vertical = Space4)
                         .testTag("hero_bnr_parity")
                 ) {
@@ -265,13 +265,13 @@ fun UnifiedHeroCanvas(
                         Text(
                             text = "BNR • 1 EUR = $rateFormatted RON$dateSuffix",
                             style = LabelMicro,
-                            color = TextSecondaryDark
+                            color = FinTrackTheme.colors.textSecondary
                         )
                     } else {
                         Text(
                             text = "BNR unavailable",
                             style = LabelMicro,
-                            color = TextMutedDark
+                            color = FinTrackTheme.colors.textMuted
                         )
                     }
                 }
@@ -283,7 +283,7 @@ fun UnifiedHeroCanvas(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(ShapeInset)
-                        .background(Color(0xFF131B2E))
+                        .background(FinTrackTheme.colors.surfaceSecondary)
                         .padding(horizontal = Space12, vertical = Space12)
                         .testTag("hero_cashflow_row")
                 ) {
@@ -308,13 +308,13 @@ fun UnifiedHeroCanvas(
                                         modifier = Modifier
                                             .size(28.dp)
                                             .clip(CircleShape)
-                                            .background(IncomeContainerDark),
+                                            .background(FinTrackTheme.colors.incomeContainer),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.ArrowDownward,
                                             contentDescription = "Income",
-                                            tint = IncomeDark,
+                                            tint = FinTrackTheme.colors.income,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
@@ -322,7 +322,7 @@ fun UnifiedHeroCanvas(
                                     Text(
                                         text = "Income",
                                         style = LabelBadge,
-                                        color = TextSecondaryDark
+                                        color = FinTrackTheme.colors.textSecondary
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(Space8))
@@ -330,7 +330,7 @@ fun UnifiedHeroCanvas(
                                     prefix = "+",
                                     amount = metrics.totalIncome,
                                     currency = metrics.currency,
-                                    color = IncomeDark,
+                                    color = FinTrackTheme.colors.income,
                                     reducedMotion = reducedMotion
                                 )
                             }
@@ -349,13 +349,13 @@ fun UnifiedHeroCanvas(
                                         modifier = Modifier
                                             .size(28.dp)
                                             .clip(CircleShape)
-                                            .background(ExpenseContainerDark),
+                                            .background(FinTrackTheme.colors.expenseContainer),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.ArrowUpward,
                                             contentDescription = "Expense",
-                                            tint = ExpenseDark,
+                                            tint = FinTrackTheme.colors.expense,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
@@ -363,7 +363,7 @@ fun UnifiedHeroCanvas(
                                     Text(
                                         text = "Expense",
                                         style = LabelBadge,
-                                        color = TextSecondaryDark
+                                        color = FinTrackTheme.colors.textSecondary
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(Space8))
@@ -371,7 +371,7 @@ fun UnifiedHeroCanvas(
                                     prefix = "-",
                                     amount = metrics.totalExpense,
                                     currency = metrics.currency,
-                                    color = ExpenseDark,
+                                    color = FinTrackTheme.colors.expense,
                                     reducedMotion = reducedMotion
                                 )
                             }
@@ -392,13 +392,13 @@ fun UnifiedHeroCanvas(
                                     modifier = Modifier
                                         .size(32.dp)
                                         .clip(CircleShape)
-                                        .background(IncomeContainerDark),
+                                        .background(FinTrackTheme.colors.incomeContainer),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.ArrowDownward,
                                         contentDescription = "Income",
-                                        tint = IncomeDark,
+                                        tint = FinTrackTheme.colors.income,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -407,14 +407,14 @@ fun UnifiedHeroCanvas(
                                     Text(
                                         text = "Income",
                                         style = LabelBadge,
-                                        color = TextSecondaryDark
+                                        color = FinTrackTheme.colors.textSecondary
                                     )
                                     Spacer(modifier = Modifier.height(Space2))
                                     HeroCashflowAmount(
                                         prefix = "+",
                                         amount = metrics.totalIncome,
                                         currency = metrics.currency,
-                                        color = IncomeDark,
+                                        color = FinTrackTheme.colors.income,
                                         reducedMotion = reducedMotion
                                     )
                                 }
@@ -432,13 +432,13 @@ fun UnifiedHeroCanvas(
                                     modifier = Modifier
                                         .size(32.dp)
                                         .clip(CircleShape)
-                                        .background(ExpenseContainerDark),
+                                        .background(FinTrackTheme.colors.expenseContainer),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.ArrowUpward,
                                         contentDescription = "Expense",
-                                        tint = ExpenseDark,
+                                        tint = FinTrackTheme.colors.expense,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -450,14 +450,14 @@ fun UnifiedHeroCanvas(
                                     Text(
                                         text = "Expense",
                                         style = LabelBadge,
-                                        color = TextSecondaryDark
+                                        color = FinTrackTheme.colors.textSecondary
                                     )
                                     Spacer(modifier = Modifier.height(Space2))
                                     HeroCashflowAmount(
                                         prefix = "-",
                                         amount = metrics.totalExpense,
                                         currency = metrics.currency,
-                                        color = ExpenseDark,
+                                        color = FinTrackTheme.colors.expense,
                                         reducedMotion = reducedMotion
                                     )
                                 }
@@ -479,7 +479,7 @@ private fun HeroCashflowAmount(
     reducedMotion: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val digits = formatCeilDigits(amount)
+    val digits = formatHeroCashflowDigits(amount)
     val annotatedText = buildAnnotatedString {
         append(prefix)
         append(digits)
@@ -488,7 +488,7 @@ private fun HeroCashflowAmount(
             SpanStyle(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
-                color = TextSecondaryDark
+                color = FinTrackTheme.colors.textSecondary
             )
         ) {
             append(currency)
@@ -519,4 +519,30 @@ private fun HeroCashflowAmount(
             modifier = modifier
         )
     }
+}
+
+/**
+ * Strict decoupled formatter for Hero Net Balance.
+ * Preserves tabular grouping and guarantees independent presentation formatting.
+ */
+internal fun formatHeroNetBalanceDigits(amount: Double): String {
+    val rounded = kotlin.math.ceil(kotlin.math.abs(amount)).toLong()
+    val symbols = java.text.DecimalFormatSymbols(java.util.Locale.US).apply {
+        groupingSeparator = ' '
+    }
+    val df = java.text.DecimalFormat("#,##0", symbols)
+    return df.format(rounded)
+}
+
+/**
+ * Strict decoupled formatter for Hero Cashflow figures (Income / Expense).
+ * Completely isolated from Net Balance representation to prevent formatting inheritance.
+ */
+internal fun formatHeroCashflowDigits(amount: Double): String {
+    val rounded = kotlin.math.ceil(kotlin.math.abs(amount)).toLong()
+    val symbols = java.text.DecimalFormatSymbols(java.util.Locale.US).apply {
+        groupingSeparator = ' '
+    }
+    val df = java.text.DecimalFormat("#,##0", symbols)
+    return df.format(rounded)
 }

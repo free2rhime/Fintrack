@@ -1,9 +1,14 @@
 package com.example.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,6 +50,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.example.domain.analytics.SingleSeriesDataPoint
 import com.example.ui.theme.RadiusMedium
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +80,7 @@ import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.FinTrackMotion
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
@@ -119,9 +126,29 @@ fun MonthlyCashFlowSplineChart(
     val haptic = LocalHapticFeedback.current
     val reducedMotion = isReducedMotionEnabled()
 
+    // Smooth spline entry / period change transition
+    val transitionProgress = remember { Animatable(if (reducedMotion) 1f else 0f) }
+    var previousPoints by remember { mutableStateOf<List<MonthlyDataPoint>?>(null) }
+
+    LaunchedEffect(dataPoints) {
+        if (reducedMotion) {
+            transitionProgress.snapTo(1f)
+        } else {
+            transitionProgress.snapTo(0f)
+            transitionProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = FinTrackMotion.DurationV2Emphasized,
+                    easing = FinTrackMotion.StandardDecelerate
+                )
+            )
+        }
+        previousPoints = dataPoints
+    }
+
     val animatedSelectedIndex by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
-        animationSpec = if (reducedMotion) snap() else FinTrackMotion.interactiveSpring(),
+        animationSpec = if (reducedMotion) snap() else FinTrackMotion.contentSpring(),
         label = "scrub_spring"
     )
 
@@ -131,74 +158,87 @@ fun MonthlyCashFlowSplineChart(
     Column(modifier = modifier.fillMaxWidth()) {
         // Contextual HUD: Month, Net Cash Flow, Income & Expense
         if (activePoint != null) {
-            val netVal = activePoint.income - activePoint.expense
-            val netSign = if (netVal >= 0) "+" else ""
-            val netColor = if (netVal >= 0) IncomeEmerald else ExpenseCoral
-
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("cash_flow_hud"),
                 shape = RoundedCornerShape(RadiusMedium),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                color = FinTrackTheme.colors.surfaceSecondary,
+                border = BorderStroke(1.dp, FinTrackTheme.colors.borderSubtle)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Space12, vertical = Space8),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = activePoint.monthYearLabel,
-                            style = LabelBadgeMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Net: $netSign${NumberFormatter.formatAmount(netVal)} $currency",
-                            style = MicroMetadata,
-                            color = netColor,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                AnimatedContent(
+                    targetState = activePoint,
+                    transitionSpec = {
+                        if (reducedMotion) {
+                            fadeIn(animationSpec = snap()) togetherWith fadeOut(animationSpec = snap())
+                        } else {
+                            fadeIn(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate)) togetherWith
+                                fadeOut(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate))
+                        }
+                    },
+                    label = "cash_flow_hud_content"
+                ) { point ->
+                    val netVal = point.income - point.expense
+                    val netSign = if (netVal >= 0) "+" else ""
+                    val netColor = if (netVal >= 0) IncomeEmerald else ExpenseCoral
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(Space12),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Space12, vertical = Space8),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(IncomeEmerald)
-                            )
-                            Spacer(modifier = Modifier.width(Space4))
+                        Column {
                             Text(
-                                text = "+${NumberFormatter.formatAmount(activePoint.income)} $currency",
-                                style = MicroMetadata,
-                                color = IncomeEmerald,
+                                text = point.monthYearLabel,
+                                style = LabelBadgeMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Net: $netSign${NumberFormatter.formatAmount(netVal)} $currency",
+                                style = MicroMetadata,
+                                color = netColor,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(ExpenseCoral)
-                            )
-                            Spacer(modifier = Modifier.width(Space4))
-                            Text(
-                                text = "-${NumberFormatter.formatAmount(activePoint.expense)} $currency",
-                                style = MicroMetadata,
-                                color = ExpenseCoral,
-                                fontWeight = FontWeight.Bold
-                            )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(Space12),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(IncomeEmerald)
+                                )
+                                Spacer(modifier = Modifier.width(Space4))
+                                Text(
+                                    text = "+${NumberFormatter.formatAmount(point.income)} $currency",
+                                    style = MicroMetadata,
+                                    color = IncomeEmerald,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(ExpenseCoral)
+                                )
+                                Spacer(modifier = Modifier.width(Space4))
+                                Text(
+                                    text = "-${NumberFormatter.formatAmount(point.expense)} $currency",
+                                    style = MicroMetadata,
+                                    color = ExpenseCoral,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -277,6 +317,7 @@ fun MonthlyCashFlowSplineChart(
                 )
             }
 
+            val progress = transitionProgress.value
             val count = dataPoints.size
             val stepX = if (count > 1) width / (count - 1) else width / 2f
 
@@ -284,10 +325,31 @@ fun MonthlyCashFlowSplineChart(
             val incomePoints = mutableListOf<Offset>()
             val expensePoints = mutableListOf<Offset>()
 
+            val prevList = previousPoints
+            val canInterpolatePrev = prevList != null && prevList.size == count
+
             dataPoints.forEachIndexed { index, dp ->
                 val x = if (count > 1) index * stepX else width / 2f
-                val incY = availableHeight - ((dp.income / maxVal) * (availableHeight - 10.dp.toPx())).toFloat()
-                val expY = availableHeight - ((dp.expense / maxVal) * (availableHeight - 10.dp.toPx())).toFloat()
+                val targetIncY = availableHeight - ((dp.income / maxVal) * (availableHeight - 10.dp.toPx())).toFloat()
+                val targetExpY = availableHeight - ((dp.expense / maxVal) * (availableHeight - 10.dp.toPx())).toFloat()
+
+                val incY = if (canInterpolatePrev) {
+                    val prevDp = prevList!![index]
+                    val prevMax = (prevList.maxOfOrNull { maxOf(it.income, it.expense) } ?: 100.0).coerceAtLeast(10.0)
+                    val prevIncY = availableHeight - ((prevDp.income / prevMax) * (availableHeight - 10.dp.toPx())).toFloat()
+                    prevIncY + (targetIncY - prevIncY) * progress
+                } else {
+                    availableHeight - ((availableHeight - targetIncY) * progress)
+                }
+
+                val expY = if (canInterpolatePrev) {
+                    val prevDp = prevList!![index]
+                    val prevMax = (prevList.maxOfOrNull { maxOf(it.income, it.expense) } ?: 100.0).coerceAtLeast(10.0)
+                    val prevExpY = availableHeight - ((prevDp.expense / prevMax) * (availableHeight - 10.dp.toPx())).toFloat()
+                    prevExpY + (targetExpY - prevExpY) * progress
+                } else {
+                    availableHeight - ((availableHeight - targetExpY) * progress)
+                }
 
                 incomePoints.add(Offset(x, incY))
                 expensePoints.add(Offset(x, expY))
@@ -398,35 +460,41 @@ fun MonthlyCashFlowSplineChart(
             // Vertical crosshair guide line for selected/scrubbed month
             val highlightX = if (count > 1) animatedSelectedIndex * stepX else width / 2f
             drawLine(
-                color = indicatorColor,
+                color = indicatorColor.copy(alpha = 0.55f),
                 start = Offset(highlightX, 0f),
                 end = Offset(highlightX, availableHeight),
                 strokeWidth = 1.5.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
             )
 
-            // Draw data point circles
+            // Draw data point circles with synchronized halo emphasis
             incomePoints.forEachIndexed { idx, pt ->
-                val isSelected = idx == selectedIndex
-                if (isSelected) {
-                    drawCircle(color = IncomeEmerald.copy(alpha = 0.35f), radius = 9.dp.toPx(), center = pt)
-                    drawCircle(color = IncomeEmerald, radius = 5.dp.toPx(), center = pt)
-                    drawCircle(color = Color.White, radius = 2.dp.toPx(), center = pt)
-                } else {
-                    drawCircle(color = IncomeEmerald.copy(alpha = 0.25f), radius = 5.dp.toPx(), center = pt)
-                    drawCircle(color = IncomeEmerald, radius = 3.dp.toPx(), center = pt)
+                val dist = kotlin.math.abs(animatedSelectedIndex - idx)
+                val pointFocus = (1f - dist).coerceIn(0f, 1f)
+
+                val haloRadius = 5.dp.toPx() + 4.dp.toPx() * pointFocus
+                val haloAlpha = 0.20f + 0.15f * pointFocus
+                val coreRadius = 3.dp.toPx() + 2.dp.toPx() * pointFocus
+
+                drawCircle(color = IncomeEmerald.copy(alpha = haloAlpha), radius = haloRadius, center = pt)
+                drawCircle(color = IncomeEmerald, radius = coreRadius, center = pt)
+                if (pointFocus > 0.05f) {
+                    drawCircle(color = Color.White, radius = 2.dp.toPx() * pointFocus, center = pt)
                 }
             }
 
             expensePoints.forEachIndexed { idx, pt ->
-                val isSelected = idx == selectedIndex
-                if (isSelected) {
-                    drawCircle(color = ExpenseCoral.copy(alpha = 0.35f), radius = 9.dp.toPx(), center = pt)
-                    drawCircle(color = ExpenseCoral, radius = 5.dp.toPx(), center = pt)
-                    drawCircle(color = Color.White, radius = 2.dp.toPx(), center = pt)
-                } else {
-                    drawCircle(color = ExpenseCoral.copy(alpha = 0.25f), radius = 5.dp.toPx(), center = pt)
-                    drawCircle(color = ExpenseCoral, radius = 3.dp.toPx(), center = pt)
+                val dist = kotlin.math.abs(animatedSelectedIndex - idx)
+                val pointFocus = (1f - dist).coerceIn(0f, 1f)
+
+                val haloRadius = 5.dp.toPx() + 4.dp.toPx() * pointFocus
+                val haloAlpha = 0.20f + 0.15f * pointFocus
+                val coreRadius = 3.dp.toPx() + 2.dp.toPx() * pointFocus
+
+                drawCircle(color = ExpenseCoral.copy(alpha = haloAlpha), radius = haloRadius, center = pt)
+                drawCircle(color = ExpenseCoral, radius = coreRadius, center = pt)
+                if (pointFocus > 0.05f) {
+                    drawCircle(color = Color.White, radius = 2.dp.toPx() * pointFocus, center = pt)
                 }
             }
         }
@@ -778,6 +846,29 @@ fun CategoryDistributionChart(
 
     val totalSpending = remember(displayShares) { displayShares.sumOf { it.totalAmount } }
 
+    val strokeBase = 16.dp
+    val strokeSelected = 22.dp
+
+    val selectedIndexState = selectedCategoryIndex
+    val animatedSegments = displayShares.indices.map { idx ->
+        val isSelected = selectedIndexState == idx
+        val isAnySelected = selectedIndexState != null
+        val targetAlpha = if (!isAnySelected || isSelected) 1f else 0.35f
+        val targetStrokeDp = if (isSelected) strokeSelected else strokeBase
+
+        val alpha by animateFloatAsState(
+            targetValue = targetAlpha,
+            animationSpec = if (reducedMotion) snap() else FinTrackMotion.fastTween(),
+            label = "donut_alpha_$idx"
+        )
+        val strokeDp by animateFloatAsState(
+            targetValue = targetStrokeDp.value,
+            animationSpec = if (reducedMotion) snap() else FinTrackMotion.contentSpring(),
+            label = "donut_stroke_$idx"
+        )
+        alpha to strokeDp
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -830,9 +921,7 @@ fun CategoryDistributionChart(
                         }
                     }
             ) {
-                val strokeBase = 16.dp.toPx()
-                val strokeSelected = 22.dp.toPx()
-                val maxStroke = maxOf(strokeBase, strokeSelected)
+                val maxStroke = maxOf(strokeBase.toPx(), strokeSelected.toPx())
                 val diameter = minOf(size.width, size.height) - maxStroke
                 val arcSize = Size(diameter, diameter)
                 val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
@@ -842,10 +931,8 @@ fun CategoryDistributionChart(
 
                 displayShares.forEachIndexed { index, share ->
                     val color = if (share.isOther) Color(0xFF94A3B8) else palette[index % palette.size]
-                    val isSelected = selectedCategoryIndex == index
-                    val isAnySelected = selectedCategoryIndex != null
-                    val alpha = if (!isAnySelected || isSelected) 1f else 0.40f
-                    val strokeWidth = if (isSelected) strokeSelected else strokeBase
+                    val (alpha, strokeDpValue) = animatedSegments[index]
+                    val strokeWidth = strokeDpValue.dp.toPx()
 
                     val fullSweep = (share.displayPercentage / 100f) * 360f
                     val effectiveSweep = ((fullSweep - gapAngle).coerceAtLeast(0.5f)) * sweepFraction
@@ -865,47 +952,64 @@ fun CategoryDistributionChart(
                 }
             }
 
-            // Center HUD
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+            // Center HUD with smooth crossfade
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .padding(horizontal = 26.dp)
                     .testTag("category_donut_hud")
             ) {
-                Text(
-                    text = if (activeShare != null) activeShare.categoryName else "All Categories",
-                    style = MicroMetadata,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = if (activeShare != null) "${activeShare.displayPercentage}%" else "100%",
-                    style = CardTitleAmount,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(1.dp))
-                Text(
-                    text = if (activeShare != null) {
-                        "${NumberFormatter.formatAmount(activeShare.totalAmount)} $currency"
-                    } else {
-                        "${NumberFormatter.formatAmount(totalSpending)} $currency"
+                AnimatedContent(
+                    targetState = activeShare,
+                    transitionSpec = {
+                        if (reducedMotion) {
+                            fadeIn(animationSpec = snap()) togetherWith fadeOut(animationSpec = snap())
+                        } else {
+                            fadeIn(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate)) togetherWith
+                                fadeOut(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate))
+                        }
                     },
-                    style = MicroMetadata,
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    label = "category_donut_hud_content"
+                ) { share ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = if (share != null) share.categoryName else "All Categories",
+                            style = MicroMetadata,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (share != null) "${share.displayPercentage}%" else "100%",
+                            style = CardTitleAmount,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(1.dp))
+                        Text(
+                            text = if (share != null) {
+                                "${NumberFormatter.formatAmount(share.totalAmount)} $currency"
+                            } else {
+                                "${NumberFormatter.formatAmount(totalSpending)} $currency"
+                            },
+                            style = MicroMetadata,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
 
@@ -921,6 +1025,26 @@ fun CategoryDistributionChart(
                 val formattedAmount = NumberFormatter.formatAmount(share.totalAmount)
                 val isSelected = selectedCategoryIndex == index
 
+                val itemBgColor by animateColorAsState(
+                    targetValue = if (isSelected) {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
+                    } else {
+                        Color.Transparent
+                    },
+                    animationSpec = if (reducedMotion) snap() else FinTrackMotion.fastTween(),
+                    label = "category_item_bg_$index"
+                )
+
+                val itemBorderColor by animateColorAsState(
+                    targetValue = if (isSelected) {
+                        color.copy(alpha = 0.6f)
+                    } else {
+                        Color.Transparent
+                    },
+                    animationSpec = if (reducedMotion) snap() else FinTrackMotion.fastTween(),
+                    label = "category_item_border_$index"
+                )
+
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -930,14 +1054,8 @@ fun CategoryDistributionChart(
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         },
                     shape = RoundedCornerShape(RadiusSmall),
-                    color = if (isSelected) {
-                        MaterialTheme.colorScheme.surfaceContainerHigh
-                    } else {
-                        Color.Transparent
-                    },
-                    border = if (isSelected) {
-                        BorderStroke(1.dp, color.copy(alpha = 0.6f))
-                    } else null
+                    color = itemBgColor,
+                    border = BorderStroke(1.dp, itemBorderColor)
                 ) {
                     Column(
                         modifier = Modifier
