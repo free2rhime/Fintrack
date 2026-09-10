@@ -32,6 +32,7 @@ object FinTrackMotion {
     // 1. DURATION TOKENS (milliseconds)
     // -------------------------------------------------------------------------
     const val DurationInstant = 0
+    const val DurationPress = 100          // Tactile press response
     const val DurationMicro = 120          // Micro interactions, chip selections, icon states
     const val DurationFast = 150           // DS v1 backward-compatibility
     const val DurationStandard = 200       // DS v1 backward-compatibility
@@ -42,21 +43,38 @@ object FinTrackMotion {
     const val DurationSyncSpin = 1000      // Sync spinner cycle
 
     // -------------------------------------------------------------------------
-    // 2. EASING CURVES
+    // 2. TACTILE PROPERTIES & EASING CURVES (M3 Expressive)
     // -------------------------------------------------------------------------
+    const val PressScaleTarget = 0.975f     // Subtle physical depression on press
+    val ExpressiveEasing: Easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
     val StandardEasing: Easing = FastOutSlowInEasing
     val StandardDecelerate: Easing = FastOutSlowInEasing
     val StandardDecel: Easing = FastOutSlowInEasing
     val LinearCurve: Easing = LinearEasing
-    val EmphasizedCubic: Easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
+    val EmphasizedCubic: Easing = ExpressiveEasing
 
     // -------------------------------------------------------------------------
-    // 3. COMPOSE SPRING PHYSICS (v2 Centralized Specs)
+    // 3. COMPOSE SPRING PHYSICS (M3 Expressive Spring Hierarchy)
     // -------------------------------------------------------------------------
+    /**
+     * Spatial Spring:
+     * DampingRatioLowBouncy, StiffnessLow.
+     * Used for large surface movements, sheet expansion, dialogs, container morphs.
+     */
+    val SpatialSpring: SpringSpec<Float> = spring(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+
+    val SpatialSpringDp: SpringSpec<Dp> = spring(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+
     /**
      * Interactive Spring:
      * DampingRatioMediumBouncy, StiffnessMedium.
-     * Used for direct touch manipulation, selection pills, and tactile feedback.
+     * Used for direct touch manipulation, button presses, selection pills, and tactile feedback.
      */
     val InteractiveSpring: SpringSpec<Float> = spring(
         dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -65,6 +83,21 @@ object FinTrackMotion {
 
     val InteractiveSpringDp: SpringSpec<Dp> = spring(
         dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessMedium
+    )
+
+    /**
+     * Micro Spring:
+     * DampingRatioNoBouncy, StiffnessMedium.
+     * Used for state dots, micro indicators, badges, tiny toggles.
+     */
+    val MicroSpring: SpringSpec<Float> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMedium
+    )
+
+    val MicroSpringDp: SpringSpec<Dp> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
         stiffness = Spring.StiffnessMedium
     )
 
@@ -92,6 +125,69 @@ object FinTrackMotion {
     fun <T> contentSpring(visibilityThreshold: T? = null): SpringSpec<T> = spring(
         dampingRatio = Spring.DampingRatioNoBouncy,
         stiffness = Spring.StiffnessLow,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    // -------------------------------------------------------------------------
+    // 4. SEMANTIC MOTION SPECIFICATIONS (M3 Expressive)
+    // -------------------------------------------------------------------------
+    fun <T> pressInteractionSpec(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessMedium,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> selectionSpring(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessMediumLow,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> containerMorphSpec(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessLow,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> contentEntranceSpec(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessLow,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> contentChangeSpec(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMedium,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> stateChangeSpec(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMedium,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> navigationSpring(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessLow,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> chartInteractionSpring(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessMedium,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> emphasisSpring(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessLow,
+        visibilityThreshold = visibilityThreshold
+    )
+
+    fun <T> dismissSpring(visibilityThreshold: T? = null): SpringSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMedium,
         visibilityThreshold = visibilityThreshold
     )
 
@@ -135,6 +231,7 @@ object FinTrackMotion {
 @Immutable
 data class FinTrackMotionTokens(
     val durationInstant: Int = FinTrackMotion.DurationInstant,
+    val durationPress: Int = FinTrackMotion.DurationPress,
     val durationMicro: Int = FinTrackMotion.DurationMicro,
     val durationFast: Int = FinTrackMotion.DurationFast,
     val durationStandard: Int = FinTrackMotion.DurationStandard,
@@ -145,8 +242,12 @@ data class FinTrackMotionTokens(
     val durationSyncSpin: Int = FinTrackMotion.DurationSyncSpin,
     val interactiveSpring: SpringSpec<Float> = FinTrackMotion.InteractiveSpring,
     val contentSpring: SpringSpec<Float> = FinTrackMotion.ContentSpring,
+    val spatialSpring: SpringSpec<Float> = FinTrackMotion.SpatialSpring,
+    val microSpring: SpringSpec<Float> = FinTrackMotion.MicroSpring,
     val standardDecelerate: Easing = FinTrackMotion.StandardDecelerate,
-    val emphasizedCubic: Easing = FinTrackMotion.EmphasizedCubic
+    val emphasizedCubic: Easing = FinTrackMotion.EmphasizedCubic,
+    val expressiveEasing: Easing = FinTrackMotion.ExpressiveEasing,
+    val pressScaleTarget: Float = FinTrackMotion.PressScaleTarget
 )
 
 val LocalFinTrackMotion = staticCompositionLocalOf { FinTrackMotionTokens() }

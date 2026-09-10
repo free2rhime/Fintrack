@@ -212,4 +212,48 @@ val Typography = Typography(
     labelSmall = LabelMicro
 )
 
+// -----------------------------------------------------------------------------
+// 5. SEMANTIC TYPOGRAPHY CONTRACT (FinTrackTypography)
+// -----------------------------------------------------------------------------
+@androidx.compose.runtime.Immutable
+data class FinTrackTypography(
+    val screenTitle: TextStyle = TitleScreen,
+    val sectionHeading: TextStyle = TitleCard,
+    val cardHeading: TextStyle = TitleCard,
+    val body: TextStyle = BodyNarrative,
+    val bodyMedium: TextStyle = BodyNarrative,
+    val bodySmall: TextStyle = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp
+    ),
+    val supportingText: TextStyle = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.sp
+    ),
+    val label: TextStyle = LabelBadge,
+    val labelSmall: TextStyle = LabelMicro,
+    val metadata: TextStyle = LabelMicro,
+    val financialDisplay: TextStyle = HeroFinancialDisplay,
+    val financialDisplayCompact: TextStyle = HeroFinancialDisplayCompact,
+    val financialMetric: TextStyle = MetricFinancialMedium,
+    val financialMetricRegular: TextStyle = MetricFinancialRegular,
+    val financialExpressive: TextStyle = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Black,
+        fontSize = 36.sp,
+        lineHeight = 44.sp,
+        letterSpacing = (-0.8).sp,
+        fontFeatureSettings = "tnum"
+    ),
+    val currencyUnit: TextStyle = CurrencyUnitDecoupled
+)
+
+val LocalFinTrackTypography = androidx.compose.runtime.staticCompositionLocalOf { FinTrackTypography() }
+
+
 

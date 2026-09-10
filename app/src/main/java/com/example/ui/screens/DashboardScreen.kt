@@ -105,7 +105,7 @@ fun DashboardScreen(
                 )
             }
 
-            // UNIFIED HERO CANVAS — Precision Fintech + Editorial Wealth Narrative (FinTrack Phase 3B Checkpoint 4.1)
+            // UNIFIED HERO CANVAS — Material 3 Expressive (Phase 3C / M3-3)
             UnifiedHeroCanvas(
                 metrics = metrics,
                 modifier = Modifier
@@ -169,7 +169,7 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(Space16))
 
-            // FINANCIAL PULSE CARD (Precision Fintech + Editorial Wealth Narrative - Checkpoint 4.2)
+            // FINANCIAL PULSE CARD (Material 3 Expressive Grouped Tonal Panel - Phase 3C / M3-3)
             val isZeroIncome = metrics.totalIncome <= 0.0
             FinancialPulseCard(
                 insights = smartInsights,

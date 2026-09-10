@@ -13,12 +13,15 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import com.example.data.model.TransactionEntity
 import com.example.data.util.NumberFormatter
 import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.ShapeGroupedItemSingle
 
 /**
  * Resolves a semantic category icon based on category keywords.
@@ -51,7 +54,10 @@ fun TransactionCardItem(
     onDuplicateClicked: (TransactionEntity) -> Unit,
     onEditClicked: (TransactionEntity) -> Unit,
     onDeleteClicked: (TransactionEntity) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    shape: Shape = ShapeGroupedItemSingle,
+    showDivider: Boolean = false,
+    containerColor: Color = Color.Transparent
 ) {
     val isIncome = transaction.type == "Income"
     val useRon = selectedCurrency == "RON"
@@ -108,12 +114,16 @@ fun TransactionCardItem(
         statusVariant = statusVariant,
         categoryIcon = categoryIcon,
         categoryColor = if (isIncome) IncomeEmerald else ExpenseCoral,
+        shape = shape,
+        containerColor = containerColor,
+        showDivider = showDivider,
         onClick = { onEditClicked(transaction) },
         onDuplicateClick = { onDuplicateClicked(transaction) },
         onEditClick = { onEditClicked(transaction) },
         onDeleteClick = { onDeleteClicked(transaction) },
         duplicateTestTag = "tx_duplicate_${transaction.id}",
         deleteTestTag = "tx_delete_${transaction.id}",
+        editTestTag = "tx_edit_${transaction.id}",
         modifier = modifier.testTag("transaction_item_${transaction.id}")
     )
 }

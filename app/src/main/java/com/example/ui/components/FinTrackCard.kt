@@ -29,6 +29,7 @@ fun FinTrackCard(
     containerColor: Color = Color.Unspecified,
     contentColor: Color = Color.Unspecified,
     border: BorderStroke? = null,
+    showBorder: Boolean = true,
     tonalElevation: Dp = 0.dp,
     contentPadding: Dp = Space16,
     onClick: (() -> Unit)? = null,
@@ -40,7 +41,11 @@ fun FinTrackCard(
         FinTrackTheme.colors.surfacePrimary
     }
 
-    val resolvedBorder = border ?: BorderStroke(1.dp, FinTrackTheme.colors.borderSubtle)
+    val resolvedBorder = if (showBorder) {
+        border ?: BorderStroke(1.dp, FinTrackTheme.colors.borderSubtle)
+    } else {
+        border
+    }
 
     Surface(
         modifier = if (onClick != null) {

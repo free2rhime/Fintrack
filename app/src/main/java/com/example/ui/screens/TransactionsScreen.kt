@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,6 +68,9 @@ import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeGroupedContainer
+import com.example.ui.theme.ShapeGroupedItemBottom
+import com.example.ui.theme.ShapeGroupedItemMiddle
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space2
@@ -333,7 +337,7 @@ fun TransactionsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = Space16),
-                    verticalArrangement = Arrangement.spacedBy(Space8)
+                    verticalArrangement = Arrangement.spacedBy(Space16)
                 ) {
                     groupedByDate.forEach { (date, dateGroupTxs) ->
                         // Calculate Daily Total
@@ -345,62 +349,90 @@ fun TransactionsScreen(
                             it.type == "Expense" && (useRon || (it.conversionStatus == "OFFICIAL" && it.exchangeRateSource == "BNR_OFFICIAL" && it.exchangeRate > 0.0))
                         }.sumOf { if (useRon) it.amountRON else it.amountEUR }
 
-                        item(key = "header_$date") {
-                            Row(
+                        item(key = "group_$date") {
+                            Surface(
+                                shape = ShapeGroupedContainer,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = Space8),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .testTag("transaction_date_group_$date")
                             ) {
-                                Text(
-                                    text = formatLocalizedDateHeader(date),
-                                    style = CardTitleAmount,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-
-                                Surface(
-                                    shape = RoundedCornerShape(RadiusSmall),
-                                    color = MaterialTheme.colorScheme.surfaceContainer,
-                                    modifier = Modifier.semantics {
-                                        contentDescription = "Day total: income +${NumberFormatter.formatAmount(dayIncome)}, expense -${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}"
-                                    }
-                                ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    // Integrated Day Header
                                     Row(
-                                        modifier = Modifier.padding(horizontal = Space8, vertical = Space4),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(Space4)
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = Space16, vertical = Space12),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "+${NumberFormatter.formatAmount(dayIncome)}",
-                                            style = MicroMetadata,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = IncomeEmerald
+                                            text = formatLocalizedDateHeader(date),
+                                            style = SectionHeadline,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
-                                        Text(
-                                            text = "/",
-                                            style = MicroMetadata,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                        )
-                                        Text(
-                                            text = "-${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}",
-                                            style = MicroMetadata,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = ExpenseCoral
+
+                                        Surface(
+                                            shape = RoundedCornerShape(RadiusSmall),
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            modifier = Modifier.semantics {
+                                                contentDescription = "Day total: income +${NumberFormatter.formatAmount(dayIncome)}, expense -${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}"
+                                            }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = Space8, vertical = Space4),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(Space4)
+                                            ) {
+                                                Text(
+                                                    text = "+${NumberFormatter.formatAmount(dayIncome)}",
+                                                    style = MicroMetadata,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = IncomeEmerald
+                                                )
+                                                Text(
+                                                    text = "/",
+                                                    style = MicroMetadata,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                )
+                                                Text(
+                                                    text = "-${NumberFormatter.formatAmount(dayExpense)} ${filterSettings.selectedCurrency}",
+                                                    style = MicroMetadata,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = ExpenseCoral
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = Space16),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                        thickness = 0.5.dp
+                                    )
+
+                                    dateGroupTxs.forEachIndexed { index, tx ->
+                                        val isLast = index == dateGroupTxs.size - 1
+                                        val isSingle = dateGroupTxs.size == 1
+                                        val itemShape = when {
+                                            isSingle -> ShapeGroupedItemBottom
+                                            isLast -> ShapeGroupedItemBottom
+                                            else -> ShapeGroupedItemMiddle
+                                        }
+
+                                        TransactionCardItem(
+                                            transaction = tx,
+                                            selectedCurrency = filterSettings.selectedCurrency,
+                                            onDuplicateClicked = onDuplicateClicked,
+                                            onEditClicked = onEditClicked,
+                                            onDeleteClicked = onDeleteClicked,
+                                            shape = itemShape,
+                                            showDivider = !isLast,
+                                            containerColor = Color.Transparent
                                         )
                                     }
                                 }
                             }
-                        }
-
-                        items(dateGroupTxs, key = { it.id }) { tx ->
-                            TransactionCardItem(
-                                transaction = tx,
-                                selectedCurrency = filterSettings.selectedCurrency,
-                                onDuplicateClicked = onDuplicateClicked,
-                                onEditClicked = onEditClicked,
-                                onDeleteClicked = onDeleteClicked
-                            )
                         }
                     }
 

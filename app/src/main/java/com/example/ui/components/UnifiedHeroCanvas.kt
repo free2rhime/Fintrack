@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,10 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,52 +39,42 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.analytics.DashboardMetrics
-import com.example.ui.screens.formatCeilDigits
 import com.example.ui.theme.BreakpointCompactWidth
 import com.example.ui.theme.CurrencyUnitDecoupled
-import com.example.ui.theme.ExpenseContainerDark
-import com.example.ui.theme.ExpenseDark
 import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.FinTrackTheme
-import com.example.ui.theme.HealthCriticalDark
-import com.example.ui.theme.HealthPositiveDark
 import com.example.ui.theme.HeroFinancialDisplay
 import com.example.ui.theme.HeroFinancialDisplayCompact
-import com.example.ui.theme.IncomeContainerDark
-import com.example.ui.theme.IncomeDark
 import com.example.ui.theme.LabelBadge
 import com.example.ui.theme.LabelMicro
 import com.example.ui.theme.MetricFinancialMedium
 import com.example.ui.theme.MetricFinancialRegular
-import com.example.ui.theme.ShapeHero
-import com.example.ui.theme.ShapeInset
 import com.example.ui.theme.ShapePill
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space2
 import com.example.ui.theme.Space20
+import com.example.ui.theme.Space24
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.SurfaceHeroBorder
-import com.example.ui.theme.TextMutedDark
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
 import com.example.ui.theme.isReducedMotionEnabled
 
 /**
- * Unified Hero Canvas — FinTrack Phase 3B Checkpoint 4.1
- * Visual Direction: Precision Fintech + Editorial Wealth Narrative
+ * Unified Hero Canvas — Material 3 Expressive (Phase 3C / M3-3)
+ * Visual Direction: Material 3 Expressive + Editorial Wealth Narrative
  *
  * Visually unifies:
  * 1. Financial Apex / Net Balance (prominent tabular figures, decoupled currency)
  * 2. Secondary currency equivalence (e.g., ≈ 25 900 EUR or restrained unavailable state)
  * 3. Authoritative BNR Parity reference (1 EUR = X.XXXX RON or BNR unavailable)
- * 4. Income & Expense cash flow well (Emerald / Coral indicators on dark canvas)
- * 5. Period context badge
+ * 4. Income & Expense cash flow well (Emerald / Coral indicators on expressive tonal well)
+ * 5. Period context badge (tactile pill)
  * 6. Editorial wealth narrative layer
  *
  * Presentation-only component: consumes authoritative DashboardMetrics.
- * Strict non-truncation guarantee across 360dp, 390dp, and 412dp+ viewports.
+ * Expressive container hierarchy with ShapeHeroCanvas (32dp bottom curve),
+ * surfaceContainerLow tonal elevation, zero hard border dependency, and strict
+ * non-truncation guarantees across 360dp, 390dp, and 412dp+ viewports.
  */
 @Composable
 fun UnifiedHeroCanvas(
@@ -96,14 +87,14 @@ fun UnifiedHeroCanvas(
         modifier = modifier
             .fillMaxWidth()
             .testTag("dashboard_top_card"),
-        shape = ShapeHero,
-        color = FinTrackTheme.colors.surfaceHero,
-        border = BorderStroke(1.dp, FinTrackTheme.colors.surfaceHeroBorder)
+        shape = FinTrackTheme.shapes.hero,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Space20)
+                .padding(horizontal = Space16, vertical = Space12)
                 .testTag("unified_hero_canvas")
         ) {
             val availableWidth = maxWidth
@@ -127,8 +118,8 @@ fun UnifiedHeroCanvas(
                         Box(
                             modifier = Modifier
                                 .clip(ShapePill)
-                                .background(FinTrackTheme.colors.surfaceSecondary)
-                                .padding(horizontal = Space8, vertical = Space2)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .padding(horizontal = Space12, vertical = Space4)
                                 .testTag("hero_period_badge"),
                             contentAlignment = Alignment.Center
                         ) {
@@ -136,13 +127,13 @@ fun UnifiedHeroCanvas(
                                 text = metrics.periodLabel,
                                 style = LabelMicro,
                                 fontWeight = FontWeight.SemiBold,
-                                color = FinTrackTheme.colors.textSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(Space8))
+                Spacer(modifier = Modifier.height(Space4))
 
                 // Primary Net Balance (Financial Apex)
                 val isNegative = metrics.balance < 0.0
@@ -185,7 +176,7 @@ fun UnifiedHeroCanvas(
                     Text(
                         text = balanceText,
                         style = displayStyle,
-                        color = FinTrackTheme.colors.textPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         softWrap = true,
                         maxLines = 2,
                         overflow = TextOverflow.Clip,
@@ -248,15 +239,15 @@ fun UnifiedHeroCanvas(
                     modifier = Modifier.testTag("hero_wealth_narrative")
                 )
 
-                Spacer(modifier = Modifier.height(Space8))
+                Spacer(modifier = Modifier.height(Space4))
 
                 // BNR Parity Informational Row
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .clip(ShapeInset)
-                        .background(FinTrackTheme.colors.surfaceSecondary)
-                        .padding(horizontal = Space8, vertical = Space4)
+                        .clip(ShapePill)
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .padding(horizontal = Space12, vertical = Space4)
                         .testTag("hero_bnr_parity")
                 ) {
                     if (metrics.latestBnrRate != null) {
@@ -276,15 +267,15 @@ fun UnifiedHeroCanvas(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(Space16))
+                Spacer(modifier = Modifier.height(Space8))
 
-                // Income / Expense Unified Well
+                // Income / Expense Expressive Tonal Well
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(ShapeInset)
-                        .background(FinTrackTheme.colors.surfaceSecondary)
-                        .padding(horizontal = Space12, vertical = Space12)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .padding(horizontal = Space12, vertical = Space8)
                         .testTag("hero_cashflow_row")
                 ) {
                     val useStackedCashflow = availableWidth < 300.dp || (availableWidth < 350.dp && (metrics.totalIncome >= 100_000.0 || metrics.totalExpense >= 100_000.0))
@@ -292,7 +283,7 @@ fun UnifiedHeroCanvas(
                     if (useStackedCashflow) {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(Space8)
+                            verticalArrangement = Arrangement.spacedBy(Space12)
                         ) {
                             // Income Row
                             Row(
@@ -306,7 +297,7 @@ fun UnifiedHeroCanvas(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(28.dp)
+                                            .size(32.dp)
                                             .clip(CircleShape)
                                             .background(FinTrackTheme.colors.incomeContainer),
                                         contentAlignment = Alignment.Center
@@ -315,7 +306,7 @@ fun UnifiedHeroCanvas(
                                             imageVector = Icons.Default.ArrowDownward,
                                             contentDescription = "Income",
                                             tint = FinTrackTheme.colors.income,
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(Space8))
@@ -347,7 +338,7 @@ fun UnifiedHeroCanvas(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(28.dp)
+                                            .size(32.dp)
                                             .clip(CircleShape)
                                             .background(FinTrackTheme.colors.expenseContainer),
                                         contentAlignment = Alignment.Center
@@ -356,7 +347,7 @@ fun UnifiedHeroCanvas(
                                             imageVector = Icons.Default.ArrowUpward,
                                             contentDescription = "Expense",
                                             tint = FinTrackTheme.colors.expense,
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(Space8))
@@ -390,7 +381,7 @@ fun UnifiedHeroCanvas(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
                                         .background(FinTrackTheme.colors.incomeContainer),
                                     contentAlignment = Alignment.Center
@@ -399,10 +390,10 @@ fun UnifiedHeroCanvas(
                                         imageVector = Icons.Default.ArrowDownward,
                                         contentDescription = "Income",
                                         tint = FinTrackTheme.colors.income,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(Space8))
+                                Spacer(modifier = Modifier.width(Space12))
                                 Column(modifier = Modifier.weight(1f, fill = false)) {
                                     Text(
                                         text = "Income",
@@ -430,7 +421,7 @@ fun UnifiedHeroCanvas(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
                                         .background(FinTrackTheme.colors.expenseContainer),
                                     contentAlignment = Alignment.Center
@@ -439,10 +430,10 @@ fun UnifiedHeroCanvas(
                                         imageVector = Icons.Default.ArrowUpward,
                                         contentDescription = "Expense",
                                         tint = FinTrackTheme.colors.expense,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(Space8))
+                                Spacer(modifier = Modifier.width(Space12))
                                 Column(
                                     modifier = Modifier.weight(1f, fill = false),
                                     horizontalAlignment = Alignment.End

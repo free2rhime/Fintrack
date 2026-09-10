@@ -49,6 +49,7 @@ import com.example.ui.theme.Space40
 import com.example.ui.theme.Space48
 import com.example.ui.theme.Space8
 import com.example.ui.theme.SurfaceHeroDarkMidnight
+import com.example.ui.theme.SurfaceHeroLight
 import com.example.ui.theme.SurfacePrimaryDark
 import com.example.ui.theme.SurfacePrimaryLight
 import com.example.ui.theme.SurfaceSecondaryDark
@@ -292,9 +293,9 @@ class DesignSystemV2FoundationTest {
 
     @Test
     fun test_colorContrast_surfaceHero_invertedCanvas() {
-        // SurfaceHeroDarkMidnight (#0F172A) is dark across BOTH Light and Dark themes
+        // SurfaceHeroDarkMidnight (#0F172A) is dark midnight
         assertEquals(Color(0xFF0F172A), SurfaceHeroDarkMidnight)
-        assertEquals(SurfaceHeroDarkMidnight, LightFinTrackColors.surfaceHero)
+        assertEquals(SurfaceHeroLight, LightFinTrackColors.surfaceHero)
         assertEquals(SurfaceHeroDarkMidnight, DarkFinTrackColors.surfaceHero)
 
         // White text on SurfaceHeroDarkMidnight -> WCAG AAA (>= 7.0:1)

@@ -1,57 +1,93 @@
 package com.example.ui.theme
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 
 // =============================================================================
-// FinTrack Design System v2 — Progressive Geometry Scale
-// Direction: Precision Fintech + Editorial Wealth Narrative
-// Radius_inner ≈ Radius_outer - Padding (Nested Geometric Harmony)
+// FinTrack Design System v3 — Material 3 Expressive Shape Vocabulary
+// Direction: Organic, fluid, tactile Android-native wealth experience.
+// Replaces static radii with a purposeful, semantic geometry scale.
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// 1. PROGRESSIVE GEOMETRY TOKENS
+// 1. BASE GEOMETRY SCALES
 // -----------------------------------------------------------------------------
+val ShapeNone = RectangleShape
+val ShapeExtraSmall = RoundedCornerShape(4.dp)      // Inner badges, micro indicators
+val ShapeSmall = RoundedCornerShape(8.dp)           // Subcategory chips, toast alerts
+val ShapeMedium = RoundedCornerShape(12.dp)         // Form inputs, segment buttons
+val ShapeLarge = RoundedCornerShape(16.dp)          // Floating dialogs, interactive cards
+val ShapeExtraLarge = RoundedCornerShape(24.dp)     // Grouped container panels
+val ShapePill = CircleShape                         // Primary buttons, status capsules
 
-/**
- * Pill: Interactive chips, currency toggle switches, status badges.
- */
+// -----------------------------------------------------------------------------
+// 2. CONTEXTUAL & COMPONENT GEOMETRIES (M3 Expressive)
+// -----------------------------------------------------------------------------
+val ShapeHeroCanvas = RoundedCornerShape(
+    topStart = 0.dp,
+    topEnd = 0.dp,
+    bottomStart = 32.dp,
+    bottomEnd = 32.dp
+)
+
+val ShapeGroupedContainer = RoundedCornerShape(24.dp)
+val ShapeGroupedItemTop = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+val ShapeGroupedItemMiddle = RoundedCornerShape(4.dp)
+val ShapeGroupedItemBottom = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
+val ShapeGroupedItemSingle = RoundedCornerShape(20.dp)
+
+val ShapeFloatingActionButton = RoundedCornerShape(18.dp)
+val ShapeModalSheet = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+val ShapeNavigationCapsule = RoundedCornerShape(28.dp)
+
+// -----------------------------------------------------------------------------
+// 3. SEMANTIC SHAPES CONTRACT
+// -----------------------------------------------------------------------------
+@Immutable
+data class FinTrackShapes(
+    val compactControl: Shape = ShapeSmall,
+    val pill: Shape = ShapePill,
+    val button: Shape = RoundedCornerShape(20.dp),
+    val chip: Shape = ShapeSmall,
+    val card: Shape = ShapeLarge,
+    val prominentCard: Shape = ShapeGroupedItemSingle,
+    val hero: Shape = ShapeHeroCanvas,
+    val listContainer: Shape = ShapeGroupedContainer,
+    val listItem: Shape = ShapeGroupedItemSingle,
+    val listItemTop: Shape = ShapeGroupedItemTop,
+    val listItemMiddle: Shape = ShapeGroupedItemMiddle,
+    val listItemBottom: Shape = ShapeGroupedItemBottom,
+    val dialog: Shape = ShapeLarge,
+    val bottomSheet: Shape = ShapeModalSheet,
+    val navigationCapsule: Shape = ShapeNavigationCapsule,
+    val inputField: Shape = ShapeMedium,
+    val microIndicator: Shape = ShapeExtraSmall,
+    val fab: Shape = ShapeFloatingActionButton
+)
+
+val LocalFinTrackShapes = staticCompositionLocalOf { FinTrackShapes() }
+
+// -----------------------------------------------------------------------------
+// 4. BACKWARD-COMPATIBILITY ALIASES & PROGRESSIVE TOKENS
+// (Preserves existing screens, components and tests without breaking changes)
+// -----------------------------------------------------------------------------
 val RadiusPill = 999.dp
-
-/**
- * Hero Surface: Financial Apex Card, Bottom Sheets.
- */
 val RadiusHero = 24.dp
-
-/**
- * Standard Card: Primary content surfaces (FinTrackCard, Chart containers).
- */
 val RadiusCard = 16.dp
-
-/**
- * Inset Well: Inset data blocks within cards (Chart HUD row, progress bar well).
- */
 val RadiusInset = 10.dp
-
-/**
- * Micro Element: Category color indicators, bar caps, chart selection dots.
- */
 val RadiusMicro = 6.dp
 
-// -----------------------------------------------------------------------------
-// 2. PREDEFINED SHAPE SINGLETONS
-// -----------------------------------------------------------------------------
-val ShapePill = RoundedCornerShape(RadiusPill)
 val ShapeHero = RoundedCornerShape(RadiusHero)
 val ShapeCard = RoundedCornerShape(RadiusCard)
 val ShapeInset = RoundedCornerShape(RadiusInset)
 val ShapeMicro = RoundedCornerShape(RadiusMicro)
 
-// -----------------------------------------------------------------------------
-// 3. BACKWARD-COMPATIBILITY ALIASES
-// (Preserves existing screens and components without breaking changes)
-// -----------------------------------------------------------------------------
 val RadiusSmall = 8.dp
 val RadiusMedium = 12.dp
 val RadiusLarge = RadiusCard
@@ -59,7 +95,7 @@ val RadiusXLarge = RadiusHero
 val RadiusFull = RadiusPill
 
 // -----------------------------------------------------------------------------
-// 4. MATERIAL 3 SHAPES MAPPING
+// 5. MATERIAL 3 SHAPES MAPPING
 // -----------------------------------------------------------------------------
 val Shapes = Shapes(
     extraSmall = ShapeMicro,

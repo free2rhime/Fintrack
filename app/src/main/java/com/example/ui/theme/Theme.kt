@@ -13,71 +13,71 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 // ==========================================
-// FinTrack Design System v2 — Material 3 Dark Palette
+// FinTrack Design System v3 — Material 3 Expressive Dark Palette
 // ==========================================
 private val DarkColorScheme = darkColorScheme(
-    primary = IncomeDark,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFF064E3B),
-    onPrimaryContainer = Color(0xFF6EE7B7),
-    inversePrimary = Color(0xFF059669),
-    secondary = CobaltBlue,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFF1D4ED8),
-    onSecondaryContainer = Color.White,
-    tertiary = TertiaryViolet,
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFF6D28D9),
-    onTertiaryContainer = Color.White,
+    primary = BrandPrimaryDark,
+    onPrimary = Color(0xFF0F172A),
+    primaryContainer = Color(0xFF1E3A8A),
+    onPrimaryContainer = Color(0xFFDBEAFE),
+    inversePrimary = BrandPrimaryLight,
+    secondary = BrandSecondaryDark,
+    onSecondary = Color(0xFF0F172A),
+    secondaryContainer = Color(0xFF0369A1),
+    onSecondaryContainer = Color(0xFFE0F2FE),
+    tertiary = Color(0xFFA78BFA),
+    onTertiary = Color(0xFF1E1B4B),
+    tertiaryContainer = Color(0xFF5B21B6),
+    onTertiaryContainer = Color(0xFFEDE9FE),
     background = PageBackgroundDark,
     onBackground = TextPrimaryDark,
     surface = SurfacePrimaryDark,
     onSurface = TextPrimaryDark,
-    surfaceVariant = SurfaceSecondaryDark,
+    surfaceVariant = SurfaceVariantDark,
     onSurfaceVariant = TextSecondaryDark,
-    surfaceTint = IncomeDark,
+    surfaceTint = BrandPrimaryDark,
     inverseSurface = Color(0xFFF8FAFC),
     inverseOnSurface = Color(0xFF0F172A),
     error = ExpenseDark,
     onError = Color.White,
     errorContainer = ExpenseContainerDark,
-    onErrorContainer = ExpenseDark,
+    onErrorContainer = Color(0xFFFECACA),
     outline = BorderStandardDark,
     outlineVariant = BorderSubtleDark,
     scrim = Color(0xFF000000),
-    surfaceBright = Color(0xFF1E293B),
+    surfaceBright = SurfaceContainerHighDark,
     surfaceDim = PageBackgroundDark,
-    surfaceContainerLowest = PageBackgroundDark,
-    surfaceContainerLow = Color(0xFF0E1424),
-    surfaceContainer = SurfacePrimaryDark,
-    surfaceContainerHigh = SurfaceSecondaryDark,
-    surfaceContainerHighest = Color(0xFF27354A)
+    surfaceContainerLowest = SurfaceContainerLowestDark,
+    surfaceContainerLow = SurfaceContainerLowDark,
+    surfaceContainer = SurfaceContainerDark,
+    surfaceContainerHigh = SurfaceContainerHighDark,
+    surfaceContainerHighest = SurfaceContainerHighestDark
 )
 
 // ==========================================
-// FinTrack Design System v2 — Material 3 Light Palette
+// FinTrack Design System v3 — Material 3 Expressive Light Palette
 // ==========================================
 private val LightColorScheme = lightColorScheme(
-    primary = IncomeLight,
+    primary = BrandPrimaryLight,
     onPrimary = Color.White,
-    primaryContainer = IncomeContainerLight,
-    onPrimaryContainer = Color(0xFF064E3B),
-    inversePrimary = Color(0xFF10B981),
-    secondary = CobaltBlue,
+    primaryContainer = Color(0xFFDBEAFE),
+    onPrimaryContainer = Color(0xFF1E3A8A),
+    inversePrimary = BrandPrimaryDark,
+    secondary = BrandSecondaryLight,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFDBEAFE),
-    onSecondaryContainer = Color(0xFF1E40AF),
-    tertiary = TertiaryViolet,
+    secondaryContainer = Color(0xFFE0F2FE),
+    onSecondaryContainer = Color(0xFF0369A1),
+    tertiary = Color(0xFF7C3AED),
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFEDE9FE),
-    onTertiaryContainer = Color(0xFF581C87),
+    onTertiaryContainer = Color(0xFF5B21B6),
     background = PageBackgroundLight,
     onBackground = TextPrimaryLight,
     surface = SurfacePrimaryLight,
     onSurface = TextPrimaryLight,
-    surfaceVariant = SurfaceSecondaryLight,
+    surfaceVariant = SurfaceVariantLight,
     onSurfaceVariant = TextSecondaryLight,
-    surfaceTint = IncomeLight,
+    surfaceTint = BrandPrimaryLight,
     inverseSurface = Color(0xFF1E293B),
     inverseOnSurface = Color(0xFFF8FAFC),
     error = ExpenseLight,
@@ -88,16 +88,16 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant = BorderSubtleLight,
     scrim = Color(0xFF000000),
     surfaceBright = SurfacePrimaryLight,
-    surfaceDim = SurfaceSecondaryLight,
-    surfaceContainerLowest = SurfacePrimaryLight,
-    surfaceContainerLow = PageBackgroundLight,
-    surfaceContainer = SurfacePrimaryLight,
-    surfaceContainerHigh = SurfaceSecondaryLight,
-    surfaceContainerHighest = BorderSubtleLight
+    surfaceDim = SurfaceContainerLowLight,
+    surfaceContainerLowest = SurfaceContainerLowestLight,
+    surfaceContainerLow = SurfaceContainerLowLight,
+    surfaceContainer = SurfaceContainerLight,
+    surfaceContainerHigh = SurfaceContainerHighLight,
+    surfaceContainerHighest = SurfaceContainerHighestLight
 )
 
 /**
- * Centralized Design System accessor for FinTrack v2.
+ * Centralized Design System accessor for FinTrack v3 Material 3 Expressive.
  * Provides unified, single-source-of-truth access to colors, typography, shapes, spacing, and motion.
  */
 object FinTrackTheme {
@@ -109,7 +109,15 @@ object FinTrackTheme {
         @Composable
         get() = MaterialTheme.typography
 
-    val shapes: androidx.compose.material3.Shapes
+    val typographyTokens: FinTrackTypography
+        @Composable
+        get() = LocalFinTrackTypography.current
+
+    val shapes: FinTrackShapes
+        @Composable
+        get() = LocalFinTrackShapes.current
+
+    val materialShapes: androidx.compose.material3.Shapes
         @Composable
         get() = MaterialTheme.shapes
 
@@ -141,6 +149,8 @@ fun FinTrackTheme(
 
     CompositionLocalProvider(
         LocalFinTrackColors provides finTrackColors,
+        LocalFinTrackShapes provides FinTrackShapes(),
+        LocalFinTrackTypography provides FinTrackTypography(),
         LocalFinTrackSpacing provides FinTrackSpacing(),
         LocalFinTrackMotion provides FinTrackMotionTokens()
     ) {

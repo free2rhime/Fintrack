@@ -62,7 +62,20 @@ val PaddingScreenStandard: Dp = 16.dp
 val MinTouchTargetSize: Dp = 48.dp
 
 // -----------------------------------------------------------------------------
-// 3. FINTRACK SPACING CONTRACT
+// 3. MATERIAL 3 EXPRESSIVE LAYOUT & CONTAINER TOKENS
+// -----------------------------------------------------------------------------
+val SpacingCompactControl: Dp = 6.dp
+val SpacingGroupedList: Dp = 2.dp
+val SpacingGroupedContainer: Dp = 20.dp
+val SpacingSection: Dp = 24.dp
+val SpacingCardInsets: Dp = 16.dp
+val SpacingHeroInsets: Dp = 20.dp
+val SpacingListItemPadding: Dp = 14.dp
+val DividerInsetHairline: Dp = 56.dp
+val DividerThicknessHairline: Dp = 1.dp
+
+// -----------------------------------------------------------------------------
+// 4. FINTRACK SPACING CONTRACT
 // -----------------------------------------------------------------------------
 @Immutable
 data class FinTrackSpacing(
@@ -79,7 +92,20 @@ data class FinTrackSpacing(
     val screenPaddingCompact: Dp = PaddingScreenCompact,
     val screenPaddingStandard: Dp = PaddingScreenStandard,
     val maxContentWidth: Dp = MaxContentWidthTablet,
-    val minTouchTarget: Dp = MinTouchTargetSize
+    val minTouchTarget: Dp = MinTouchTargetSize,
+    // --- Material 3 Expressive Container & Layout Tokens ---
+    val compactControlPadding: Dp = SpacingCompactControl,
+    val groupedListSpacing: Dp = SpacingGroupedList,
+    val groupedContainerPadding: Dp = SpacingGroupedContainer,
+    val sectionSpacing: Dp = SpacingSection,
+    val screenMarginsCompact: Dp = PaddingScreenCompact,
+    val screenMarginsStandard: Dp = PaddingScreenStandard,
+    val cardInsets: Dp = SpacingCardInsets,
+    val heroInsets: Dp = SpacingHeroInsets,
+    val listItemPadding: Dp = SpacingListItemPadding,
+    val hairlineDividerInset: Dp = DividerInsetHairline,
+    val hairlineDividerThickness: Dp = DividerThicknessHairline,
+    val touchTargetMin: Dp = MinTouchTargetSize
 )
 
 val LocalFinTrackSpacing = staticCompositionLocalOf { FinTrackSpacing() }

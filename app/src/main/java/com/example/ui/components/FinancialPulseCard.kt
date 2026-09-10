@@ -2,7 +2,6 @@ package com.example.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +22,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,10 +47,9 @@ import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
-import com.example.ui.theme.RadiusLarge
-import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapePill
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
@@ -66,14 +65,16 @@ private enum class PulseMetricType {
 }
 
 /**
- * FinancialPulseCard — Precision Fintech + Editorial Wealth Narrative.
+ * FinancialPulseCard — Material 3 Expressive Grouped Tonal Panel (Phase 3C / M3-3).
  *
  * Stateless component consuming authoritative SmartFinancialInsights data.
  * Displays:
  * 1. Editorial narrative prose derived from SmartFinancialInsights (period-aware)
- * 2. Dual progress presentation: Savings Ratio vs Expense Velocity
- * 3. Explainable metric affordances (dialog info with formula and business context)
+ * 2. Dual progress presentation: Savings Ratio vs Expense Velocity in expressive tonal wells
+ * 3. Explainable metric affordances (accessible 48dp touch target dialog with formula and business context)
  * 4. Graceful empty/degraded state when insight data is newly initialized or missing
+ *
+ * Container: ShapeGroupedContainer (24dp) with surfaceContainer elevation and zero hard borders.
  */
 @Composable
 fun FinancialPulseCard(
@@ -96,8 +97,9 @@ fun FinancialPulseCard(
     var activeMetricInfo by remember { mutableStateOf<PulseMetricType?>(null) }
 
     // Contextual explanation dialog for metrics
-    if (activeMetricInfo != null) {
-        val (title, description, formula) = when (activeMetricInfo) {
+    val currentMetricInfo = activeMetricInfo
+    if (currentMetricInfo != null) {
+        val (title, description, formula) = when (currentMetricInfo) {
             PulseMetricType.SAVINGS_RATIO -> Triple(
                 "Savings Ratio",
                 "Indicates the percentage of household cash inflow retained after all expenses are deducted during the active period.",
@@ -108,11 +110,12 @@ fun FinancialPulseCard(
                 "Indicates the burn rate of your income. High velocity (>80%) suggests cashflow pressure, while balanced velocity ensures capital accumulation.",
                 "Formula: (Total Expenses ÷ Total Income) × 100"
             )
-            null -> Triple("", "", "")
         }
 
         AlertDialog(
             onDismissRequest = { activeMetricInfo = null },
+            shape = FinTrackTheme.shapes.dialog,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text(
                     text = title,
@@ -131,14 +134,14 @@ fun FinancialPulseCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(RadiusSmall))
-                            .background(FinTrackTheme.colors.surfaceSecondary)
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
                             .padding(Space8)
                     ) {
                         Text(
                             text = formula,
                             style = MicroMetadata,
                             fontWeight = FontWeight.SemiBold,
-                            color = FinTrackTheme.colors.textPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -155,24 +158,27 @@ fun FinancialPulseCard(
         )
     }
 
-    FinTrackCard(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .testTag("financial_pulse_card"),
-        containerColor = FinTrackTheme.colors.surfacePrimary,
-        border = BorderStroke(1.dp, FinTrackTheme.colors.borderSubtle),
-        shape = RoundedCornerShape(RadiusLarge),
-        contentPadding = Space16
+        shape = FinTrackTheme.shapes.listContainer,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 1.dp
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Header: Icon + Title (Clean editorial header, redundant status badge removed)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Space20)
+        ) {
+            // Header: Icon + Title
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(FinTrackTheme.colors.brandAccent.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
@@ -181,10 +187,10 @@ fun FinancialPulseCard(
                         imageVector = Icons.Default.AutoGraph,
                         contentDescription = "Financial Pulse",
                         tint = FinTrackTheme.colors.brandAccent,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(Space8))
+                Spacer(modifier = Modifier.width(Space12))
                 Text(
                     text = "Financial Pulse",
                     style = SectionHeadline,
@@ -192,7 +198,7 @@ fun FinancialPulseCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(Space12))
+            Spacer(modifier = Modifier.height(Space16))
 
             if (isNewlyInitialized) {
                 // Graceful Degraded / Empty State
@@ -261,7 +267,7 @@ fun FinancialPulseCard(
                         verticalArrangement = Arrangement.spacedBy(Space12)
                     ) {
                         // 1. Savings Ratio Bar with Info Affordance
-                        if (hasSavings && effectiveSavingsRatio != null) {
+                        if (effectiveSavingsRatio != null) {
                             val ratioValue = effectiveSavingsRatio
                             val clampedSavings = (ratioValue / 100.0).coerceIn(0.0, 1.0).toFloat()
                             val animatedSavings by animateFloatAsState(
@@ -284,7 +290,7 @@ fun FinancialPulseCard(
                         }
 
                         // 2. Expense Velocity Bar with Info Affordance
-                        if (hasVelocity && effectiveExpenseVelocity != null) {
+                        if (effectiveExpenseVelocity != null) {
                             val velocityValue = effectiveExpenseVelocity
                             val clampedVelocity = (abs(velocityValue) / 100.0).coerceIn(0.0, 1.0).toFloat()
                             val animatedVelocity by animateFloatAsState(
@@ -333,67 +339,75 @@ private fun PulseMetricBar(
     accessibilityDesc: String,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth()
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(horizontal = Space16, vertical = Space12)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = label,
-                    style = LabelBadgeMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                IconButton(
-                    onClick = onInfoClick,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .testTag(infoTestTag)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Explain $label",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(16.dp)
+                    Text(
+                        text = label,
+                        style = LabelBadgeMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    IconButton(
+                        onClick = onInfoClick,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag(infoTestTag)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Explain $label",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
+
+                Text(
+                    text = formattedValue,
+                    style = CardTitleAmount,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.testTag(valueTestTag)
+                )
             }
 
-            Text(
-                text = formattedValue,
-                style = CardTitleAmount,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.testTag(valueTestTag)
-            )
-        }
+            Spacer(modifier = Modifier.height(Space4))
 
-        Spacer(modifier = Modifier.height(Space4))
-
-        // Restrained horizontal progress indicator
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .clip(RoundedCornerShape(RadiusSmall))
-                .background(FinTrackTheme.colors.surfaceSecondary)
-                .semantics {
-                    contentDescription = accessibilityDesc
-                }
-                .testTag(barTestTag)
-        ) {
+            // Material 3 Expressive pill progress indicator
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(progress)
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(RadiusSmall))
-                    .background(progressColor)
-            )
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(ShapePill)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .semantics {
+                        contentDescription = accessibilityDesc
+                    }
+                    .testTag(barTestTag)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .height(8.dp)
+                        .clip(ShapePill)
+                        .background(progressColor)
+                )
+            }
         }
     }
 }
@@ -401,3 +415,4 @@ private fun PulseMetricBar(
 private fun formatOneDecimal(value: Double): String {
     return String.format(Locale.US, "%.1f", value)
 }
+
