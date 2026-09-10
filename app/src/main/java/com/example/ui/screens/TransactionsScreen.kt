@@ -19,9 +19,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -326,7 +326,7 @@ fun TransactionsScreen(
                     FinTrackEmptyState(
                         title = "No transactions found",
                         description = "Try adjusting filters or tap + to record a new transaction.",
-                        icon = Icons.Default.ReceiptLong,
+                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
                         iconTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         actionLabel = "Add Transaction",
                         onActionClick = onAddTransactionClicked

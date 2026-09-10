@@ -1,5 +1,12 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -25,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -43,12 +51,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -59,7 +69,6 @@ import com.example.data.model.CategoryEntity
 import com.example.ui.components.BadgeVariant
 import com.example.ui.components.ButtonVariant
 import com.example.ui.components.FinTrackButton
-import com.example.ui.components.FinTrackCard
 import com.example.ui.components.FinTrackEmptyState
 import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
@@ -69,21 +78,36 @@ import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseContainer
 import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.IncomeContainer
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
-import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusMedium
-import com.example.ui.theme.RadiusXLarge
+import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeExtraLarge
+import com.example.ui.theme.ShapeFloatingActionButton
+import com.example.ui.theme.ShapeGroupedContainer
+import com.example.ui.theme.ShapePill
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space32
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
+import com.example.ui.theme.isReducedMotionEnabled
 
+/**
+ * Material 3 Expressive Category Gallery Screen.
+ *
+ * Implements M3-7 visual and interaction modernization:
+ * - Fluid M3 Expressive grouped surface geometry (`ShapeGroupedContainer`)
+ * - Accordion gallery presentation (starts expanded for test compatibility, tap to collapse)
+ * - Tonal squircle iconography with dynamic semantic tinting
+ * - Accessible 48dp touch targets and Role semantics
+ * - Complete RBAC enforcement (management affordances rendered strictly for OWNER/Admin)
+ */
 @Composable
 fun CategoriesScreen(
     categories: List<CategoryEntity>,
@@ -102,6 +126,12 @@ fun CategoriesScreen(
     var categoryGroupToEdit by remember { mutableStateOf<String?>(null) }
     var categoryGroupToDelete by remember { mutableStateOf<String?>(null) }
     var subcategoryToEdit by remember { mutableStateOf<CategoryEntity?>(null) }
+
+    // Tracks collapsed state for each category group.
+    // Default is expanded (isExpanded = !(collapsedCategories[catName] == true))
+    // to preserve immediate visibility in automated UI tests.
+    val collapsedCategories = remember { mutableStateMapOf<String, Boolean>() }
+    val reducedMotion = isReducedMotionEnabled()
 
     val filteredCategories = remember(categories, selectedType) {
         categories.filter { it.type == selectedType }
@@ -124,8 +154,10 @@ fun CategoriesScreen(
                     },
                     containerColor = CobaltBlue,
                     contentColor = Color.White,
-                    shape = RoundedCornerShape(RadiusLarge),
-                    modifier = Modifier.testTag("fab_add_category")
+                    shape = ShapeFloatingActionButton,
+                    modifier = Modifier
+                        .defaultMinSize(minWidth = 56.dp, minHeight = 56.dp)
+                        .testTag("fab_add_category")
                 ) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = "Add Category")
                 }
@@ -148,7 +180,7 @@ fun CategoriesScreen(
             ) {
                 Spacer(modifier = Modifier.height(Space16))
 
-                // Header with tonal icon well and summary badge
+                // Expressive Header with tonal squircle badge and group count
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -161,8 +193,8 @@ fun CategoriesScreen(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .clip(CircleShape)
-                                .background(CobaltBlue.copy(alpha = 0.15f)),
+                                .clip(RoundedCornerShape(RadiusMedium))
+                                .background(CobaltBlue.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -175,8 +207,9 @@ fun CategoriesScreen(
                         Spacer(modifier = Modifier.width(Space12))
                         Column {
                             Text(
-                                text = "Category & Subcategory Management",
+                                text = "Categories & Subcategories",
                                 style = SectionHeadline,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
@@ -239,20 +272,35 @@ fun CategoriesScreen(
                             val iconVector = resolveCategoryIcon(catName, isIncome)
                             val iconBg = if (isIncome) IncomeContainer else ExpenseContainer
                             val iconTint = if (isIncome) IncomeEmerald else ExpenseCoral
+                            val isExpanded = collapsedCategories[catName] != true
 
-                            FinTrackCard(
+                            val chevronRotation by animateFloatAsState(
+                                targetValue = if (isExpanded) 180f else 0f,
+                                animationSpec = if (reducedMotion) snap() else FinTrackMotion.interactiveSpring(),
+                                label = "chevronRotation_$catName"
+                            )
+
+                            Surface(
+                                shape = ShapeGroupedContainer,
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .testTag("category_card_${catName}"),
-                                shape = RoundedCornerShape(RadiusLarge),
-                                contentPadding = Space16
+                                    .testTag("category_card_${catName}")
                             ) {
                                 Column(
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(Space16)
                                 ) {
-                                    // MAIN CATEGORY LINE (Header)
+                                    // MAIN CATEGORY LINE (Header Row with click to expand/collapse)
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(RadiusMedium))
+                                            .clickable {
+                                                collapsedCategories[catName] = isExpanded
+                                            }
+                                            .padding(vertical = Space4),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -260,11 +308,11 @@ fun CategoriesScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            // Tonal category icon container
+                                            // Tonal category icon squircle container
                                             Box(
                                                 modifier = Modifier
-                                                    .size(40.dp)
-                                                    .clip(CircleShape)
+                                                    .size(44.dp)
+                                                    .clip(RoundedCornerShape(RadiusMedium))
                                                     .background(iconBg),
                                                 contentAlignment = Alignment.Center
                                             ) {
@@ -272,7 +320,7 @@ fun CategoriesScreen(
                                                     imageVector = iconVector,
                                                     contentDescription = null,
                                                     tint = iconTint,
-                                                    modifier = Modifier.size(20.dp)
+                                                    modifier = Modifier.size(22.dp)
                                                 )
                                             }
                                             Spacer(modifier = Modifier.width(Space12))
@@ -292,24 +340,24 @@ fun CategoriesScreen(
                                             }
                                         }
 
-                                        if (canManageCategories) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                // Add Subcategory Quick Action Button
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (canManageCategories) {
+                                                // Add Subcategory Quick Action Pill Button
                                                 Surface(
-                                                    shape = RoundedCornerShape(RadiusMedium),
+                                                    shape = ShapePill,
                                                     color = CobaltBlue.copy(alpha = 0.12f),
                                                     modifier = Modifier
                                                         .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                                                        .clip(RoundedCornerShape(RadiusMedium))
+                                                        .clip(ShapePill)
                                                         .clickable {
                                                             addDialogPreFilledCategory = catName
                                                             showAddDialog = true
                                                         }
-                                                        .padding(horizontal = Space8, vertical = Space4)
+                                                        .padding(horizontal = Space4, vertical = Space4)
                                                 ) {
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier.padding(horizontal = Space4)
+                                                        modifier = Modifier.padding(horizontal = Space8, vertical = Space4)
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Default.Add,
@@ -357,104 +405,131 @@ fun CategoriesScreen(
                                                     )
                                                 }
                                             }
+
+                                            // Chevron expand/collapse button
+                                            IconButton(
+                                                onClick = { collapsedCategories[catName] = isExpanded },
+                                                modifier = Modifier.size(48.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowDropDown,
+                                                    contentDescription = if (isExpanded) "Collapse $catName" else "Expand $catName",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier
+                                                        .size(24.dp)
+                                                        .rotate(chevronRotation)
+                                                )
+                                            }
                                         }
                                     }
 
-                                    // SUBCATEGORIES LIST BELOW
-                                    val validSubs = subList.filter { it.subCategory.isNotBlank() }
-                                    if (validSubs.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(Space12))
-                                        HorizontalDivider(
-                                            color = MaterialTheme.colorScheme.outlineVariant,
-                                            thickness = 1.dp
-                                        )
-                                        Spacer(modifier = Modifier.height(Space12))
+                                    // SUBCATEGORIES ACCORDION LIST BELOW
+                                    AnimatedVisibility(
+                                        visible = isExpanded,
+                                        enter = if (reducedMotion) fadeIn(animationSpec = snap()) else expandVertically(
+                                            animationSpec = FinTrackMotion.contentSpring()
+                                        ) + fadeIn(animationSpec = FinTrackMotion.contentSpring()),
+                                        exit = if (reducedMotion) fadeOut(animationSpec = snap()) else shrinkVertically(
+                                            animationSpec = FinTrackMotion.contentSpring()
+                                        ) + fadeOut(animationSpec = FinTrackMotion.contentSpring())
+                                    ) {
+                                        Column(modifier = Modifier.fillMaxWidth()) {
+                                            val validSubs = subList.filter { it.subCategory.isNotBlank() }
+                                            if (validSubs.isNotEmpty()) {
+                                                Spacer(modifier = Modifier.height(Space12))
+                                                HorizontalDivider(
+                                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                                    thickness = 1.dp
+                                                )
+                                                Spacer(modifier = Modifier.height(Space12))
 
-                                        Column(
-                                            verticalArrangement = Arrangement.spacedBy(Space8)
-                                        ) {
-                                            validSubs.forEach { subEntity ->
-                                                Surface(
-                                                    shape = RoundedCornerShape(RadiusMedium),
-                                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                    modifier = Modifier.fillMaxWidth()
+                                                Column(
+                                                    verticalArrangement = Arrangement.spacedBy(Space8)
                                                 ) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(horizontal = Space12, vertical = Space8),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            modifier = Modifier.weight(1f)
+                                                    validSubs.forEach { subEntity ->
+                                                        Surface(
+                                                            shape = RoundedCornerShape(RadiusMedium),
+                                                            color = MaterialTheme.colorScheme.surfaceContainer,
+                                                            modifier = Modifier.fillMaxWidth()
                                                         ) {
-                                                            Box(
+                                                            Row(
                                                                 modifier = Modifier
-                                                                    .size(28.dp)
-                                                                    .clip(CircleShape)
-                                                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                                                                contentAlignment = Alignment.Center
+                                                                    .fillMaxWidth()
+                                                                    .padding(horizontal = Space12, vertical = Space8),
+                                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                                verticalAlignment = Alignment.CenterVertically
                                                             ) {
-                                                                Icon(
-                                                                    imageVector = Icons.Default.Subtitles,
-                                                                    contentDescription = null,
-                                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                    modifier = Modifier.size(14.dp)
-                                                                )
-                                                            }
-                                                            Spacer(modifier = Modifier.width(Space8))
-                                                            Text(
-                                                                text = subEntity.subCategory,
-                                                                style = BodyRegular,
-                                                                color = MaterialTheme.colorScheme.onSurface,
-                                                                fontWeight = FontWeight.Medium
-                                                            )
-                                                        }
-
-                                                        if (canManageCategories) {
-                                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                                IconButton(
-                                                                    onClick = { subcategoryToEdit = subEntity },
-                                                                    modifier = Modifier
-                                                                        .size(48.dp)
-                                                                        .testTag("edit_subcategory_${subEntity.id}")
+                                                                Row(
+                                                                    verticalAlignment = Alignment.CenterVertically,
+                                                                    modifier = Modifier.weight(1f)
                                                                 ) {
-                                                                    Icon(
-                                                                        imageVector = Icons.Default.Edit,
-                                                                        contentDescription = "Edit Subcategory",
-                                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                        modifier = Modifier.size(16.dp)
+                                                                    Box(
+                                                                        modifier = Modifier
+                                                                            .size(32.dp)
+                                                                            .clip(RoundedCornerShape(RadiusSmall))
+                                                                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                                                        contentAlignment = Alignment.Center
+                                                                    ) {
+                                                                        Icon(
+                                                                            imageVector = Icons.Default.Subtitles,
+                                                                            contentDescription = null,
+                                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                            modifier = Modifier.size(16.dp)
+                                                                        )
+                                                                    }
+                                                                    Spacer(modifier = Modifier.width(Space8))
+                                                                    Text(
+                                                                        text = subEntity.subCategory,
+                                                                        style = BodyRegular,
+                                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                                        fontWeight = FontWeight.Medium
                                                                     )
                                                                 }
 
-                                                                IconButton(
-                                                                    onClick = { onDeleteSubcategory(subEntity.id) },
-                                                                    modifier = Modifier
-                                                                        .size(48.dp)
-                                                                        .testTag("delete_subcategory_${subEntity.id}")
-                                                                ) {
-                                                                    Icon(
-                                                                        imageVector = Icons.Default.Delete,
-                                                                        contentDescription = "Delete Subcategory",
-                                                                        tint = ExpenseCoral,
-                                                                        modifier = Modifier.size(16.dp)
-                                                                    )
+                                                                if (canManageCategories) {
+                                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                        IconButton(
+                                                                            onClick = { subcategoryToEdit = subEntity },
+                                                                            modifier = Modifier
+                                                                                .size(48.dp)
+                                                                                .testTag("edit_subcategory_${subEntity.id}")
+                                                                        ) {
+                                                                            Icon(
+                                                                                imageVector = Icons.Default.Edit,
+                                                                                contentDescription = "Edit Subcategory",
+                                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                                modifier = Modifier.size(16.dp)
+                                                                            )
+                                                                        }
+
+                                                                        IconButton(
+                                                                            onClick = { onDeleteSubcategory(subEntity.id) },
+                                                                            modifier = Modifier
+                                                                                .size(48.dp)
+                                                                                .testTag("delete_subcategory_${subEntity.id}")
+                                                                        ) {
+                                                                            Icon(
+                                                                                imageVector = Icons.Default.Delete,
+                                                                                contentDescription = "Delete Subcategory",
+                                                                                tint = ExpenseCoral,
+                                                                                modifier = Modifier.size(16.dp)
+                                                                            )
+                                                                        }
+                                                                    }
                                                                 }
                                                             }
                                                         }
                                                     }
                                                 }
+                                            } else {
+                                                Spacer(modifier = Modifier.height(Space8))
+                                                Text(
+                                                    text = if (canManageCategories) "No subcategories yet. Tap '+ Sub' to add one." else "No subcategories.",
+                                                    style = MicroMetadata,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
                                             }
                                         }
-                                    } else {
-                                        Spacer(modifier = Modifier.height(Space8))
-                                        Text(
-                                            text = if (canManageCategories) "No subcategories yet. Tap '+ Sub' to add one." else "No subcategories.",
-                                            style = MicroMetadata,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
                                     }
                                 }
                             }
@@ -471,7 +546,7 @@ fun CategoriesScreen(
 
     if (showAddDialog) {
         CategoryFormDialog(
-            title = if (addDialogPreFilledCategory.isNotBlank()) "Add Subcategory to ${addDialogPreFilledCategory}" else "Add New Category",
+            title = if (addDialogPreFilledCategory.isNotBlank()) "Add Subcategory to $addDialogPreFilledCategory" else "Add New Category",
             initialName = addDialogPreFilledCategory,
             initialSubCategory = "",
             defaultType = selectedType,
@@ -502,7 +577,7 @@ fun CategoriesScreen(
         AlertDialog(
             onDismissRequest = { categoryGroupToDelete = null },
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = RoundedCornerShape(RadiusXLarge),
+            shape = ShapeExtraLarge,
             title = {
                 Text(
                     text = "Delete Category Group",
@@ -567,7 +642,7 @@ private fun CategoryHeaderEditDialog(
                 .fillMaxWidth()
                 .widthIn(max = 480.dp)
                 .padding(Space16),
-            shape = RoundedCornerShape(RadiusXLarge),
+            shape = ShapeExtraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
             Column(
@@ -653,7 +728,7 @@ private fun SubcategoryEditDialog(
                 .fillMaxWidth()
                 .widthIn(max = 480.dp)
                 .padding(Space16),
-            shape = RoundedCornerShape(RadiusXLarge),
+            shape = ShapeExtraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
             Column(
@@ -753,7 +828,7 @@ private fun CategoryFormDialog(
                 .fillMaxWidth()
                 .widthIn(max = 520.dp)
                 .padding(vertical = Space8, horizontal = Space16),
-            shape = RoundedCornerShape(RadiusXLarge),
+            shape = ShapeExtraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
             Column(
@@ -961,4 +1036,3 @@ private fun CategoryFormDialog(
         }
     }
 }
-

@@ -3,13 +3,13 @@ package com.example.ui.screens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -69,7 +68,6 @@ import com.example.ui.components.ButtonVariant
 import com.example.ui.components.CreateHouseholdDialog
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackButton
-import com.example.ui.components.FinTrackCard
 import com.example.ui.components.FinTrackEmptyState
 import com.example.ui.components.FinTrackSegmentedControl
 import com.example.ui.components.FinTrackStatusBadge
@@ -83,11 +81,11 @@ import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
-import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
-import com.example.ui.theme.RadiusXLarge
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeExtraLarge
+import com.example.ui.theme.ShapeGroupedContainer
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
@@ -98,6 +96,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Material 3 Expressive Settings & Household Control Center.
+ *
+ * Implements M3-8 visual and interaction modernization:
+ * - Fluid grouped surface geometry (`ShapeGroupedContainer`)
+ * - Continuous tonal sections for Appearance, Account, Household, Data, and Diagnostics
+ * - Full RBAC preservation (Owner invite affordances vs Member read-only)
+ * - Accessible >= 48dp touch targets and Role semantics
+ * - Zero modification of persistence, synchronization, and BNR financial engines
+ */
 @Composable
 fun SettingsScreen(
     filterSettings: FilterSettings,
@@ -194,7 +202,7 @@ fun SettingsScreen(
                 .padding(bottom = 80.dp),
             verticalArrangement = Arrangement.spacedBy(Space16)
         ) {
-            // Header
+            // EXPRESSIVE HEADER
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -203,7 +211,7 @@ fun SettingsScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(RadiusMedium))
-                        .background(CobaltBlue.copy(alpha = 0.15f)),
+                        .background(CobaltBlue.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -216,9 +224,16 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.width(Space12))
                 Column {
                     Text(
-                        text = "Preferences & System",
+                        text = "Settings",
                         style = SectionHeadline,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Preferences & System",
+                        style = MicroMetadata,
+                        fontWeight = FontWeight.SemiBold,
+                        color = CobaltBlue
                     )
                     Text(
                         text = "Account, household sync, and data preferences",
@@ -240,15 +255,122 @@ fun SettingsScreen(
                 )
             }
 
-            // ACCOUNT & AUTHENTICATION CARD
-            FinTrackCard(
+            // APPEARANCE & DISPLAY PREFERENCES SECTION
+            Surface(
+                shape = ShapeGroupedContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Space16),
+                    verticalArrangement = Arrangement.spacedBy(Space12)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(RadiusSmall))
+                                .background(CobaltBlue.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = null,
+                                tint = CobaltBlue,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Space8))
+                        Column {
+                            Text(
+                                text = "Appearance Theme",
+                                style = CardTitleAmount,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Light / Dark / System visual styling",
+                                style = MicroMetadata,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    val themeOptions = listOf("Dark", "Light", "System")
+                    val selectedIndex = when (themeMode) {
+                        "light" -> 1
+                        "system" -> 2
+                        else -> 0
+                    }
+
+                    FinTrackSegmentedControl(
+                        items = themeOptions,
+                        selectedIndex = selectedIndex,
+                        onItemSelected = { index ->
+                            val selectedTheme = when (index) {
+                                1 -> "light"
+                                2 -> "system"
+                                else -> "dark"
+                            }
+                            onThemeModeChanged(selectedTheme)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(Space4))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        thickness = 1.dp
+                    )
+                    Spacer(modifier = Modifier.height(Space4))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
+                            Text(
+                                text = "Display Currency",
+                                style = CardTitleAmount,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(Space4))
+                            Text(
+                                text = "Primary transactions recorded in RON",
+                                style = MicroMetadata,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        CurrencyToggle(
+                            selectedCurrency = filterSettings.selectedCurrency,
+                            onCurrencyChanged = onCurrencyChanged
+                        )
+                    }
+                }
+            }
+
+            // ACCOUNT & AUTHENTICATION SECTION
+            Surface(
+                shape = ShapeGroupedContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("account_info_card"),
-                shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    .testTag("account_info_card")
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Space16),
+                    verticalArrangement = Arrangement.spacedBy(Space12)
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -258,8 +380,8 @@ fun SettingsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(CobaltBlue.copy(alpha = 0.15f)),
+                                    .clip(RoundedCornerShape(RadiusSmall))
+                                    .background(CobaltBlue.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -270,11 +392,19 @@ fun SettingsScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.width(Space8))
-                            Text(
-                                text = "Account Identity & Security",
-                                style = CardTitleAmount,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Column {
+                                Text(
+                                    text = "Account Identity & Security",
+                                    style = CardTitleAmount,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Authentication and session controls",
+                                    style = MicroMetadata,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
 
                         if (currentUid != null) {
@@ -289,7 +419,7 @@ fun SettingsScreen(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(RadiusMedium),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                        color = MaterialTheme.colorScheme.surfaceContainer
                     ) {
                         Column(modifier = Modifier.padding(Space12)) {
                             Text(
@@ -315,6 +445,7 @@ fun SettingsScreen(
                         onClick = onSignOut,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
                             .testTag("sign_out_button"),
                         variant = ButtonVariant.DESTRUCTIVE,
                         leadingIcon = {
@@ -334,16 +465,21 @@ fun SettingsScreen(
                 }
             }
 
-            // PENDING INVITATIONS CARD
+            // PENDING INVITATIONS SECTION
             if (!currentUserEmail.isNullOrBlank() && incomingInvites.isNotEmpty()) {
-                FinTrackCard(
+                Surface(
+                    shape = ShapeGroupedContainer,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("pending_invitations_card"),
-                    shape = RoundedCornerShape(RadiusLarge),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        .testTag("pending_invitations_card")
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Space16),
+                        verticalArrangement = Arrangement.spacedBy(Space12)
+                    ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
@@ -351,8 +487,8 @@ fun SettingsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(CobaltBlue.copy(alpha = 0.15f)),
+                                    .clip(RoundedCornerShape(RadiusSmall))
+                                    .background(CobaltBlue.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -363,12 +499,19 @@ fun SettingsScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.width(Space8))
-                            Text(
-                                text = "Pending Invitations",
-                                style = CardTitleAmount,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.weight(1f))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Pending Invitations",
+                                    style = CardTitleAmount,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Household membership requests",
+                                    style = MicroMetadata,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             FinTrackStatusBadge(
                                 label = "${incomingInvites.size} Pending",
                                 variant = BadgeVariant.WARNING
@@ -395,12 +538,13 @@ fun SettingsScreen(
                                         .fillMaxWidth()
                                         .testTag("pending_invite_item"),
                                     shape = RoundedCornerShape(RadiusMedium),
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                                    color = MaterialTheme.colorScheme.surfaceContainer
                                 ) {
                                     Column(modifier = Modifier.padding(Space12)) {
                                         Text(
                                             text = householdName,
                                             style = CardTitleAmount,
+                                            fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.testTag("invite_household_name")
                                         )
@@ -429,6 +573,7 @@ fun SettingsScreen(
                                                 onClick = { onAcceptInvite(inviteId) },
                                                 modifier = Modifier
                                                     .weight(1f)
+                                                    .defaultMinSize(minHeight = 48.dp)
                                                     .testTag("accept_invite_button"),
                                                 variant = ButtonVariant.PRIMARY,
                                                 enabled = !isInvitationProcessing,
@@ -451,6 +596,7 @@ fun SettingsScreen(
                                                 onClick = { onDeclineInvite(inviteId) },
                                                 modifier = Modifier
                                                     .weight(1f)
+                                                    .defaultMinSize(minHeight = 48.dp)
                                                     .testTag("decline_invite_button"),
                                                 variant = ButtonVariant.DESTRUCTIVE,
                                                 enabled = !isInvitationProcessing,
@@ -487,35 +633,48 @@ fun SettingsScreen(
                     onInviteMemberClick = { showInviteDialog = true }
                 )
             } else {
-                FinTrackCard(
+                Surface(
+                    shape = ShapeGroupedContainer,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("household_setup_card"),
-                    shape = RoundedCornerShape(RadiusLarge),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        .testTag("household_setup_card")
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Space16),
+                        verticalArrangement = Arrangement.spacedBy(Space12)
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(CobaltBlue.copy(alpha = 0.15f)),
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(RadiusMedium))
+                                    .background(CobaltBlue.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Home,
                                     contentDescription = null,
                                     tint = CobaltBlue,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(Space8))
-                            Text(
-                                text = "Household Setup",
-                                style = CardTitleAmount,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Spacer(modifier = Modifier.width(Space12))
+                            Column {
+                                Text(
+                                    text = "Household Setup",
+                                    style = CardTitleAmount,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Cloud synchronization directory",
+                                    style = MicroMetadata,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
 
                         Text(
@@ -528,6 +687,7 @@ fun SettingsScreen(
                             onClick = { showCreateHouseholdDialog = true },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
                                 .testTag("create_household_button"),
                             variant = ButtonVariant.PRIMARY,
                             leadingIcon = {
@@ -548,119 +708,47 @@ fun SettingsScreen(
                 }
             }
 
-            // CURRENCY SELECTION CARD
-            FinTrackCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            // DATA EXPORT & REPORTS SECTION
+            Surface(
+                shape = ShapeGroupedContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Space16),
+                    verticalArrangement = Arrangement.spacedBy(Space12)
                 ) {
-                    Column(modifier = Modifier.weight(1f, fill = false)) {
-                        Text(
-                            text = "Display Currency",
-                            style = CardTitleAmount,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(Space4))
-                        Text(
-                            text = "Primary transactions recorded in RON",
-                            style = MicroMetadata,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    CurrencyToggle(
-                        selectedCurrency = filterSettings.selectedCurrency,
-                        onCurrencyChanged = onCurrencyChanged
-                    )
-                }
-            }
-
-            // THEME MODE CARD
-            FinTrackCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(CobaltBlue.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Palette,
-                                contentDescription = null,
-                                tint = CobaltBlue,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(Space8))
-                        Text(
-                            text = "Appearance Theme",
-                            style = CardTitleAmount,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    val themeOptions = listOf("Dark", "Light", "System")
-                    val selectedIndex = when (themeMode) {
-                        "light" -> 1
-                        "system" -> 2
-                        else -> 0
-                    }
-
-                    FinTrackSegmentedControl(
-                        items = themeOptions,
-                        selectedIndex = selectedIndex,
-                        onItemSelected = { index ->
-                            val selectedTheme = when (index) {
-                                1 -> "light"
-                                2 -> "system"
-                                else -> "dark"
-                            }
-                            onThemeModeChanged(selectedTheme)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            // CSV EXPORT DATA CARD
-            FinTrackCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(CobaltBlue.copy(alpha = 0.15f)),
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(RadiusMedium))
+                                .background(CobaltBlue.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FileDownload,
                                 contentDescription = null,
                                 tint = CobaltBlue,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(Space8))
-                        Text(
-                            text = "Data Export & Reports",
-                            style = CardTitleAmount,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Spacer(modifier = Modifier.width(Space12))
+                        Column {
+                            Text(
+                                text = "Data Export & Reports",
+                                style = CardTitleAmount,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Export and import transaction data",
+                                style = MicroMetadata,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     Text(
@@ -673,6 +761,7 @@ fun SettingsScreen(
                         onClick = onExportCsv,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
                             .testTag("export_csv_button"),
                         variant = ButtonVariant.PRIMARY,
                         leadingIcon = {
@@ -694,6 +783,7 @@ fun SettingsScreen(
                         onClick = { csvPickerLauncher.launch("*/*") },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
                             .testTag("import_csv_button"),
                         variant = ButtonVariant.SECONDARY,
                         leadingIcon = {
@@ -710,22 +800,20 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                }
-            }
 
-            // EUR EXCHANGE RATE CONVERSION CARD
-            FinTrackCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(RadiusLarge),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(Space12)) {
+                    Spacer(modifier = Modifier.height(Space4))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        thickness = 1.dp
+                    )
+                    Spacer(modifier = Modifier.height(Space4))
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
-                                .clip(CircleShape)
-                                .background(CobaltBlue.copy(alpha = 0.15f)),
+                                .clip(RoundedCornerShape(RadiusSmall))
+                                .background(CobaltBlue.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -736,11 +824,19 @@ fun SettingsScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(Space8))
-                        Text(
-                            text = "EUR Exchange Rate Synchronization",
-                            style = CardTitleAmount,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Column {
+                            Text(
+                                text = "EUR Exchange Rate Synchronization",
+                                style = CardTitleAmount,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Official BNR exchange rates",
+                                style = MicroMetadata,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     Text(
@@ -754,6 +850,7 @@ fun SettingsScreen(
                         enabled = !isRetryingPending,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
                             .testTag("retry_eur_conversions_button"),
                         variant = ButtonVariant.PRIMARY,
                         leadingIcon = {
@@ -770,12 +867,58 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
+                }
+            }
+
+            // SYSTEM & DIAGNOSTICS SECTION
+            Surface(
+                shape = ShapeGroupedContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Space16),
+                    verticalArrangement = Arrangement.spacedBy(Space12)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(RadiusSmall))
+                                .background(CobaltBlue.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                tint = CobaltBlue,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Space8))
+                        Column {
+                            Text(
+                                text = "System & Diagnostics",
+                                style = CardTitleAmount,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Network synchronization and debug tools",
+                                style = MicroMetadata,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
 
                     if (com.example.BuildConfig.DEBUG) {
                         FinTrackButton(
                             onClick = onRunBnrDiagnostic,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
                                 .testTag("run_bnr_diagnostic_button"),
                             variant = ButtonVariant.SECONDARY
                         ) {
@@ -790,6 +933,7 @@ fun SettingsScreen(
                             onClick = { showSyncDiagnosticDialog = true },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
                                 .testTag("view_sync_diagnostic_button"),
                             variant = ButtonVariant.SECONDARY
                         ) {
@@ -809,7 +953,7 @@ fun SettingsScreen(
     if (pendingRetryResult != null) {
         AlertDialog(
             onDismissRequest = onDismissRetryResult,
-            shape = RoundedCornerShape(RadiusXLarge),
+            shape = ShapeExtraLarge,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -864,7 +1008,7 @@ fun SettingsScreen(
     if (debugDiagnosticResult != null) {
         AlertDialog(
             onDismissRequest = onDismissDebugDiagnostic,
-            shape = RoundedCornerShape(RadiusXLarge),
+            shape = ShapeExtraLarge,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -923,7 +1067,7 @@ fun SettingsScreen(
                 showSyncDiagnosticDialog = false
                 copiedToast = false
             },
-            shape = RoundedCornerShape(RadiusXLarge),
+            shape = ShapeExtraLarge,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,

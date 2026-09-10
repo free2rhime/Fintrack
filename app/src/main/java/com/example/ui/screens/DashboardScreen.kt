@@ -19,11 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PieChart
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeGroupedContainer
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
@@ -181,15 +183,15 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(Space20))
 
-            // MONTHLY CASH FLOW CHART (Tonal Container, Spline Chart only)
-            FinTrackCard(
+            // MONTHLY CASH FLOW CHART (Material 3 Expressive Tonal Grouped Panel)
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Space16),
-                shape = RoundedCornerShape(RadiusLarge),
-                contentPadding = Space16
+                shape = ShapeGroupedContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
-                Column {
+                Column(modifier = Modifier.padding(Space16)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
@@ -202,7 +204,7 @@ fun DashboardScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.TrendingUp,
+                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                 contentDescription = null,
                                 tint = FinTrackTheme.colors.brandAccent,
                                 modifier = Modifier.size(18.dp)
@@ -227,15 +229,15 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(Space20))
 
-            // CATEGORY BREAKDOWN CHART (Tonal Container)
-            FinTrackCard(
+            // CATEGORY BREAKDOWN CHART (Material 3 Expressive Tonal Grouped Panel)
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Space16),
-                shape = RoundedCornerShape(RadiusLarge),
-                contentPadding = Space16
+                shape = ShapeGroupedContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
-                Column {
+                Column(modifier = Modifier.padding(Space16)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier

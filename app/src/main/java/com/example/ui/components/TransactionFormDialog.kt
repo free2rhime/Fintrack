@@ -1,6 +1,13 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,14 +19,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -29,6 +41,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -43,9 +56,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -59,17 +74,23 @@ import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.HeroFinancialDisplay
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusXLarge
+import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeGroupedContainer
+import com.example.ui.theme.ShapeModalSheet
+import com.example.ui.theme.ShapePill
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
+import com.example.ui.theme.isReducedMotionEnabled
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -82,6 +103,139 @@ fun getAccountDisplayLabel(account: String): String =
         else -> account
     }
 
+/**
+ * Expressive segmented control for switching transaction type (Expense / Income).
+ * Provides shape-morphing feedback, semantic coloration (Coral / Emerald),
+ * 48dp minimum touch targets, and full accessibility semantics.
+ */
+@Composable
+fun ExpressiveTypeSegmentedControl(
+    selectedType: String,
+    onTypeSelected: (String) -> Unit,
+    reducedMotion: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val isExpense = selectedType == "Expense"
+
+    Surface(
+        shape = ShapePill,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .padding(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Expense Tab
+            val expenseBg by animateColorAsState(
+                targetValue = if (isExpense) ExpenseCoral.copy(alpha = 0.22f) else Color.Transparent,
+                animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
+                label = "expense_tab_bg"
+            )
+            val expenseTextColor by animateColorAsState(
+                targetValue = if (isExpense) ExpenseCoral else MaterialTheme.colorScheme.onSurfaceVariant,
+                animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
+                label = "expense_tab_text"
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .defaultMinSize(minHeight = 48.dp)
+                    .clip(ShapePill)
+                    .background(expenseBg)
+                    .clickable(role = Role.Tab) { onTypeSelected("Expense") }
+                    .semantics {
+                        this.selected = isExpense
+                        this.role = Role.Tab
+                        this.contentDescription = "Expense type"
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Space4)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowDownward,
+                        contentDescription = null,
+                        tint = expenseTextColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Expense",
+                        style = LabelBadgeMedium,
+                        fontWeight = if (isExpense) FontWeight.Bold else FontWeight.Medium,
+                        color = expenseTextColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(Space4))
+
+            // Income Tab
+            val incomeBg by animateColorAsState(
+                targetValue = if (!isExpense) IncomeEmerald.copy(alpha = 0.22f) else Color.Transparent,
+                animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
+                label = "income_tab_bg"
+            )
+            val incomeTextColor by animateColorAsState(
+                targetValue = if (!isExpense) IncomeEmerald else MaterialTheme.colorScheme.onSurfaceVariant,
+                animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
+                label = "income_tab_text"
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .defaultMinSize(minHeight = 48.dp)
+                    .clip(ShapePill)
+                    .background(incomeBg)
+                    .clickable(role = Role.Tab) { onTypeSelected("Income") }
+                    .semantics {
+                        this.selected = !isExpense
+                        this.role = Role.Tab
+                        this.contentDescription = "Income type"
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Space4)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowUpward,
+                        contentDescription = null,
+                        tint = incomeTextColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Income",
+                        style = LabelBadgeMedium,
+                        fontWeight = if (!isExpense) FontWeight.Bold else FontWeight.Medium,
+                        color = incomeTextColor
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Material 3 Expressive Add / Edit / Duplicate Transaction creation experience.
+ *
+ * Preserves every functional and test contract:
+ * - Direct Dialog presentation for headless Robolectric compatibility
+ * - Strict RON-native transaction input semantics with decoupled RON indicator
+ * - Autocomplete suggestions with debounce and testTag contracts
+ * - Category / Subcategory auto-assignment contracts
+ * - Date picker and Account selection
+ * - Conditional Income Destination selector
+ * - Optional Delete action in Edit mode (hidden in Add and Duplicate modes)
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionFormDialog(
@@ -90,6 +244,7 @@ fun TransactionFormDialog(
     categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
     onSearchDescriptions: (suspend (String) -> List<String>)? = null,
+    onDelete: (() -> Unit)? = null,
     onSave: (
         id: String?,
         date: String,
@@ -103,6 +258,7 @@ fun TransactionFormDialog(
     ) -> Unit
 ) {
     val todayStr = remember { LocalDate.now(ZoneId.systemDefault()).toString() }
+    val reducedMotion = isReducedMotionEnabled()
 
     var type by remember { mutableStateOf(initialTransaction?.type ?: "Expense") }
     var amountText by remember {
@@ -125,6 +281,7 @@ fun TransactionFormDialog(
 
     var amountError by remember { mutableStateOf(false) }
     var descError by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     // Description autocomplete suggestions
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -178,7 +335,7 @@ fun TransactionFormDialog(
         disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
         errorContainerColor = MaterialTheme.colorScheme.surfaceContainer,
         focusedBorderColor = CobaltBlue,
-        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         errorBorderColor = ExpenseCoral,
         focusedLabelColor = CobaltBlue,
         unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -198,11 +355,11 @@ fun TransactionFormDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 520.dp)
+                .widthIn(max = 540.dp)
                 .padding(vertical = Space8),
-            shape = RoundedCornerShape(RadiusXLarge),
+            shape = ShapeModalSheet,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 4.dp
+            tonalElevation = 6.dp
         ) {
             Column(
                 modifier = Modifier
@@ -210,7 +367,22 @@ fun TransactionFormDialog(
                     .padding(Space20)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Header
+                // Tactile drag affordance handle
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = Space12),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(ShapePill)
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                    )
+                }
+
+                // Expressive Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -251,92 +423,112 @@ fun TransactionFormDialog(
 
                 Spacer(modifier = Modifier.height(Space16))
 
-                // Type Toggle (Expense / Income)
-                FinTrackSegmentedControl(
-                    items = listOf("Expense", "Income"),
-                    selectedIndex = if (type == "Expense") 0 else 1,
-                    onItemSelected = { index ->
-                        if (index == 0) {
-                            type = "Expense"
-                            destination = ""
-                            subCategory = ""
-                            val firstMatch = categories.find { it.type == "Expense" }
-                            if (firstMatch != null) category = firstMatch.name
-                        } else {
-                            type = "Income"
-                            subCategory = ""
-                            val firstMatch = categories.find { it.type == "Income" }
-                            if (firstMatch != null) category = firstMatch.name
+                // Expressive Type Toggle (Expense / Income)
+                ExpressiveTypeSegmentedControl(
+                    selectedType = type,
+                    onTypeSelected = { newType ->
+                        if (newType != type) {
+                            type = newType
+                            if (newType == "Expense") {
+                                destination = ""
+                                subCategory = ""
+                                val firstMatch = categories.find { it.type == "Expense" }
+                                if (firstMatch != null) category = firstMatch.name
+                            } else {
+                                subCategory = ""
+                                val firstMatch = categories.find { it.type == "Income" }
+                                if (firstMatch != null) category = firstMatch.name
+                            }
                         }
                     },
+                    reducedMotion = reducedMotion,
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(Space16))
 
-                // Amount RON — Hero Field
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = {
-                        amountText = it
-                        amountError = false
-                    },
-                    label = { Text("Amount (RON)") },
-                    placeholder = {
-                        Text(
-                            text = "0.00",
-                            style = HeroFinancialDisplay,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                // Hero Amount Section (RON-Native Creation Focal Point)
+                Surface(
+                    shape = ShapeGroupedContainer,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Space16, vertical = Space12)
+                    ) {
+                        OutlinedTextField(
+                            value = amountText,
+                            onValueChange = {
+                                amountText = it
+                                amountError = false
+                            },
+                            label = { Text("Amount (RON)") },
+                            placeholder = {
+                                Text(
+                                    text = "0.00",
+                                    style = HeroFinancialDisplay,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                            },
+                            leadingIcon = {
+                                Text(
+                                    text = if (type == "Income") "+ " else "- ",
+                                    style = HeroFinancialDisplay,
+                                    color = if (type == "Income") IncomeEmerald else ExpenseCoral,
+                                    modifier = Modifier.padding(start = Space12)
+                                )
+                            },
+                            trailingIcon = {
+                                Surface(
+                                    shape = ShapePill,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    modifier = Modifier.padding(end = Space8)
+                                ) {
+                                    Text(
+                                        text = "RON",
+                                        style = LabelBadgeMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.padding(horizontal = Space12, vertical = Space4)
+                                    )
+                                }
+                            },
+                            isError = amountError,
+                            supportingText = if (amountError) {
+                                {
+                                    Text(
+                                        text = "Please enter a valid amount greater than 0",
+                                        color = ExpenseCoral,
+                                        style = MicroMetadata
+                                    )
+                                }
+                            } else null,
+                            textStyle = HeroFinancialDisplay.copy(
+                                color = if (type == "Income") IncomeEmerald else ExpenseCoral
+                            ),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                errorContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                focusedBorderColor = CobaltBlue,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                errorBorderColor = ExpenseCoral,
+                                focusedLabelColor = CobaltBlue,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                errorLabelColor = ExpenseCoral,
+                                cursorColor = if (type == "Income") IncomeEmerald else ExpenseCoral
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("tx_input_amount"),
+                            shape = RoundedCornerShape(RadiusMedium)
                         )
-                    },
-                    leadingIcon = {
-                        Text(
-                            text = if (type == "Income") "+ " else "- ",
-                            style = HeroFinancialDisplay,
-                            color = if (type == "Income") IncomeEmerald else ExpenseCoral,
-                            modifier = Modifier.padding(start = Space12)
-                        )
-                    },
-                    trailingIcon = {
-                        Text(
-                            text = "RON",
-                            style = CardTitleAmount,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = Space12)
-                        )
-                    },
-                    isError = amountError,
-                    supportingText = if (amountError) {
-                        {
-                            Text(
-                                text = "Please enter a valid amount greater than 0",
-                                color = ExpenseCoral,
-                                style = MicroMetadata
-                            )
-                        }
-                    } else null,
-                    textStyle = HeroFinancialDisplay.copy(
-                        color = if (type == "Income") IncomeEmerald else ExpenseCoral
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        errorContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        focusedBorderColor = CobaltBlue,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        errorBorderColor = ExpenseCoral,
-                        focusedLabelColor = CobaltBlue,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        errorLabelColor = ExpenseCoral,
-                        cursorColor = if (type == "Income") IncomeEmerald else ExpenseCoral
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("tx_input_amount"),
-                    shape = RoundedCornerShape(RadiusMedium)
-                )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(Space16))
 
@@ -367,7 +559,7 @@ fun TransactionFormDialog(
                         colors = textFieldColors,
                         textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryEditable, enabled = true)
                             .fillMaxWidth()
                             .testTag("tx_input_desc"),
                         shape = RoundedCornerShape(RadiusMedium)
@@ -376,7 +568,9 @@ fun TransactionFormDialog(
                     if (suggestions.isNotEmpty()) {
                         ExposedDropdownMenu(
                             expanded = suggestionsExpanded,
-                            onDismissRequest = { suggestionsExpanded = false }
+                            onDismissRequest = { suggestionsExpanded = false },
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = ShapeGroupedContainer
                         ) {
                             suggestions.forEachIndexed { index, sug ->
                                 DropdownMenuItem(
@@ -399,86 +593,6 @@ fun TransactionFormDialog(
 
                 Spacer(modifier = Modifier.height(Space16))
 
-                // Date Picker trigger
-                OutlinedTextField(
-                    value = date,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Date (YYYY-MM-DD)") },
-                    trailingIcon = {
-                        IconButton(
-                            onClick = { showDatePicker = true },
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CalendarToday,
-                                contentDescription = "Select Date",
-                                tint = CobaltBlue
-                            )
-                        }
-                    },
-                    colors = textFieldColors,
-                    textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showDatePicker = true },
-                    shape = RoundedCornerShape(RadiusMedium)
-                )
-
-                Spacer(modifier = Modifier.height(Space16))
-
-                // Income Destination Field (Optional for Income)
-                if (type == "Income") {
-                    Text(
-                        text = "Destination (Optional)",
-                        style = LabelBadgeMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(Space8))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Space8)
-                    ) {
-                        listOf("Bubu", "Piticania").forEach { destName ->
-                            val isSelected = destination == destName
-                            Surface(
-                                onClick = {
-                                    destination = if (destination == destName) "" else destName
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .defaultMinSize(minHeight = 48.dp)
-                                    .semantics {
-                                        this.selected = isSelected
-                                        this.role = Role.Tab
-                                    },
-                                shape = RoundedCornerShape(RadiusMedium),
-                                color = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.surfaceContainer,
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isSelected) CobaltBlue else MaterialTheme.colorScheme.outlineVariant
-                                )
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.padding(horizontal = Space12, vertical = Space8)
-                                ) {
-                                    Text(
-                                        text = destName,
-                                        style = LabelBadgeMedium,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(Space16))
-                }
-
                 // Subcategory Dropdown (Read-Only Selector)
                 ExposedDropdownMenuBox(
                     expanded = subCategoryExpanded,
@@ -493,14 +607,16 @@ fun TransactionFormDialog(
                         colors = textFieldColors,
                         textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                             .fillMaxWidth(),
                         shape = RoundedCornerShape(RadiusMedium)
                     )
 
                     ExposedDropdownMenu(
                         expanded = subCategoryExpanded,
-                        onDismissRequest = { subCategoryExpanded = false }
+                        onDismissRequest = { subCategoryExpanded = false },
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = ShapeGroupedContainer
                     ) {
                         availableSubcategories.forEach { subName ->
                             DropdownMenuItem(
@@ -541,36 +657,170 @@ fun TransactionFormDialog(
 
                 Spacer(modifier = Modifier.height(Space16))
 
-                // Account Dropdown
-                ExposedDropdownMenuBox(
-                    expanded = accountExpanded,
-                    onExpandedChange = { accountExpanded = !accountExpanded }
+                // Date & Account selectors (Responsive row with 48dp minimum touch targets)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Space12)
                 ) {
-                    OutlinedTextField(
-                        value = getAccountDisplayLabel(account),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Account") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded) },
-                        colors = textFieldColors,
-                        textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth(),
-                        shape = RoundedCornerShape(RadiusMedium)
-                    )
-
-                    ExposedDropdownMenu(
-                        expanded = accountExpanded,
-                        onDismissRequest = { accountExpanded = false }
-                    ) {
-                        accounts.forEach { acc ->
-                            DropdownMenuItem(
-                                text = { Text(getAccountDisplayLabel(acc), color = MaterialTheme.colorScheme.onSurface, style = BodyRegular) },
-                                onClick = {
-                                    account = acc
-                                    accountExpanded = false
+                    // Date Picker trigger
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = date,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Date (YYYY-MM-DD)") },
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { showDatePicker = true },
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarToday,
+                                        contentDescription = "Select Date",
+                                        tint = CobaltBlue
+                                    )
                                 }
+                            },
+                            colors = textFieldColors,
+                            textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showDatePicker = true },
+                            shape = RoundedCornerShape(RadiusMedium)
+                        )
+                    }
+
+                    // Account Dropdown
+                    Box(modifier = Modifier.weight(1f)) {
+                        ExposedDropdownMenuBox(
+                            expanded = accountExpanded,
+                            onExpandedChange = { accountExpanded = !accountExpanded }
+                        ) {
+                            OutlinedTextField(
+                                value = getAccountDisplayLabel(account),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Account") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded) },
+                                colors = textFieldColors,
+                                textStyle = BodyRegular.copy(color = MaterialTheme.colorScheme.onSurface),
+                                modifier = Modifier
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                                    .fillMaxWidth(),
+                                shape = RoundedCornerShape(RadiusMedium)
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = accountExpanded,
+                                onDismissRequest = { accountExpanded = false },
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                shape = ShapeGroupedContainer
+                            ) {
+                                accounts.forEach { acc ->
+                                    DropdownMenuItem(
+                                        text = { Text(getAccountDisplayLabel(acc), color = MaterialTheme.colorScheme.onSurface, style = BodyRegular) },
+                                        onClick = {
+                                            account = acc
+                                            accountExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Income Destination Field (Animated Visibility, Optional for Income)
+                AnimatedVisibility(
+                    visible = type == "Income",
+                    enter = if (reducedMotion) fadeIn(snap()) else fadeIn(FinTrackMotion.standardTween()) + expandVertically(),
+                    exit = if (reducedMotion) fadeOut(snap()) else fadeOut(FinTrackMotion.standardTween()) + shrinkVertically()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = Space16)
+                    ) {
+                        Text(
+                            text = "Destination (Optional)",
+                            style = LabelBadgeMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(Space8))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Space8)
+                        ) {
+                            listOf("Bubu", "Piticania").forEach { destName ->
+                                val isSelected = destination == destName
+                                Surface(
+                                    onClick = {
+                                        destination = if (destination == destName) "" else destName
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .semantics {
+                                            this.selected = isSelected
+                                            this.role = Role.Tab
+                                        },
+                                    shape = ShapePill,
+                                    color = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.surfaceContainer,
+                                    border = null
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.padding(horizontal = Space12, vertical = Space8)
+                                    ) {
+                                        Text(
+                                            text = destName,
+                                            style = LabelBadgeMedium,
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Destructive Action: Delete Transaction (Exposed strictly in Edit Mode, hidden in Add and Duplicate)
+                if (initialTransaction != null && !isDuplicateMode && onDelete != null) {
+                    Spacer(modifier = Modifier.height(Space20))
+
+                    Surface(
+                        onClick = { showDeleteConfirmation = true },
+                        shape = ShapePill,
+                        color = ExpenseCoral.copy(alpha = 0.12f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .testTag("tx_delete_button")
+                            .semantics {
+                                this.role = Role.Button
+                                this.contentDescription = "Delete Transaction"
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = Space16, vertical = Space12),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = null,
+                                tint = ExpenseCoral,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(Space8))
+                            Text(
+                                text = "Delete Transaction",
+                                style = LabelBadgeMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ExpenseCoral
                             )
                         }
                     }
@@ -628,6 +878,46 @@ fun TransactionFormDialog(
                 }
             }
         }
+    }
+
+    // Material 3 Delete Confirmation Dialog
+    if (showDeleteConfirmation && onDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = ShapeGroupedContainer,
+            title = {
+                Text(
+                    text = "Delete Transaction",
+                    style = SectionHeadline,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete this transaction? This action cannot be undone.",
+                    style = BodyRegular,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                FinTrackButton(
+                    text = "Delete",
+                    onClick = {
+                        showDeleteConfirmation = false
+                        onDelete()
+                    },
+                    variant = ButtonVariant.DESTRUCTIVE,
+                    modifier = Modifier.testTag("tx_confirm_delete_button")
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        )
     }
 
     // Material 3 Date Picker Dialog

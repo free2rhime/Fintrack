@@ -170,6 +170,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         filterSettings = filterSettings,
                         hasIncompleteEurData = metrics.hasIncompleteEurData,
                         excludedNonOfficialCount = metrics.excludedNonOfficialCount,
+                        smartInsights = smartInsights,
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
                         onIncomeExpenseSelectionChanged = { viewModel.updateAnalyticsIncomeExpenseSelection(it) },
                         onExpenseCategorySelectionChanged = { viewModel.updateAnalyticsExpenseCategorySelection(it) },
@@ -269,12 +270,19 @@ fun FinTrackApp(viewModel: MainViewModel) {
 
                 // Transaction Form Dialog for Create / Edit / Duplicate
                 if (uiState.showTransactionDialog) {
+                    val activeTx = uiState.activeTransactionForEdit
                     TransactionFormDialog(
-                        initialTransaction = uiState.activeTransactionForEdit,
+                        initialTransaction = activeTx,
                         isDuplicateMode = uiState.isDuplicateMode,
                         categories = categories,
                         onDismiss = { viewModel.dismissTransactionDialog() },
                         onSearchDescriptions = { query -> viewModel.getDescriptionSuggestions(query) },
+                        onDelete = if (activeTx != null && !uiState.isDuplicateMode) {
+                            {
+                                viewModel.deleteTransaction(activeTx)
+                                viewModel.dismissTransactionDialog()
+                            }
+                        } else null,
                         onSave = { id, date, desc, amt, type, acc, cat, sub, dest ->
                             viewModel.saveTransaction(id, date, desc, amt, type, acc, cat, sub, dest)
                         }

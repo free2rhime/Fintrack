@@ -1,12 +1,12 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,16 +42,22 @@ import com.example.ui.theme.IncomeContainer
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
-import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeGroupedContainer
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
 import com.example.ui.theme.WarningAmber
 
+/**
+ * Material 3 Expressive Household Overview Surface.
+ *
+ * Visual representation of the active household, its member directory,
+ * roles, permissions, and administrative invitations.
+ */
 @Composable
 fun HouseholdOverviewCard(
     household: HouseholdDto,
@@ -76,15 +82,18 @@ fun HouseholdOverviewCard(
         )
     }
 
-    FinTrackCard(
+    Surface(
+        shape = ShapeGroupedContainer,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = modifier
             .fillMaxWidth()
-            .testTag("household_summary_card"),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(RadiusLarge),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            .testTag("household_summary_card")
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Space16)
+        ) {
             // Header Row: Household Name and Current User Role
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -97,9 +106,9 @@ fun HouseholdOverviewCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(40.dp)
                             .clip(RoundedCornerShape(RadiusMedium))
-                            .background(CobaltBlue.copy(alpha = 0.15f)),
+                            .background(CobaltBlue.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -110,14 +119,22 @@ fun HouseholdOverviewCard(
                         )
                     }
                     Spacer(modifier = Modifier.width(Space12))
-                    Text(
-                        text = household.name ?: "Active Household",
-                        style = CardTitleAmount,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.testTag("household_name_text")
-                    )
+                    Column {
+                        Text(
+                            text = household.name ?: "Active Household",
+                            style = CardTitleAmount,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.testTag("household_name_text")
+                        )
+                        Text(
+                            text = "Household Synchronization",
+                            style = MicroMetadata,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 val roleText = currentUserMembership?.role?.trim()?.uppercase() ?: "MEMBER"
@@ -142,40 +159,50 @@ fun HouseholdOverviewCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(Space12))
+            Spacer(modifier = Modifier.height(Space16))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Metadata Row (Household ID & Member Count)
+            Surface(
+                shape = RoundedCornerShape(RadiusMedium),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "Household ID: ${household.householdId ?: "Unknown"}",
-                    style = MicroMetadata,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("household_id_text")
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Space12, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Household ID: ${household.householdId ?: "Unknown"}",
+                        style = MicroMetadata,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("household_id_text")
+                    )
 
-                Text(
-                    text = "Members: ${householdMembers.size}",
-                    style = MicroMetadata,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("household_member_count_text")
-                )
+                    Text(
+                        text = "Members: ${householdMembers.size}",
+                        style = MicroMetadata,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("household_member_count_text")
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(Space12))
+            Spacer(modifier = Modifier.height(Space16))
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
                 thickness = 1.dp
             )
-            Spacer(modifier = Modifier.height(Space12))
+            Spacer(modifier = Modifier.height(Space16))
 
             Text(
                 text = "Household Members",
                 style = SectionHeadline.copy(fontSize = 15.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(Space8))
@@ -207,7 +234,7 @@ fun HouseholdOverviewCard(
 
                         Surface(
                             shape = RoundedCornerShape(RadiusMedium),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            color = MaterialTheme.colorScheme.surfaceContainer,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("household_member_row")
@@ -229,7 +256,7 @@ fun HouseholdOverviewCard(
                                             .clip(CircleShape)
                                             .background(
                                                 if (isCurrentUser) CobaltBlue.copy(alpha = 0.2f)
-                                                else MaterialTheme.colorScheme.surfaceContainer
+                                                else MaterialTheme.colorScheme.surfaceContainerHighest
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -292,7 +319,7 @@ fun HouseholdOverviewCard(
                                     val (memRoleBg, memRoleFg) = when (roleBadge) {
                                         "OWNER" -> IncomeContainer to IncomeEmerald
                                         "ADMIN" -> CobaltBlue.copy(alpha = 0.15f) to CobaltBlue
-                                        else -> MaterialTheme.colorScheme.surfaceContainer to MaterialTheme.colorScheme.onSurfaceVariant
+                                        else -> MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.onSurfaceVariant
                                     }
                                     Surface(
                                         shape = RoundedCornerShape(RadiusSmall),
@@ -322,6 +349,7 @@ fun HouseholdOverviewCard(
                     onClick = onInviteMemberClick,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
                         .testTag("invite_member_button"),
                     variant = ButtonVariant.PRIMARY,
                     leadingIcon = {
