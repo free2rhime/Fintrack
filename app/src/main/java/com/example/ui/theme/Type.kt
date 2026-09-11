@@ -7,9 +7,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 // =============================================================================
-// FinTrack Design System v2 — Typography System
-// Direction: Precision Fintech + Editorial Wealth Narrative
-// Strict tabular numerals ("tnum") for all financial figures.
+// FinTrack Design System v3 — Typography System
+// Direction: Material 3 Expressive — Family Finance Experience
+// High scannability, clear hierarchy, strict tabular numerals ("tnum") for financial figures.
 // =============================================================================
 
 // -----------------------------------------------------------------------------

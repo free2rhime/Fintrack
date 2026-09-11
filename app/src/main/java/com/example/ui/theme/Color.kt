@@ -5,9 +5,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 // =============================================================================
-// FinTrack Design System v2 — Color Foundation Tokens
-// Direction: Precision Fintech + Editorial Wealth Narrative
-// WCAG AA/AAA Compliant Dual-Layer Architecture
+// FinTrack Design System v3 — Color Foundation Tokens
+// Direction: Material 3 Expressive — Family Finance Experience
+// Vibrant, approachable, high-contrast, WCAG AA/AAA compliant dual-layer architecture
 // =============================================================================
 
 // -----------------------------------------------------------------------------

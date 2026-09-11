@@ -6,9 +6,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // =============================================================================
-// FinTrack Design System v2 — Spacing & Layout System
-// Direction: Precision Fintech + Editorial Wealth Narrative
-// Primary design grid = 8dp (with 2dp/4dp micro-steps)
+// FinTrack Design System v3 — Spacing & Layout System
+// Direction: Material 3 Expressive — Family Finance Experience
+// Primary design grid = 8dp (with 2dp/4dp micro-steps), touch target >= 48dp
 // =============================================================================
 
 // -----------------------------------------------------------------------------

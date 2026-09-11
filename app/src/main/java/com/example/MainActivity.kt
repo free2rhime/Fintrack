@@ -170,7 +170,6 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         filterSettings = filterSettings,
                         hasIncompleteEurData = metrics.hasIncompleteEurData,
                         excludedNonOfficialCount = metrics.excludedNonOfficialCount,
-                        smartInsights = smartInsights,
                         onCurrencyChanged = { viewModel.updateSelectedCurrency(it) },
                         onIncomeExpenseSelectionChanged = { viewModel.updateAnalyticsIncomeExpenseSelection(it) },
                         onExpenseCategorySelectionChanged = { viewModel.updateAnalyticsExpenseCategorySelection(it) },

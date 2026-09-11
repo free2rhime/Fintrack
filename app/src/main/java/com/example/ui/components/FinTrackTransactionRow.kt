@@ -54,6 +54,7 @@ import com.example.ui.theme.IncomeContainer
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.ShapeGroupedItemSingle
+import com.example.ui.theme.ShapeSquircleIcon
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space2
@@ -143,7 +144,7 @@ fun FinTrackTransactionRow(
                     Box(
                         modifier = Modifier
                             .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(ShapeSquircleIcon)
                             .background(
                                 color = if (isIncome) IncomeContainer else ExpenseContainer
                             ),

@@ -101,7 +101,7 @@ class M3CategoriesExpressiveMigrationTest {
         composeTestRule.onNodeWithText("Income Categories").performClick()
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("Salary").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Salary").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("Investments").performScrollTo().assertIsDisplayed()
         composeTestRule.onAllNodesWithText("Housing").assertCountEquals(0)
     }

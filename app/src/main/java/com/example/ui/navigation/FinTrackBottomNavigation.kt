@@ -8,9 +8,7 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -32,10 +30,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -47,7 +50,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -80,32 +82,34 @@ import kotlin.math.roundToInt
 
 val NavItemLabelStyle = TextStyle(
     fontFamily = FontFamily.Default,
-    fontWeight = FontWeight.SemiBold,
-    fontSize = 11.5.sp,
-    lineHeight = 15.sp,
-    letterSpacing = (-0.3).sp
+    fontWeight = FontWeight.Bold,
+    fontSize = 12.sp,
+    lineHeight = 16.sp,
+    letterSpacing = (-0.2).sp
 )
 
 enum class BottomNavItem(
     val title: String,
     val icon: ImageVector,
-    val tabIndex: Int
+    val tabIndex: Int,
+    val unselectedIcon: ImageVector = icon
 ) {
-    Dashboard("Dashboard", Icons.Default.Dashboard, 0),
-    Transactions("Transactions", Icons.AutoMirrored.Filled.ReceiptLong, 1),
-    Analytics("Analytics", Icons.Default.Analytics, 2),
-    Categories("Categories", Icons.Default.Category, 3),
-    Settings("Settings", Icons.Default.Settings, 4)
+    Dashboard("Dashboard", Icons.Default.Dashboard, 0, Icons.Outlined.Dashboard),
+    Transactions("Transactions", Icons.AutoMirrored.Filled.ReceiptLong, 1, Icons.AutoMirrored.Outlined.ReceiptLong),
+    Analytics("Analytics", Icons.Default.Analytics, 2, Icons.Outlined.Analytics),
+    Categories("Categories", Icons.Default.Category, 3, Icons.Outlined.Category),
+    Settings("Settings", Icons.Default.Settings, 4, Icons.Outlined.Settings)
 }
 
 /**
  * Floating Navigation Capsule for FinTrack Material 3 Expressive (M3-2).
  *
  * Visual & Spatial Architecture:
- * - Tonal rather than heavily bordered: Elevated through M3 [surfaceContainerHigh] tone
+ * - Expressive Tonal Container: Elevated through M3 [surfaceContainerHigh] tone with soft ambient depth
  * - Organic geometry: Consumes [ShapeNavigationCapsule] (28dp curvature)
  * - Morphing selection indicator driven by centralized [FinTrackMotion] spring physics
  * - Tactile press interaction: Subtle physical depress (0.975f) on touch-down via [pressInteractionSpec]
+ * - Dual-state icons: Solid/filled icon for active destination, outlined icon for inactive destinations
  * - Expressive icon response: Subtle spring emphasis and tint interpolation
  * - Dynamic selected destination: Icon + full label ("Transactions" never shortened)
  * - Inactive destinations: Icon-first presentation with full TalkBack semantics
@@ -136,14 +140,8 @@ fun FinTrackBottomNavigation(
         Surface(
             shape = FinTrackTheme.shapes.navigationCapsule,
             color = FinTrackTheme.colors.surfaceContainerHigh,
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp,
-            border = BorderStroke(
-                width = 1.dp,
-                color = FinTrackTheme.colors.outlineVariant.copy(
-                    alpha = if (FinTrackTheme.colors.isDark) 0.35f else 0.45f
-                )
-            ),
+            tonalElevation = 3.dp,
+            shadowElevation = 3.dp,
             modifier = Modifier
                 .padding(horizontal = horizontalMargin)
                 .widthIn(max = 520.dp)
@@ -182,14 +180,7 @@ fun FinTrackBottomNavigation(
                             .width(with(LocalDensity.current) { animatedWidth.toDp() })
                             .fillMaxHeight()
                             .background(
-                                color = FinTrackTheme.colors.primaryContainer,
-                                shape = indicatorShape
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = FinTrackTheme.colors.primary.copy(
-                                    alpha = if (FinTrackTheme.colors.isDark) 0.20f else 0.12f
-                                ),
+                                color = MaterialTheme.colorScheme.primaryContainer,
                                 shape = indicatorShape
                             )
                     )
@@ -225,16 +216,16 @@ fun FinTrackBottomNavigation(
 
                         // Subtle expressive icon scale response
                         val iconScale by animateFloatAsState(
-                            targetValue = if (isSelected && !reducedMotion) 1.06f else 1.0f,
+                            targetValue = if (isSelected && !reducedMotion) 1.08f else 1.0f,
                             animationSpec = if (reducedMotion) snap() else FinTrackMotion.interactiveSpring(),
                             label = "navIconScale_${item.tabIndex}"
                         )
 
                         val animatedIconColor by animateColorAsState(
                             targetValue = if (isSelected) {
-                                FinTrackTheme.colors.brandAccent
+                                MaterialTheme.colorScheme.onPrimaryContainer
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f)
                             },
                             animationSpec = if (reducedMotion) snap() else FinTrackMotion.fastTween(),
                             label = "navIconColor_${item.tabIndex}"
@@ -255,18 +246,10 @@ fun FinTrackBottomNavigation(
                                 }
                                 .then(
                                     if (isInitialUnmeasured) {
-                                        Modifier
-                                            .background(
-                                                color = FinTrackTheme.colors.primaryContainer,
-                                                shape = indicatorShape
-                                            )
-                                            .border(
-                                                width = 1.dp,
-                                                color = FinTrackTheme.colors.primary.copy(
-                                                    alpha = if (FinTrackTheme.colors.isDark) 0.20f else 0.12f
-                                                ),
-                                                shape = indicatorShape
-                                            )
+                                        Modifier.background(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = indicatorShape
+                                        )
                                     } else {
                                         Modifier
                                     }
@@ -300,8 +283,9 @@ fun FinTrackBottomNavigation(
                                     .padding(horizontal = if (screenWidth < BreakpointCompactWidth) 3.dp else 6.dp)
                                     .fillMaxHeight()
                             ) {
+                                val currentIcon = if (isSelected) item.icon else item.unselectedIcon
                                 Icon(
-                                    imageVector = item.icon,
+                                    imageVector = currentIcon,
                                     contentDescription = null, // Semantics hoisted to parent tab container
                                     tint = animatedIconColor,
                                     modifier = Modifier
@@ -324,7 +308,7 @@ fun FinTrackBottomNavigation(
                                                 animationSpec = if (reducedMotion) snap() else FinTrackMotion.interactiveSpring(),
                                                 shrinkTowards = Alignment.Start
                                             )
-                                        ) {
+                                ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Spacer(modifier = Modifier.width(if (screenWidth < BreakpointCompactWidth) 3.5.dp else 5.dp))
                                         Text(
@@ -332,7 +316,7 @@ fun FinTrackBottomNavigation(
                                             maxLines = 1,
                                             softWrap = false,
                                             style = NavItemLabelStyle,
-                                            color = FinTrackTheme.colors.brandAccent,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                                             overflow = TextOverflow.Clip
                                         )
                                     }

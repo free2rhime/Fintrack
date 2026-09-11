@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -61,7 +62,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -89,24 +94,32 @@ import com.example.ui.theme.SectionHeadline
 import com.example.ui.theme.ShapeExtraLarge
 import com.example.ui.theme.ShapeFloatingActionButton
 import com.example.ui.theme.ShapeGroupedContainer
+import com.example.ui.theme.ShapeGroupedItemBottom
+import com.example.ui.theme.ShapeGroupedItemMiddle
+import com.example.ui.theme.ShapeGroupedItemSingle
+import com.example.ui.theme.ShapeGroupedItemTop
 import com.example.ui.theme.ShapePill
+import com.example.ui.theme.ShapeSquircleIcon
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
+import com.example.ui.theme.Space24
 import com.example.ui.theme.Space32
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
 import com.example.ui.theme.isReducedMotionEnabled
+import com.example.ui.theme.tactilePress
 
 /**
- * Material 3 Expressive Category Gallery Screen.
+ * Material 3 Expressive Category Gallery Screen — FinTrack WOW Edition.
  *
- * Implements M3-7 visual and interaction modernization:
- * - Fluid M3 Expressive grouped surface geometry (`ShapeGroupedContainer`)
- * - Accordion gallery presentation (starts expanded for test compatibility, tap to collapse)
- * - Tonal squircle iconography with dynamic semantic tinting
- * - Accessible 48dp touch targets and Role semantics
- * - Complete RBAC enforcement (management affordances rendered strictly for OWNER/Admin)
+ * Implements Checkpoint 7 & M3-7 visual and interaction modernization:
+ * - Expressive Category Gallery with grouped tonal surface containers (`ShapeGroupedContainer`)
+ * - Responsive Wrap Categories Architecture: dynamic layout reflow across 360dp–720dp+ eliminating horizontal clipping, text truncation, and action overflow
+ * - Smooth spring-driven accordion expansion physics with reduced-motion accessibility
+ * - Tactile press feedback (`tactilePress()`) across all interactive cards, pill buttons, and controls
+ * - Strict RBAC enforcement: OWNER/Admin management controls vs clean MEMBER read-only presentation
+ * - Accessible >=48dp interactive touch targets and semantic role definitions
  */
 @Composable
 fun CategoriesScreen(
@@ -129,7 +142,7 @@ fun CategoriesScreen(
 
     // Tracks collapsed state for each category group.
     // Default is expanded (isExpanded = !(collapsedCategories[catName] == true))
-    // to preserve immediate visibility in automated UI tests.
+    // to preserve immediate visibility in automated UI tests and screen readers.
     val collapsedCategories = remember { mutableStateMapOf<String, Boolean>() }
     val reducedMotion = isReducedMotionEnabled()
 
@@ -157,6 +170,7 @@ fun CategoriesScreen(
                     shape = ShapeFloatingActionButton,
                     modifier = Modifier
                         .defaultMinSize(minWidth = 56.dp, minHeight = 56.dp)
+                        .tactilePress()
                         .testTag("fab_add_category")
                 ) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = "Add Category")
@@ -180,57 +194,112 @@ fun CategoriesScreen(
             ) {
                 Spacer(modifier = Modifier.height(Space16))
 
-                // Expressive Header with tonal squircle badge and group count
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f, fill = false)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(RadiusMedium))
-                                .background(CobaltBlue.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
+                // Expressive Header Hero with tonal squircle icon badge and responsive group count
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val isNarrow = maxWidth < 380.dp
+                    if (isNarrow) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(Space8)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Category,
-                                contentDescription = null,
-                                tint = CobaltBlue,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(ShapeSquircleIcon)
+                                        .background(CobaltBlue.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Category,
+                                        contentDescription = null,
+                                        tint = CobaltBlue,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Space12))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Categories & Subcategories",
+                                        style = SectionHeadline,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        softWrap = true
+                                    )
+                                    Text(
+                                        text = "Organize household transactions by type",
+                                        style = MicroMetadata,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        softWrap = true
+                                    )
+                                }
+                            }
+                            if (groupedCategories.isNotEmpty()) {
+                                FinTrackStatusBadge(
+                                    label = "${groupedCategories.size} ${if (groupedCategories.size == 1) "Group" else "Groups"}",
+                                    variant = BadgeVariant.NEUTRAL
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.width(Space12))
-                        Column {
-                            Text(
-                                text = "Categories & Subcategories",
-                                style = SectionHeadline,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Organize household transactions by type",
-                                style = MicroMetadata,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(ShapeSquircleIcon)
+                                        .background(CobaltBlue.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Category,
+                                        contentDescription = null,
+                                        tint = CobaltBlue,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Space12))
+                                Column {
+                                    Text(
+                                        text = "Categories & Subcategories",
+                                        style = SectionHeadline,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        softWrap = true
+                                    )
+                                    Text(
+                                        text = "Organize household transactions by type",
+                                        style = MicroMetadata,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        softWrap = true
+                                    )
+                                }
+                            }
 
-                    if (groupedCategories.isNotEmpty()) {
-                        FinTrackStatusBadge(
-                            label = "${groupedCategories.size} ${if (groupedCategories.size == 1) "Group" else "Groups"}",
-                            variant = BadgeVariant.NEUTRAL
-                        )
+                            if (groupedCategories.isNotEmpty()) {
+                                Spacer(modifier = Modifier.width(Space8))
+                                FinTrackStatusBadge(
+                                    label = "${groupedCategories.size} ${if (groupedCategories.size == 1) "Group" else "Groups"}",
+                                    variant = BadgeVariant.NEUTRAL
+                                )
+                            }
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(Space16))
 
-                // Segmented Tab Toggle using FinTrackSegmentedControl
+                // Segmented Tab Toggle with M3 Expressive Spring Physics
                 FinTrackSegmentedControl(
                     items = listOf("Expense Categories", "Income Categories"),
                     selectedIndex = if (selectedType == "Expense") 0 else 1,
@@ -241,7 +310,7 @@ fun CategoriesScreen(
 
                 Spacer(modifier = Modifier.height(Space16))
 
-                // Categories List or Empty State
+                // Category Gallery List or Empty State
                 if (groupedCategories.isEmpty()) {
                     FinTrackEmptyState(
                         icon = Icons.Default.Category,
@@ -262,11 +331,15 @@ fun CategoriesScreen(
                         modifier = Modifier.padding(top = Space32)
                     )
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .testTag("categories_list"),
                         verticalArrangement = Arrangement.spacedBy(Space12)
                     ) {
-                        items(groupedCategories.keys.toList(), key = { it }) { catName ->
+                        groupedCategories.keys.forEach { catName ->
                             val subList = groupedCategories[catName] ?: emptyList()
                             val isIncome = selectedType == "Income"
                             val iconVector = resolveCategoryIcon(catName, isIncome)
@@ -292,138 +365,162 @@ fun CategoriesScreen(
                                         .fillMaxWidth()
                                         .padding(Space16)
                                 ) {
-                                    // MAIN CATEGORY LINE (Header Row with click to expand/collapse)
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(RadiusMedium))
-                                            .clickable {
-                                                collapsedCategories[catName] = isExpanded
-                                            }
-                                            .padding(vertical = Space4),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            // Tonal category icon squircle container
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(44.dp)
-                                                    .clip(RoundedCornerShape(RadiusMedium))
-                                                    .background(iconBg),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = iconVector,
-                                                    contentDescription = null,
-                                                    tint = iconTint,
-                                                    modifier = Modifier.size(22.dp)
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(Space12))
-                                            Column {
-                                                Text(
-                                                    text = catName,
-                                                    style = CardTitleAmount,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                                val validCount = subList.count { it.subCategory.isNotBlank() }
-                                                Text(
-                                                    text = if (validCount == 1) "1 subcategory" else "$validCount subcategories",
-                                                    style = MicroMetadata,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
+                                    // CATEGORY HEADER (Responsive & Wrap-Proof Layout)
+                                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                                        val containerWidth = maxWidth
+                                        val isCompactHeader = containerWidth < 360.dp
 
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            if (canManageCategories) {
-                                                // Add Subcategory Quick Action Pill Button
-                                                Surface(
-                                                    shape = ShapePill,
-                                                    color = CobaltBlue.copy(alpha = 0.12f),
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(RadiusMedium))
+                                                .clickable(
+                                                    onClick = { collapsedCategories[catName] = isExpanded }
+                                                )
+                                                .padding(vertical = Space4),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            // Left: Category Icon + Title + Subcount
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(end = Space8)
+                                            ) {
+                                                Box(
                                                     modifier = Modifier
-                                                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                                                        .clip(ShapePill)
-                                                        .clickable {
-                                                            addDialogPreFilledCategory = catName
-                                                            showAddDialog = true
-                                                        }
-                                                        .padding(horizontal = Space4, vertical = Space4)
+                                                        .size(44.dp)
+                                                        .clip(ShapeSquircleIcon)
+                                                        .background(iconBg),
+                                                    contentAlignment = Alignment.Center
                                                 ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier.padding(horizontal = Space8, vertical = Space4)
+                                                    Icon(
+                                                        imageVector = iconVector,
+                                                        contentDescription = null,
+                                                        tint = iconTint,
+                                                        modifier = Modifier.size(22.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(Space12))
+                                                Column(modifier = Modifier.weight(1f, fill = false)) {
+                                                    Text(
+                                                        text = catName,
+                                                        style = CardTitleAmount,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        softWrap = true
+                                                    )
+                                                    val validCount = subList.count { it.subCategory.isNotBlank() }
+                                                    Text(
+                                                        text = if (validCount == 1) "1 subcategory" else "$validCount subcategories",
+                                                        style = MicroMetadata,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+
+                                            // Right: Management Actions & Accordion Trigger
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.End
+                                            ) {
+                                                if (canManageCategories) {
+                                                    // Quick Action Pill "+ Sub" with Tactile Press
+                                                    Surface(
+                                                        shape = ShapePill,
+                                                        color = CobaltBlue.copy(alpha = 0.12f),
+                                                        modifier = Modifier
+                                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                            .clip(ShapePill)
+                                                            .tactilePress()
+                                                            .clickable(
+                                                                role = Role.Button,
+                                                                onClick = {
+                                                                    addDialogPreFilledCategory = catName
+                                                                    showAddDialog = true
+                                                                }
+                                                            )
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            modifier = Modifier.padding(horizontal = Space12, vertical = Space8)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Add,
+                                                                contentDescription = "Add Subcategory",
+                                                                tint = CobaltBlue,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(Space4))
+                                                            Text(
+                                                                text = "+ Sub",
+                                                                style = LabelBadgeMedium,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = CobaltBlue
+                                                            )
+                                                        }
+                                                    }
+
+                                                    Spacer(modifier = Modifier.width(Space4))
+
+                                                    IconButton(
+                                                        onClick = { categoryGroupToEdit = catName },
+                                                        modifier = Modifier
+                                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                            .size(48.dp)
+                                                            .tactilePress()
+                                                            .testTag("edit_category_group_${catName}")
                                                     ) {
                                                         Icon(
-                                                            imageVector = Icons.Default.Add,
-                                                            contentDescription = "Add Subcategory",
-                                                            tint = CobaltBlue,
-                                                            modifier = Modifier.size(16.dp)
+                                                            imageVector = Icons.Default.Edit,
+                                                            contentDescription = "Edit Category Group",
+                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            modifier = Modifier.size(18.dp)
                                                         )
-                                                        Spacer(modifier = Modifier.width(Space4))
-                                                        Text(
-                                                            text = "+ Sub",
-                                                            style = LabelBadgeMedium,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = CobaltBlue
+                                                    }
+
+                                                    IconButton(
+                                                        onClick = { categoryGroupToDelete = catName },
+                                                        modifier = Modifier
+                                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                            .size(48.dp)
+                                                            .tactilePress()
+                                                            .testTag("delete_category_group_${catName}")
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Delete,
+                                                            contentDescription = "Delete Category Group",
+                                                            tint = ExpenseCoral,
+                                                            modifier = Modifier.size(18.dp)
                                                         )
                                                     }
                                                 }
 
-                                                Spacer(modifier = Modifier.width(Space4))
-
+                                                // Chevron Expand / Collapse Trigger
                                                 IconButton(
-                                                    onClick = { categoryGroupToEdit = catName },
+                                                    onClick = { collapsedCategories[catName] = isExpanded },
                                                     modifier = Modifier
+                                                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                         .size(48.dp)
-                                                        .testTag("edit_category_group_${catName}")
+                                                        .tactilePress()
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Default.Edit,
-                                                        contentDescription = "Edit Category Group",
+                                                        imageVector = Icons.Default.ArrowDropDown,
+                                                        contentDescription = if (isExpanded) "Collapse $catName" else "Expand $catName",
                                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(18.dp)
+                                                        modifier = Modifier
+                                                            .size(24.dp)
+                                                            .rotate(chevronRotation)
                                                     )
                                                 }
-
-                                                IconButton(
-                                                    onClick = { categoryGroupToDelete = catName },
-                                                    modifier = Modifier
-                                                        .size(48.dp)
-                                                        .testTag("delete_category_group_${catName}")
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Delete,
-                                                        contentDescription = "Delete Category Group",
-                                                        tint = ExpenseCoral,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
-                                            }
-
-                                            // Chevron expand/collapse button
-                                            IconButton(
-                                                onClick = { collapsedCategories[catName] = isExpanded },
-                                                modifier = Modifier.size(48.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.ArrowDropDown,
-                                                    contentDescription = if (isExpanded) "Collapse $catName" else "Expand $catName",
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier
-                                                        .size(24.dp)
-                                                        .rotate(chevronRotation)
-                                                )
                                             }
                                         }
                                     }
 
-                                    // SUBCATEGORIES ACCORDION LIST BELOW
+                                    // SUBCATEGORIES ACCORDION EXPANSION
                                     AnimatedVisibility(
                                         visible = isExpanded,
                                         enter = if (reducedMotion) fadeIn(animationSpec = snap()) else expandVertically(
@@ -438,7 +535,7 @@ fun CategoriesScreen(
                                             if (validSubs.isNotEmpty()) {
                                                 Spacer(modifier = Modifier.height(Space12))
                                                 HorizontalDivider(
-                                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                                                     thickness = 1.dp
                                                 )
                                                 Spacer(modifier = Modifier.height(Space12))
@@ -446,9 +543,16 @@ fun CategoriesScreen(
                                                 Column(
                                                     verticalArrangement = Arrangement.spacedBy(Space8)
                                                 ) {
-                                                    validSubs.forEach { subEntity ->
+                                                    validSubs.forEachIndexed { index, subEntity ->
+                                                        val shape = when {
+                                                            validSubs.size == 1 -> ShapeGroupedItemSingle
+                                                            index == 0 -> ShapeGroupedItemTop
+                                                            index == validSubs.size - 1 -> ShapeGroupedItemBottom
+                                                            else -> ShapeGroupedItemMiddle
+                                                        }
+
                                                         Surface(
-                                                            shape = RoundedCornerShape(RadiusMedium),
+                                                            shape = shape,
                                                             color = MaterialTheme.colorScheme.surfaceContainer,
                                                             modifier = Modifier.fillMaxWidth()
                                                         ) {
@@ -461,12 +565,14 @@ fun CategoriesScreen(
                                                             ) {
                                                                 Row(
                                                                     verticalAlignment = Alignment.CenterVertically,
-                                                                    modifier = Modifier.weight(1f)
+                                                                    modifier = Modifier
+                                                                        .weight(1f)
+                                                                        .padding(end = Space8)
                                                                 ) {
                                                                     Box(
                                                                         modifier = Modifier
                                                                             .size(32.dp)
-                                                                            .clip(RoundedCornerShape(RadiusSmall))
+                                                                            .clip(ShapeSquircleIcon)
                                                                             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                                                                         contentAlignment = Alignment.Center
                                                                     ) {
@@ -482,7 +588,10 @@ fun CategoriesScreen(
                                                                         text = subEntity.subCategory,
                                                                         style = BodyRegular,
                                                                         color = MaterialTheme.colorScheme.onSurface,
-                                                                        fontWeight = FontWeight.Medium
+                                                                        fontWeight = FontWeight.Medium,
+                                                                        maxLines = 2,
+                                                                        overflow = TextOverflow.Ellipsis,
+                                                                        softWrap = true
                                                                     )
                                                                 }
 
@@ -491,7 +600,9 @@ fun CategoriesScreen(
                                                                         IconButton(
                                                                             onClick = { subcategoryToEdit = subEntity },
                                                                             modifier = Modifier
+                                                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                                                 .size(48.dp)
+                                                                                .tactilePress()
                                                                                 .testTag("edit_subcategory_${subEntity.id}")
                                                                         ) {
                                                                             Icon(
@@ -505,7 +616,9 @@ fun CategoriesScreen(
                                                                         IconButton(
                                                                             onClick = { onDeleteSubcategory(subEntity.id) },
                                                                             modifier = Modifier
+                                                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                                                 .size(48.dp)
+                                                                                .tactilePress()
                                                                                 .testTag("delete_subcategory_${subEntity.id}")
                                                                         ) {
                                                                             Icon(
@@ -535,15 +648,14 @@ fun CategoriesScreen(
                             }
                         }
 
-                        item {
-                            Spacer(modifier = Modifier.height(88.dp))
-                        }
+                        Spacer(modifier = Modifier.height(88.dp))
                     }
                 }
             }
         }
     }
 
+    // ADD CATEGORY / SUBCATEGORY DIALOG
     if (showAddDialog) {
         CategoryFormDialog(
             title = if (addDialogPreFilledCategory.isNotBlank()) "Add Subcategory to $addDialogPreFilledCategory" else "Add New Category",
@@ -558,7 +670,7 @@ fun CategoriesScreen(
         )
     }
 
-    // Category Group Edit Dialog
+    // CATEGORY GROUP EDIT DIALOG
     if (categoryGroupToEdit != null) {
         val oldGroup = categoryGroupToEdit!!
         CategoryHeaderEditDialog(
@@ -571,7 +683,7 @@ fun CategoriesScreen(
         )
     }
 
-    // Category Group Delete Confirmation Dialog
+    // CATEGORY GROUP DELETE CONFIRMATION DIALOG
     if (categoryGroupToDelete != null) {
         val groupToDelete = categoryGroupToDelete!!
         AlertDialog(
@@ -613,7 +725,7 @@ fun CategoriesScreen(
         )
     }
 
-    // Subcategory Edit Dialog
+    // SUBCATEGORY EDIT DIALOG
     if (subcategoryToEdit != null) {
         val subEntity = subcategoryToEdit!!
         SubcategoryEditDialog(
@@ -650,12 +762,32 @@ private fun CategoryHeaderEditDialog(
                     .padding(Space20)
                     .verticalScroll(rememberScrollState())
             ) {
-                Text(
-                    text = "Rename Category Group",
-                    style = SectionHeadline,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(ShapeSquircleIcon)
+                            .background(CobaltBlue.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = CobaltBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(Space12))
+                    Text(
+                        text = "Rename Category Group",
+                        style = SectionHeadline,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Spacer(modifier = Modifier.height(Space16))
                 OutlinedTextField(
                     value = name,
@@ -736,12 +868,32 @@ private fun SubcategoryEditDialog(
                     .padding(Space20)
                     .verticalScroll(rememberScrollState())
             ) {
-                Text(
-                    text = "Rename Subcategory",
-                    style = SectionHeadline,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(ShapeSquircleIcon)
+                            .background(CobaltBlue.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = CobaltBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(Space12))
+                    Text(
+                        text = "Rename Subcategory",
+                        style = SectionHeadline,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Spacer(modifier = Modifier.height(Space16))
                 OutlinedTextField(
                     value = subName,
@@ -841,15 +993,39 @@ private fun CategoryFormDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = title,
-                        style = SectionHeadline,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(ShapeSquircleIcon)
+                                .background(CobaltBlue.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Category,
+                                contentDescription = null,
+                                tint = CobaltBlue,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Space12))
+                        Text(
+                            text = title,
+                            style = SectionHeadline,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                            softWrap = true
+                        )
+                    }
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                            .size(48.dp)
+                            .tactilePress()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
@@ -988,6 +1164,7 @@ private fun CategoryFormDialog(
                                 modifier = Modifier
                                     .defaultMinSize(minWidth = 40.dp, minHeight = 40.dp)
                                     .clip(CircleShape)
+                                    .tactilePress()
                                     .clickable {
                                         if (targetFieldForEmoji == "Category") {
                                             name = if (name.startsWith(emoji)) name else "$emoji $name".trim()

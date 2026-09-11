@@ -248,44 +248,37 @@ class M3AnalyticsExpressiveMigrationTest {
     }
 
     @Test
-    fun test10_smartInsightsCardDisplayedWhenProvided() {
-        val insights = SmartFinancialInsights(
-            monthOverMonthExpenseChangePercent = 12.5,
-            savingsTrendText = "Improving",
-            largestExpenseMonth = "August 2026",
-            largestExpenseMonthAmount = 4500.0
-        )
-
+    fun test10_smartInsightsCardCompletelyRemovedFromAnalyticsUi() {
         composeTestRule.setContent {
             FinTrackTheme {
                 AnalyticsScreen(
                     analyticsUiState = sampleState(),
-                    filterSettings = FilterSettings(selectedCurrency = "RON", selectedPeriod = "Last 6 Months"),
-                    smartInsights = insights
+                    filterSettings = FilterSettings(selectedCurrency = "RON", selectedPeriod = "Last 6 Months")
                 )
             }
         }
 
-        composeTestRule.onNodeWithTag("analytics_smart_insights_card").assertExists()
-        composeTestRule.onNodeWithText("Financial Insights").assertExists()
-        composeTestRule.onNodeWithText("Improving").assertExists()
-        composeTestRule.onNodeWithText("+12.5%").assertExists()
-        composeTestRule.onNodeWithText("August 2026 · 4 500.00 RON").assertExists()
+        // Verify Smart Financial Insights card and elements are strictly absent from Analytics UI
+        composeTestRule.onNodeWithTag("analytics_smart_insights_card").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Financial Insights").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Month-over-Month Expense Change").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Peak Expense Month").assertDoesNotExist()
     }
 
     @Test
-    fun test11_smartInsightsCardAbsentWhenNull() {
+    fun test11_expressiveHeroCanvasAndOrganicPeriodBadgeRendered() {
         composeTestRule.setContent {
             FinTrackTheme {
                 AnalyticsScreen(
                     analyticsUiState = sampleState(),
-                    filterSettings = FilterSettings(selectedCurrency = "RON", selectedPeriod = "Last 6 Months"),
-                    smartInsights = null
+                    filterSettings = FilterSettings(selectedCurrency = "RON", selectedPeriod = "Last 6 Months")
                 )
             }
         }
 
-        composeTestRule.onNodeWithTag("analytics_smart_insights_card").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("analytics_hero_canvas").assertExists()
+        composeTestRule.onNodeWithTag("analytics_active_period_badge").assertExists()
+        composeTestRule.onNodeWithText("Last 6 Months").assertExists()
     }
 
     @Test

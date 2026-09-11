@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 
 // =============================================================================
 // FinTrack Design System v3 — Material 3 Expressive Shape Vocabulary
-// Direction: Organic, fluid, tactile Android-native wealth experience.
+// Direction: Organic, fluid, tactile Android-native family finance experience.
 // Replaces static radii with a purposeful, semantic geometry scale.
 // =============================================================================
 
@@ -27,7 +27,7 @@ val ShapeExtraLarge = RoundedCornerShape(24.dp)     // Grouped container panels
 val ShapePill = CircleShape                         // Primary buttons, status capsules
 
 // -----------------------------------------------------------------------------
-// 2. CONTEXTUAL & COMPONENT GEOMETRIES (M3 Expressive)
+// 2. CONTEXTUAL & COMPONENT GEOMETRIES (M3 Expressive Family Finance)
 // -----------------------------------------------------------------------------
 val ShapeHeroCanvas = RoundedCornerShape(
     topStart = 0.dp,
@@ -45,6 +45,8 @@ val ShapeGroupedItemSingle = RoundedCornerShape(20.dp)
 val ShapeFloatingActionButton = RoundedCornerShape(18.dp)
 val ShapeModalSheet = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 val ShapeNavigationCapsule = RoundedCornerShape(28.dp)
+val ShapeSquircleIcon = RoundedCornerShape(14.dp)
+val ShapeBadgeOrganic = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomStart = 12.dp, bottomEnd = 12.dp)
 
 // -----------------------------------------------------------------------------
 // 3. SEMANTIC SHAPES CONTRACT
@@ -68,7 +70,9 @@ data class FinTrackShapes(
     val navigationCapsule: Shape = ShapeNavigationCapsule,
     val inputField: Shape = ShapeMedium,
     val microIndicator: Shape = ShapeExtraSmall,
-    val fab: Shape = ShapeFloatingActionButton
+    val fab: Shape = ShapeFloatingActionButton,
+    val squircleIcon: Shape = ShapeSquircleIcon,
+    val organicBadge: Shape = ShapeBadgeOrganic
 )
 
 val LocalFinTrackShapes = staticCompositionLocalOf { FinTrackShapes() }

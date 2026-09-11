@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -95,6 +96,7 @@ import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
 import com.example.ui.theme.TertiaryViolet
 import com.example.ui.theme.isReducedMotionEnabled
+import com.example.ui.theme.tactilePress
 import kotlin.math.atan2
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -1277,7 +1279,7 @@ fun SavingsTrendLineChart(
  * Reusable single-series spline chart designed for FinTrack Analytics.
  * Renders a smooth Bézier curve for a single financial series (Income, Expense, Category, or Source).
  * Strictly matches the geometry, grid, Bézier smoothing, typography, active point indicator,
- * and tap interaction of [MonthlyCashFlowSplineChart] while ensuring zero regressions on Dashboard.
+ * spring transitions, and tactile drag/tap interaction of [MonthlyCashFlowSplineChart].
  */
 @Composable
 fun SingleSeriesSplineChart(
@@ -1304,50 +1306,96 @@ fun SingleSeriesSplineChart(
         mutableStateOf(dataPoints.indices.lastOrNull() ?: 0)
     }
 
+    val haptic = LocalHapticFeedback.current
+    val reducedMotion = isReducedMotionEnabled()
+
+    // Smooth spline entry / dataset change transition
+    val transitionProgress = remember { Animatable(if (reducedMotion) 1f else 0f) }
+    var previousPoints by remember { mutableStateOf<List<SingleSeriesDataPoint>?>(null) }
+
+    LaunchedEffect(dataPoints) {
+        if (reducedMotion) {
+            transitionProgress.snapTo(1f)
+        } else {
+            transitionProgress.snapTo(0f)
+            transitionProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = FinTrackMotion.DurationV2Emphasized,
+                    easing = FinTrackMotion.StandardDecelerate
+                )
+            )
+        }
+        previousPoints = dataPoints
+    }
+
+    val animatedSelectedIndex by animateFloatAsState(
+        targetValue = selectedIndex.toFloat(),
+        animationSpec = if (reducedMotion) snap() else FinTrackMotion.contentSpring(),
+        label = "singleSeriesScrubSpring"
+    )
+
     val maxVal = (dataPoints.maxOfOrNull { it.value } ?: 100.0).coerceAtLeast(10.0)
     val activePoint = dataPoints.getOrNull(selectedIndex) ?: dataPoints.lastOrNull()
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Active data point indicator exposing exact value and selected month
         if (activePoint != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(RadiusSmall))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .padding(horizontal = Space12, vertical = Space8),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(RadiusSmall),
+                color = MaterialTheme.colorScheme.surfaceContainer
             ) {
-                Text(
-                    text = activePoint.monthYearLabel,
-                    style = LabelBadgeMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
+                AnimatedContent(
+                    targetState = activePoint,
+                    transitionSpec = {
+                        if (reducedMotion) {
+                            fadeIn(animationSpec = snap()) togetherWith fadeOut(animationSpec = snap())
+                        } else {
+                            fadeIn(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate)) togetherWith
+                                fadeOut(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate))
+                        }
+                    },
+                    label = "singleSeriesActivePointContent"
+                ) { point ->
+                    Row(
                         modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(lineColor)
-                    )
-                    Spacer(modifier = Modifier.width(Space4))
-                    Text(
-                        text = "${NumberFormatter.formatAmount(activePoint.value)} $currency",
-                        style = MicroMetadata,
-                        color = lineColor,
-                        fontWeight = FontWeight.Bold
-                    )
+                            .fillMaxWidth()
+                            .padding(horizontal = Space12, vertical = Space8),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = point.monthYearLabel,
+                            style = LabelBadgeMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(lineColor)
+                            )
+                            Spacer(modifier = Modifier.width(Space4))
+                            Text(
+                                text = "${NumberFormatter.formatAmount(point.value)} $currency",
+                                style = MicroMetadata,
+                                color = lineColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(Space8))
         }
 
         val gridColor = MaterialTheme.colorScheme.outlineVariant
-        val indicatorColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+        val indicatorColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
 
         Canvas(
             modifier = Modifier
@@ -1356,15 +1404,48 @@ fun SingleSeriesSplineChart(
                 .pointerInput(dataPoints) {
                     detectTapGestures { offset ->
                         if (dataPoints.isNotEmpty()) {
-                            val totalWidth = size.width.toFloat()
                             val count = dataPoints.size
-                            val stepX = if (count > 1) totalWidth / (count - 1).toFloat() else totalWidth / 2f
+                            val stepX = if (count > 1) size.width.toFloat() / (count - 1) else size.width.toFloat() / 2f
                             val tappedIndex = if (count > 1 && stepX > 0f) {
                                 ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, count - 1)
                             } else 0
-                            selectedIndex = tappedIndex
+                            if (tappedIndex != selectedIndex) {
+                                selectedIndex = tappedIndex
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
                         }
                     }
+                }
+                .pointerInput(dataPoints) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { offset ->
+                            if (dataPoints.isNotEmpty()) {
+                                val count = dataPoints.size
+                                val stepX = if (count > 1) size.width.toFloat() / (count - 1) else size.width.toFloat() / 2f
+                                val newIndex = if (count > 1 && stepX > 0f) {
+                                    ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, count - 1)
+                                } else 0
+                                if (newIndex != selectedIndex) {
+                                    selectedIndex = newIndex
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { change, _ ->
+                            if (dataPoints.isNotEmpty()) {
+                                val count = dataPoints.size
+                                val stepX = if (count > 1) size.width.toFloat() / (count - 1) else size.width.toFloat() / 2f
+                                val newIndex = if (count > 1 && stepX > 0f) {
+                                    ((change.position.x + stepX / 2f) / stepX).toInt().coerceIn(0, count - 1)
+                                } else 0
+                                if (newIndex != selectedIndex) {
+                                    selectedIndex = newIndex
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+                            change.consume()
+                        }
+                    )
                 }
         ) {
             val width = size.width
@@ -1383,6 +1464,7 @@ fun SingleSeriesSplineChart(
                 )
             }
 
+            val progress = transitionProgress.value
             val count = dataPoints.size
             val stepX = if (count > 1) width / (count - 1) else width / 2f
 
@@ -1390,29 +1472,53 @@ fun SingleSeriesSplineChart(
             val areaPath = Path()
             val points = mutableListOf<Offset>()
 
+            val prevList = previousPoints
+            val canInterpolatePrev = prevList != null && prevList.size == count
+
             dataPoints.forEachIndexed { index, dp ->
                 val x = if (count > 1) index * stepX else width / 2f
-                val y = availableHeight - ((dp.value / maxVal) * (availableHeight - 10.dp.toPx())).toFloat()
+                val targetY = availableHeight - ((dp.value / maxVal) * (availableHeight - 10.dp.toPx())).toFloat()
+
+                val y = if (canInterpolatePrev) {
+                    val prevDp = prevList!![index]
+                    val prevMax = (prevList.maxOfOrNull { it.value } ?: 100.0).coerceAtLeast(10.0)
+                    val prevY = availableHeight - ((prevDp.value / prevMax) * (availableHeight - 10.dp.toPx())).toFloat()
+                    prevY + (targetY - prevY) * progress
+                } else {
+                    availableHeight - ((availableHeight - targetY) * progress)
+                }
+
                 points.add(Offset(x, y))
             }
 
             if (points.isNotEmpty()) {
-                splinePath.moveTo(points[0].x, points[0].y)
-                areaPath.moveTo(points[0].x, availableHeight)
-                areaPath.lineTo(points[0].x, points[0].y)
+                if (points.size == 1) {
+                    val p = points[0]
+                    splinePath.moveTo(0f, p.y)
+                    splinePath.lineTo(width, p.y)
+                    areaPath.moveTo(0f, availableHeight)
+                    areaPath.lineTo(0f, p.y)
+                    areaPath.lineTo(width, p.y)
+                    areaPath.lineTo(width, availableHeight)
+                    areaPath.close()
+                } else {
+                    splinePath.moveTo(points[0].x, points[0].y)
+                    areaPath.moveTo(points[0].x, availableHeight)
+                    areaPath.lineTo(points[0].x, points[0].y)
 
-                for (i in 0 until points.size - 1) {
-                    val p1 = points[i]
-                    val p2 = points[i + 1]
-                    val controlX1 = p1.x + (p2.x - p1.x) / 2f
-                    val controlX2 = p1.x + (p2.x - p1.x) / 2f
+                    for (i in 0 until points.size - 1) {
+                        val p1 = points[i]
+                        val p2 = points[i + 1]
+                        val controlX1 = p1.x + (p2.x - p1.x) / 2f
+                        val controlX2 = p1.x + (p2.x - p1.x) / 2f
 
-                    splinePath.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
-                    areaPath.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
+                        splinePath.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
+                        areaPath.cubicTo(controlX1, p1.y, controlX2, p2.y, p2.x, p2.y)
+                    }
+
+                    areaPath.lineTo(points.last().x, availableHeight)
+                    areaPath.close()
                 }
-
-                areaPath.lineTo(points.last().x, availableHeight)
-                areaPath.close()
 
                 // Draw area gradient
                 drawPath(
@@ -1432,28 +1538,29 @@ fun SingleSeriesSplineChart(
                 )
             }
 
-            // Vertical indicator dashed line for selected point
-            if (selectedIndex in points.indices) {
-                val highlightX = points[selectedIndex].x
-                drawLine(
-                    color = indicatorColor,
-                    start = Offset(highlightX, 0f),
-                    end = Offset(highlightX, availableHeight),
-                    strokeWidth = 1.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
-                )
-            }
+            // Vertical crosshair indicator dashed line for selected/scrubbed point
+            val highlightX = if (count > 1) animatedSelectedIndex * stepX else width / 2f
+            drawLine(
+                color = indicatorColor.copy(alpha = 0.55f),
+                start = Offset(highlightX, 0f),
+                end = Offset(highlightX, availableHeight),
+                strokeWidth = 1.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+            )
 
-            // Draw data points with highlight on selected point
+            // Draw data points with synchronized spring halo emphasis
             points.forEachIndexed { idx, pt ->
-                val isSelected = idx == selectedIndex
-                if (isSelected) {
-                    drawCircle(color = lineColor.copy(alpha = 0.35f), radius = 9.dp.toPx(), center = pt)
-                    drawCircle(color = lineColor, radius = 5.dp.toPx(), center = pt)
-                    drawCircle(color = Color.White, radius = 2.dp.toPx(), center = pt)
-                } else {
-                    drawCircle(color = lineColor.copy(alpha = 0.25f), radius = 5.dp.toPx(), center = pt)
-                    drawCircle(color = lineColor, radius = 3.dp.toPx(), center = pt)
+                val dist = kotlin.math.abs(animatedSelectedIndex - idx)
+                val pointFocus = (1f - dist).coerceIn(0f, 1f)
+
+                val haloRadius = 5.dp.toPx() + 4.dp.toPx() * pointFocus
+                val haloAlpha = 0.20f + 0.15f * pointFocus
+                val coreRadius = 3.dp.toPx() + 2.dp.toPx() * pointFocus
+
+                drawCircle(color = lineColor.copy(alpha = haloAlpha), radius = haloRadius, center = pt)
+                drawCircle(color = lineColor, radius = coreRadius, center = pt)
+                if (pointFocus > 0.05f) {
+                    drawCircle(color = Color.White, radius = 2.dp.toPx() * pointFocus, center = pt)
                 }
             }
         }
@@ -1474,7 +1581,12 @@ fun SingleSeriesSplineChart(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .clickable { selectedIndex = index }
+                        .clickable {
+                            if (selectedIndex != index) {
+                                selectedIndex = index
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                        }
                         .padding(horizontal = 2.dp, vertical = 2.dp)
                 ) {
                     Text(
@@ -1517,6 +1629,12 @@ fun <T> FinTrackDropdownSelector(
     itemDropdownLabel: ((T) -> String)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val reducedMotion = isReducedMotionEnabled()
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = if (reducedMotion) snap() else FinTrackMotion.InteractiveSpring,
+        label = "dropdownArrowRotation"
+    )
 
     Box(modifier = modifier) {
         Surface(
@@ -1525,8 +1643,9 @@ fun <T> FinTrackDropdownSelector(
             color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
-                .defaultMinSize(minHeight = 40.dp)
+                .defaultMinSize(minHeight = 48.dp)
                 .testTag(testTag)
+                .tactilePress()
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1544,7 +1663,9 @@ fun <T> FinTrackDropdownSelector(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = "Select option",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier
+                        .size(18.dp)
+                        .graphicsLayer { rotationZ = arrowRotation }
                 )
             }
         }
@@ -1587,7 +1708,9 @@ fun <T> FinTrackDropdownSelector(
                         onItemSelected(item)
                         expanded = false
                     },
-                    modifier = Modifier.testTag("${testTag}_item_${itemLabel(item).replace(" ", "_")}")
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .testTag("${testTag}_item_${itemLabel(item).replace(" ", "_")}")
                 )
             }
         }

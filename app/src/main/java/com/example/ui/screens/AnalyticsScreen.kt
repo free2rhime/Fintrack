@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
@@ -38,7 +42,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.FilterSettings
 import com.example.data.util.NumberFormatter
-import com.example.domain.analytics.SmartFinancialInsights
 import com.example.ui.AnalyticsUiState
 import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackDropdownSelector
@@ -47,29 +50,37 @@ import com.example.ui.components.SingleSeriesSplineChart
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.LabelBadge
 import com.example.ui.theme.MicroMetadata
-import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeBadgeOrganic
 import com.example.ui.theme.ShapeGroupedContainer
+import com.example.ui.theme.ShapeGroupedItemBottom
+import com.example.ui.theme.ShapeGroupedItemSingle
+import com.example.ui.theme.ShapeGroupedItemTop
+import com.example.ui.theme.ShapeSquircleIcon
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
 import com.example.ui.theme.WarningAmber
+import com.example.ui.theme.isReducedMotionEnabled
 import java.util.Locale
 
 /**
  * Material 3 Expressive Exploration Surface for FinTrack Analytics.
  *
- * Transformed from the legacy card-stack presentation into a continuous,
- * tonally structured financial exploration canvas:
- * - Grouped exploration containers ([ShapeGroupedContainer]) replacing 1dp-bordered cards.
- * - Content-first financial metric hierarchy with tabular numerals.
- * - Dynamic interactive spline charts with contextual HUD indicators.
- * - Integrated Smart Insights surface when authoritative domain insights are supplied.
- * - Strict financial calculation authority: zero UI-level arithmetic; 100% authoritative state.
+ * Designed as a tactile, organic, and visually engaging Material 3 Expressive
+ * experience for private family finance:
+ * - Expressive Analytics Hero Canvas ([ShapeGroupedContainer]) with organic period badge and CurrencyToggle.
+ * - Tonal grouped exploration containers replacing generic bordered cards.
+ * - Dynamic interactive spline charts with spring-animated transitions.
+ * - Content-first financial metric clusters with tabular numerals.
+ * - Strict financial calculation authority: zero UI-level arithmetic.
+ * - Complete removal of legacy Smart Financial Insights from the Analytics UI.
  * - Global period filter invariant preserved: no local period chips/dropdowns on AnalyticsScreen.
  */
 @Composable
@@ -78,13 +89,14 @@ fun AnalyticsScreen(
     filterSettings: FilterSettings,
     hasIncompleteEurData: Boolean = false,
     excludedNonOfficialCount: Int = 0,
-    smartInsights: SmartFinancialInsights? = null,
     onCurrencyChanged: (String) -> Unit = {},
     onIncomeExpenseSelectionChanged: (String) -> Unit = {},
     onExpenseCategorySelectionChanged: (String) -> Unit = {},
     onIncomeSourceSelectionChanged: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val isReducedMotion = isReducedMotionEnabled()
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -100,51 +112,93 @@ fun AnalyticsScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ==========================================
-            // [HEADER REGION] Expressive Title + Currency
+            // [HERO REGION] Material 3 Expressive Analytics Hero
             // ==========================================
             Spacer(modifier = Modifier.height(Space8))
-            Row(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Space16, vertical = Space8),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = Space16, vertical = Space8)
+                    .testTag("analytics_hero_canvas"),
+                shape = ShapeGroupedContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(RadiusMedium))
-                            .background(CobaltBlue.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Space20)
+                ) {
+                    // Top Row: Large Expressive Squircle Icon & CurrencyToggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Analytics,
-                            contentDescription = null,
-                            tint = CobaltBlue,
-                            modifier = Modifier.size(20.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(ShapeSquircleIcon)
+                                .background(CobaltBlue.copy(alpha = 0.14f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Analytics,
+                                contentDescription = null,
+                                tint = CobaltBlue,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        CurrencyToggle(
+                            selectedCurrency = filterSettings.selectedCurrency,
+                            onCurrencyChanged = onCurrencyChanged
                         )
                     }
-                    Spacer(modifier = Modifier.width(Space12))
-                    Column {
-                        Text(
-                            text = "Analytics",
-                            style = SectionHeadline,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Financial flow & category distribution",
-                            style = MicroMetadata,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+
+                    Spacer(modifier = Modifier.height(Space16))
+
+                    // Title & Contextual Subtitle
+                    Text(
+                        text = "Analytics",
+                        style = SectionHeadline,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(Space4))
+                    Text(
+                        text = "Financial flow & category distribution",
+                        style = MicroMetadata,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(Space12))
+
+                    // Compact visual summary of the currently selected period (Organic badge)
+                    Surface(
+                        shape = ShapeBadgeOrganic,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier.testTag("analytics_active_period_badge")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = Space12, vertical = Space4)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(CobaltBlue)
+                            )
+                            Spacer(modifier = Modifier.width(Space8))
+                            Text(
+                                text = filterSettings.selectedPeriod,
+                                style = LabelBadge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
-
-                CurrencyToggle(
-                    selectedCurrency = filterSettings.selectedCurrency,
-                    onCurrencyChanged = onCurrencyChanged
-                )
             }
 
             // Incomplete EUR warning if applicable
@@ -155,18 +209,18 @@ fun AnalyticsScreen(
                         .fillMaxWidth()
                         .padding(horizontal = Space16)
                         .testTag("analytics_eur_incomplete_warning_card"),
-                    shape = RoundedCornerShape(RadiusMedium),
+                    shape = ShapeGroupedItemSingle,
                     color = WarningAmber.copy(alpha = 0.10f),
                     border = BorderStroke(1.dp, WarningAmber.copy(alpha = 0.25f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(Space12),
+                        modifier = Modifier.padding(Space16),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
+                                .size(32.dp)
+                                .clip(ShapeSquircleIcon)
                                 .background(WarningAmber.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -174,7 +228,7 @@ fun AnalyticsScreen(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "Warning",
                                 tint = WarningAmber,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(Space12))
@@ -213,7 +267,7 @@ fun AnalyticsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .clip(RoundedCornerShape(RadiusMedium))
+                                    .clip(ShapeSquircleIcon)
                                     .background(CobaltBlue.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -250,33 +304,48 @@ fun AnalyticsScreen(
                     val isIncome = analyticsUiState.incomeExpenseSelection.equals("Income", ignoreCase = true)
                     val lineColor = if (isIncome) IncomeEmerald else ExpenseCoral
 
-                    SingleSeriesSplineChart(
-                        dataPoints = analyticsUiState.incomeExpenseResult.dataPoints,
-                        currency = analyticsUiState.incomeExpenseResult.currency,
-                        lineColor = lineColor
-                    )
-
-                    Spacer(modifier = Modifier.height(Space16))
-
-                    // Integrated Monthly Average Metric Surface (Retires nested FinTrackCard)
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(RadiusMedium),
-                        color = MaterialTheme.colorScheme.surfaceContainer
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
-                            Text(
-                                text = "Monthly Average",
-                                style = MicroMetadata,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    AnimatedContent(
+                        targetState = analyticsUiState.incomeExpenseSelection,
+                        transitionSpec = {
+                            if (isReducedMotion) {
+                                fadeIn(animationSpec = snap()) togetherWith fadeOut(animationSpec = snap())
+                            } else {
+                                fadeIn(animationSpec = FinTrackMotion.selectionSpring()) togetherWith
+                                        fadeOut(animationSpec = FinTrackMotion.selectionSpring())
+                            }
+                        },
+                        label = "incomeExpenseChartContent"
+                    ) { _ ->
+                        Column {
+                            SingleSeriesSplineChart(
+                                dataPoints = analyticsUiState.incomeExpenseResult.dataPoints,
+                                currency = analyticsUiState.incomeExpenseResult.currency,
+                                lineColor = lineColor
                             )
-                            Spacer(modifier = Modifier.height(Space4))
-                            Text(
-                                text = "${NumberFormatter.formatAmount(analyticsUiState.incomeExpenseResult.monthlyAverage)} ${analyticsUiState.incomeExpenseResult.currency} / month",
-                                style = CardTitleAmount,
-                                color = lineColor,
-                                fontWeight = FontWeight.Bold
-                            )
+
+                            Spacer(modifier = Modifier.height(Space16))
+
+                            // Integrated Monthly Average Metric Surface
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ShapeGroupedItemSingle,
+                                color = MaterialTheme.colorScheme.surfaceContainer
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
+                                    Text(
+                                        text = "Monthly Average",
+                                        style = MicroMetadata,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(Space4))
+                                    Text(
+                                        text = "${NumberFormatter.formatAmount(analyticsUiState.incomeExpenseResult.monthlyAverage)} ${analyticsUiState.incomeExpenseResult.currency} / month",
+                                        style = CardTitleAmount,
+                                        color = lineColor,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -313,7 +382,7 @@ fun AnalyticsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .clip(RoundedCornerShape(RadiusMedium))
+                                    .clip(ShapeSquircleIcon)
                                     .background(ExpenseCoral.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -365,57 +434,72 @@ fun AnalyticsScreen(
                         val selectedCategoryName = selectedRankingItem?.categoryName ?: ""
                         val monthCountText = if (expResult.monthCount == 1) "1 month" else "${expResult.monthCount} months"
 
-                        SingleSeriesSplineChart(
-                            dataPoints = expResult.dataPoints,
-                            currency = expResult.currency,
-                            lineColor = ExpenseCoral
-                        )
-
-                        Spacer(modifier = Modifier.height(Space16))
-
-                        // Integrated Metric Cluster (Retires nested FinTrackCards)
-                        Column(verticalArrangement = Arrangement.spacedBy(Space8)) {
-                            // Total Metric
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(RadiusMedium),
-                                color = MaterialTheme.colorScheme.surfaceContainer
-                            ) {
-                                Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
-                                    Text(
-                                        text = "Total",
-                                        style = MicroMetadata,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(Space4))
-                                    Text(
-                                        text = "${NumberFormatter.formatAmount(expResult.total)} ${expResult.currency} · $selectedCategoryName · $monthCountText",
-                                        style = CardTitleAmount,
-                                        color = ExpenseCoral,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                        AnimatedContent(
+                            targetState = selectedCategoryName,
+                            transitionSpec = {
+                                if (isReducedMotion) {
+                                    fadeIn(animationSpec = snap()) togetherWith fadeOut(animationSpec = snap())
+                                } else {
+                                    fadeIn(animationSpec = FinTrackMotion.selectionSpring()) togetherWith
+                                            fadeOut(animationSpec = FinTrackMotion.selectionSpring())
                                 }
-                            }
+                            },
+                            label = "spendingCategoryChartContent"
+                        ) { _ ->
+                            Column {
+                                SingleSeriesSplineChart(
+                                    dataPoints = expResult.dataPoints,
+                                    currency = expResult.currency,
+                                    lineColor = ExpenseCoral
+                                )
 
-                            // Monthly Average Metric
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(RadiusMedium),
-                                color = MaterialTheme.colorScheme.surfaceContainer
-                            ) {
-                                Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
-                                    Text(
-                                        text = "Monthly Average",
-                                        style = MicroMetadata,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(Space4))
-                                    Text(
-                                        text = "${NumberFormatter.formatAmount(expResult.monthlyAverage)} ${expResult.currency} / month · $selectedCategoryName",
-                                        style = CardTitleAmount,
-                                        color = ExpenseCoral,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                Spacer(modifier = Modifier.height(Space16))
+
+                                // Integrated Metric Cluster (Top & Bottom Grouped Surfaces)
+                                Column(verticalArrangement = Arrangement.spacedBy(Space8)) {
+                                    // Total Metric
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = ShapeGroupedItemTop,
+                                        color = MaterialTheme.colorScheme.surfaceContainer
+                                    ) {
+                                        Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
+                                            Text(
+                                                text = "Total",
+                                                style = MicroMetadata,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.height(Space4))
+                                            Text(
+                                                text = "${NumberFormatter.formatAmount(expResult.total)} ${expResult.currency} · $selectedCategoryName · $monthCountText",
+                                                style = CardTitleAmount,
+                                                color = ExpenseCoral,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    // Monthly Average Metric
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = ShapeGroupedItemBottom,
+                                        color = MaterialTheme.colorScheme.surfaceContainer
+                                    ) {
+                                        Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
+                                            Text(
+                                                text = "Monthly Average",
+                                                style = MicroMetadata,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.height(Space4))
+                                            Text(
+                                                text = "${NumberFormatter.formatAmount(expResult.monthlyAverage)} ${expResult.currency} / month · $selectedCategoryName",
+                                                style = CardTitleAmount,
+                                                color = ExpenseCoral,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -454,7 +538,7 @@ fun AnalyticsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .clip(RoundedCornerShape(RadiusMedium))
+                                    .clip(ShapeSquircleIcon)
                                     .background(IncomeEmerald.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -506,174 +590,72 @@ fun AnalyticsScreen(
                         val selectedSourceName = selectedRankingItem?.categoryName ?: ""
                         val monthCountText = if (incResult.monthCount == 1) "1 month" else "${incResult.monthCount} months"
 
-                        SingleSeriesSplineChart(
-                            dataPoints = incResult.dataPoints,
-                            currency = incResult.currency,
-                            lineColor = IncomeEmerald
-                        )
-
-                        Spacer(modifier = Modifier.height(Space16))
-
-                        // Integrated Metric Cluster (Retires nested FinTrackCards)
-                        Column(verticalArrangement = Arrangement.spacedBy(Space8)) {
-                            // Total Metric
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(RadiusMedium),
-                                color = MaterialTheme.colorScheme.surfaceContainer
-                            ) {
-                                Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
-                                    Text(
-                                        text = "Total",
-                                        style = MicroMetadata,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(Space4))
-                                    Text(
-                                        text = "${NumberFormatter.formatAmount(incResult.total)} ${incResult.currency} · $selectedSourceName · $monthCountText",
-                                        style = CardTitleAmount,
-                                        color = IncomeEmerald,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                        AnimatedContent(
+                            targetState = selectedSourceName,
+                            transitionSpec = {
+                                if (isReducedMotion) {
+                                    fadeIn(animationSpec = snap()) togetherWith fadeOut(animationSpec = snap())
+                                } else {
+                                    fadeIn(animationSpec = FinTrackMotion.selectionSpring()) togetherWith
+                                            fadeOut(animationSpec = FinTrackMotion.selectionSpring())
                                 }
-                            }
-
-                            // Monthly Average Metric
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(RadiusMedium),
-                                color = MaterialTheme.colorScheme.surfaceContainer
-                            ) {
-                                Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
-                                    Text(
-                                        text = "Monthly Average",
-                                        style = MicroMetadata,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(Space4))
-                                    Text(
-                                        text = "${NumberFormatter.formatAmount(incResult.monthlyAverage)} ${incResult.currency} / month · $selectedSourceName",
-                                        style = CardTitleAmount,
-                                        color = IncomeEmerald,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ==========================================
-            // [SECTION 4] Contextual Smart Insights Surface
-            // ==========================================
-            if (smartInsights != null) {
-                Spacer(modifier = Modifier.height(Space20))
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Space16)
-                        .testTag("analytics_smart_insights_card"),
-                    shape = ShapeGroupedContainer,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow
-                ) {
-                    Column(modifier = Modifier.padding(Space16)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(RadiusMedium))
-                                        .background(CobaltBlue.copy(alpha = 0.12f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Analytics,
-                                        contentDescription = null,
-                                        tint = CobaltBlue,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(Space8))
-                                Text(
-                                    text = "Financial Insights",
-                                    style = SectionHeadline,
-                                    color = MaterialTheme.colorScheme.onSurface
+                            },
+                            label = "incomeSourceChartContent"
+                        ) { _ ->
+                            Column {
+                                SingleSeriesSplineChart(
+                                    dataPoints = incResult.dataPoints,
+                                    currency = incResult.currency,
+                                    lineColor = IncomeEmerald
                                 )
-                            }
 
-                            Surface(
-                                shape = CircleShape,
-                                color = when (smartInsights.savingsTrendText) {
-                                    "Improving", "Strong" -> IncomeEmerald.copy(alpha = 0.15f)
-                                    "Declining", "Critical" -> ExpenseCoral.copy(alpha = 0.15f)
-                                    else -> CobaltBlue.copy(alpha = 0.15f)
-                                }
-                            ) {
-                                Text(
-                                    text = smartInsights.savingsTrendText,
-                                    style = MicroMetadata,
-                                    fontWeight = FontWeight.Bold,
-                                    color = when (smartInsights.savingsTrendText) {
-                                        "Improving", "Strong" -> IncomeEmerald
-                                        "Declining", "Critical" -> ExpenseCoral
-                                        else -> CobaltBlue
-                                    },
-                                    modifier = Modifier.padding(horizontal = Space8, vertical = Space4)
-                                )
-                            }
-                        }
+                                Spacer(modifier = Modifier.height(Space16))
 
-                        Spacer(modifier = Modifier.height(Space12))
+                                // Integrated Metric Cluster (Top & Bottom Grouped Surfaces)
+                                Column(verticalArrangement = Arrangement.spacedBy(Space8)) {
+                                    // Total Metric
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = ShapeGroupedItemTop,
+                                        color = MaterialTheme.colorScheme.surfaceContainer
+                                    ) {
+                                        Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
+                                            Text(
+                                                text = "Total",
+                                                style = MicroMetadata,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.height(Space4))
+                                            Text(
+                                                text = "${NumberFormatter.formatAmount(incResult.total)} ${incResult.currency} · $selectedSourceName · $monthCountText",
+                                                style = CardTitleAmount,
+                                                color = IncomeEmerald,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
 
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(RadiusMedium),
-                            color = MaterialTheme.colorScheme.surfaceContainer
-                        ) {
-                            Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
-                                Text(
-                                    text = "Month-over-Month Expense Change",
-                                    style = MicroMetadata,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(Space4))
-                                val momPercent = smartInsights.monthOverMonthExpenseChangePercent
-                                val momSign = if (momPercent > 0) "+" else ""
-                                val momColor = if (momPercent <= 0) IncomeEmerald else ExpenseCoral
-                                Text(
-                                    text = "$momSign${String.format(Locale.US, "%.1f%%", momPercent)}",
-                                    style = CardTitleAmount,
-                                    color = momColor,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        if (smartInsights.largestExpenseMonth != "N/A") {
-                            Spacer(modifier = Modifier.height(Space8))
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(RadiusMedium),
-                                color = MaterialTheme.colorScheme.surfaceContainer
-                            ) {
-                                Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
-                                    Text(
-                                        text = "Peak Expense Month",
-                                        style = MicroMetadata,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(Space4))
-                                    Text(
-                                        text = "${smartInsights.largestExpenseMonth} · ${NumberFormatter.formatAmount(smartInsights.largestExpenseMonthAmount)} ${filterSettings.selectedCurrency}",
-                                        style = CardTitleAmount,
-                                        color = ExpenseCoral,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    // Monthly Average Metric
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = ShapeGroupedItemBottom,
+                                        color = MaterialTheme.colorScheme.surfaceContainer
+                                    ) {
+                                        Column(modifier = Modifier.padding(horizontal = Space16, vertical = Space12)) {
+                                            Text(
+                                                text = "Monthly Average",
+                                                style = MicroMetadata,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.height(Space4))
+                                            Text(
+                                                text = "${NumberFormatter.formatAmount(incResult.monthlyAverage)} ${incResult.currency} / month · $selectedSourceName",
+                                                style = CardTitleAmount,
+                                                color = IncomeEmerald,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

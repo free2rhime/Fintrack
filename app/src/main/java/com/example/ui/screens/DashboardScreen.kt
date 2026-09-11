@@ -41,7 +41,6 @@ import com.example.domain.analytics.MonthlyDataPoint
 import com.example.domain.analytics.SmartFinancialInsights
 import com.example.ui.components.CategoryDistributionChart
 import com.example.ui.components.CurrencyToggle
-import com.example.ui.components.FinTrackCard
 import com.example.ui.components.FinTrackPeriodDropdown
 import com.example.ui.components.FinancialPulseCard
 import com.example.ui.components.MonthlyCashFlowSplineChart
@@ -78,7 +77,8 @@ fun DashboardScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .testTag("dashboard_screen_root"),
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
@@ -133,16 +133,17 @@ fun DashboardScreen(
             // Optional EUR / BNR Incomplete Warning
             if (metrics.hasIncompleteEurData) {
                 Spacer(modifier = Modifier.height(Space12))
-                FinTrackCard(
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = Space16)
                         .testTag("eur_incomplete_warning_card"),
                     shape = RoundedCornerShape(RadiusMedium),
-                    border = BorderStroke(1.dp, FinTrackTheme.colors.healthWarning.copy(alpha = 0.3f)),
-                    contentPadding = Space12
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    border = BorderStroke(1.dp, FinTrackTheme.colors.healthWarning.copy(alpha = 0.3f))
                 ) {
                     Row(
+                        modifier = Modifier.padding(Space12),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
@@ -187,7 +188,8 @@ fun DashboardScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Space16),
+                    .padding(horizontal = Space16)
+                    .testTag("dashboard_cash_flow_container"),
                 shape = ShapeGroupedContainer,
                 color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
@@ -233,7 +235,8 @@ fun DashboardScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Space16),
+                    .padding(horizontal = Space16)
+                    .testTag("dashboard_category_distribution_container"),
                 shape = ShapeGroupedContainer,
                 color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {

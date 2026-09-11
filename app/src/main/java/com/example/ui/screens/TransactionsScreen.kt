@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -68,9 +69,11 @@ import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeFloatingActionButton
 import com.example.ui.theme.ShapeGroupedContainer
 import com.example.ui.theme.ShapeGroupedItemBottom
 import com.example.ui.theme.ShapeGroupedItemMiddle
+import com.example.ui.theme.ShapePill
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space2
@@ -128,7 +131,7 @@ fun TransactionsScreen(
                 onClick = onAddTransactionClicked,
                 containerColor = CobaltBlue,
                 contentColor = Color.White,
-                shape = RoundedCornerShape(RadiusLarge),
+                shape = ShapeFloatingActionButton,
                 modifier = Modifier.testTag("fab_add_transaction")
             ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add Transaction")
@@ -268,7 +271,7 @@ fun TransactionsScreen(
                 FilterChip(
                     selected = isAllSelected,
                     onClick = { onCategoryFilterSelected(filterSettings.selectedType, null) },
-                    shape = RoundedCornerShape(RadiusMedium),
+                    shape = ShapePill,
                     border = null,
                     label = {
                         Text(
@@ -295,7 +298,7 @@ fun TransactionsScreen(
                                 onCategoryFilterSelected(filterSettings.selectedType, catName)
                             }
                         },
-                        shape = RoundedCornerShape(RadiusMedium),
+                        shape = ShapePill,
                         border = null,
                         label = {
                             Text(
@@ -320,6 +323,7 @@ fun TransactionsScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
                         .padding(Space24),
                     contentAlignment = Alignment.Center
                 ) {

@@ -30,7 +30,9 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -85,12 +87,15 @@ import com.example.ui.theme.SectionHeadline
 import com.example.ui.theme.ShapeGroupedContainer
 import com.example.ui.theme.ShapeModalSheet
 import com.example.ui.theme.ShapePill
+import com.example.ui.theme.ShapeSquircleIcon
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
+import com.example.ui.theme.Space2
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
 import com.example.ui.theme.isReducedMotionEnabled
+import com.example.ui.theme.tactilePress
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -122,7 +127,7 @@ fun ExpressiveTypeSegmentedControl(
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(56.dp)
             .padding(4.dp)
     ) {
         Row(
@@ -147,6 +152,7 @@ fun ExpressiveTypeSegmentedControl(
                     .defaultMinSize(minHeight = 48.dp)
                     .clip(ShapePill)
                     .background(expenseBg)
+                    .tactilePress(targetScale = 0.98f, enabled = !reducedMotion)
                     .clickable(role = Role.Tab) { onTypeSelected("Expense") }
                     .semantics {
                         this.selected = isExpense
@@ -194,6 +200,7 @@ fun ExpressiveTypeSegmentedControl(
                     .defaultMinSize(minHeight = 48.dp)
                     .clip(ShapePill)
                     .background(incomeBg)
+                    .tactilePress(targetScale = 0.98f, enabled = !reducedMotion)
                     .clickable(role = Role.Tab) { onTypeSelected("Income") }
                     .semantics {
                         this.selected = !isExpense
@@ -388,30 +395,72 @@ fun TransactionFormDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = when {
-                                isDuplicateMode -> "Duplicate Transaction"
-                                initialTransaction != null -> "Edit Transaction"
-                                else -> "Add Transaction"
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Space12)
+                    ) {
+                        Surface(
+                            shape = ShapeSquircleIcon,
+                            color = when {
+                                isDuplicateMode -> CobaltBlue.copy(alpha = 0.14f)
+                                initialTransaction != null -> CobaltBlue.copy(alpha = 0.14f)
+                                else -> (if (type == "Income") IncomeEmerald else ExpenseCoral).copy(alpha = 0.14f)
                             },
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        if (isDuplicateMode) {
-                            Spacer(modifier = Modifier.height(Space4))
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = when {
+                                        isDuplicateMode -> Icons.Default.ContentCopy
+                                        initialTransaction != null -> Icons.Default.Edit
+                                        else -> if (type == "Income") Icons.Default.ArrowUpward else Icons.Default.ArrowDownward
+                                    },
+                                    contentDescription = null,
+                                    tint = when {
+                                        isDuplicateMode -> CobaltBlue
+                                        initialTransaction != null -> CobaltBlue
+                                        else -> if (type == "Income") IncomeEmerald else ExpenseCoral
+                                    },
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Date auto-updated to today ($todayStr)",
-                                style = MicroMetadata,
-                                color = CobaltBlue
+                                text = when {
+                                    isDuplicateMode -> "Duplicate Transaction"
+                                    initialTransaction != null -> "Edit Transaction"
+                                    else -> "Add Transaction"
+                                },
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+                            if (isDuplicateMode) {
+                                Spacer(modifier = Modifier.height(Space2))
+                                Text(
+                                    text = "Date auto-updated to today ($todayStr)",
+                                    style = MicroMetadata,
+                                    color = CobaltBlue
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.height(Space2))
+                                Text(
+                                    text = if (initialTransaction != null) "Update transaction details" else "Record a new family entry",
+                                    style = MicroMetadata,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
 
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier
+                            .size(48.dp)
+                            .tactilePress(enabled = !reducedMotion)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
@@ -755,6 +804,16 @@ fun TransactionFormDialog(
                         ) {
                             listOf("Bubu", "Piticania").forEach { destName ->
                                 val isSelected = destination == destName
+                                val destBg by animateColorAsState(
+                                    targetValue = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.surfaceContainer,
+                                    animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
+                                    label = "dest_bg_$destName"
+                                )
+                                val destTextColor by animateColorAsState(
+                                    targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
+                                    label = "dest_text_$destName"
+                                )
                                 Surface(
                                     onClick = {
                                         destination = if (destination == destName) "" else destName
@@ -762,12 +821,13 @@ fun TransactionFormDialog(
                                     modifier = Modifier
                                         .weight(1f)
                                         .defaultMinSize(minHeight = 48.dp)
+                                        .tactilePress(targetScale = 0.98f, enabled = !reducedMotion)
                                         .semantics {
                                             this.selected = isSelected
                                             this.role = Role.Tab
                                         },
                                     shape = ShapePill,
-                                    color = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.surfaceContainer,
+                                    color = destBg,
                                     border = null
                                 ) {
                                     Box(
@@ -778,7 +838,7 @@ fun TransactionFormDialog(
                                             text = destName,
                                             style = LabelBadgeMedium,
                                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = destTextColor
                                         )
                                     }
                                 }
@@ -798,6 +858,7 @@ fun TransactionFormDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 48.dp)
+                            .tactilePress(targetScale = 0.98f, enabled = !reducedMotion)
                             .testTag("tx_delete_button")
                             .semantics {
                                 this.role = Role.Button
@@ -886,6 +947,22 @@ fun TransactionFormDialog(
             onDismissRequest = { showDeleteConfirmation = false },
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = ShapeGroupedContainer,
+            icon = {
+                Surface(
+                    shape = ShapeSquircleIcon,
+                    color = ExpenseCoral.copy(alpha = 0.14f),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = null,
+                            tint = ExpenseCoral,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            },
             title = {
                 Text(
                     text = "Delete Transaction",

@@ -10,21 +10,29 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 
 // =============================================================================
-// FinTrack Motion System v2
-// Direction: Precision Fintech (Restrained, deterministic, tactile, spring-based)
+// FinTrack Motion System v3
+// Direction: Material 3 Expressive — Family Finance Experience
+// Tactile, spring-driven, organic response with reduced-motion accessibility
 // =============================================================================
 
 object FinTrackMotion {
@@ -276,5 +284,29 @@ fun isReducedMotionEnabled(): Boolean {
         } catch (_: Throwable) {
             false
         }
+    }
+}
+
+/**
+ * Applies subtle spring-based tactile press feedback (scaling down to target scale on press)
+ * adhering to Material 3 Expressive family finance interaction principles.
+ * Respects reduced-motion accessibility settings.
+ */
+fun Modifier.tactilePress(
+    interactionSource: MutableInteractionSource? = null,
+    targetScale: Float = FinTrackMotion.PressScaleTarget,
+    enabled: Boolean = true
+): Modifier = composed {
+    if (!enabled || isReducedMotionEnabled()) return@composed this
+    val source = interactionSource ?: remember { MutableInteractionSource() }
+    val isPressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) targetScale else 1.0f,
+        animationSpec = FinTrackMotion.InteractiveSpring,
+        label = "tactilePressScale"
+    )
+    this.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
     }
 }
