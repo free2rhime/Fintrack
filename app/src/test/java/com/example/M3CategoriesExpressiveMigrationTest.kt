@@ -2,6 +2,8 @@ package com.example
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -10,6 +12,8 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -614,5 +618,228 @@ class M3CategoriesExpressiveMigrationTest {
         // Only categories provided to the screen are displayed; no leakage
         composeTestRule.onNodeWithText("Secret Category").assertIsDisplayed()
         composeTestRule.onAllNodesWithText("Housing").assertCountEquals(0)
+    }
+
+    // =========================================================================
+    // 21. LONG CATEGORY NAMES & SUBCOUNT WRAP-PROOF ON 360DP (MOBILE)
+    // =========================================================================
+
+    @Test
+    fun test21_longCategoryNamesAndSubcategoryWrappingOn360dp() {
+        val longCategories = listOf(
+            CategoryEntity(id = "cat_l1", name = "Alimente & Băuturi de zi cu zi", type = "Expense", subCategory = "Supermarket, Piață & Băcănie", householdId = "hh_1"),
+            CategoryEntity(id = "cat_l2", name = "Alimente & Băuturi de zi cu zi", type = "Expense", subCategory = "Restaurante, Cafenele & Fast-Food", householdId = "hh_1"),
+            CategoryEntity(id = "cat_l3", name = "Bonusuri și alte venituri ocazionale", type = "Income", subCategory = "Prime de performanță anuale", householdId = "hh_1")
+        )
+
+        composeTestRule.setContent {
+            FinTrackTheme {
+                Box(modifier = Modifier.width(360.dp)) {
+                    CategoriesScreen(
+                        categories = longCategories,
+                        canManageCategories = true,
+                        onAddCategory = { _, _, _ -> },
+                        onUpdateCategoryGroup = { _, _, _ -> },
+                        onDeleteCategoryGroup = { _, _ -> },
+                        onUpdateSubcategory = { _, _ -> },
+                        onDeleteSubcategory = { _ -> }
+                    )
+                }
+            }
+        }
+
+        // Long category titles are visible and intact
+        composeTestRule.onNodeWithText("Alimente & Băuturi de zi cu zi").assertIsDisplayed()
+        // Subcategory count badge renders as a complete unit
+        composeTestRule.onNodeWithText("2 subcategories").assertIsDisplayed()
+        // Subcategory items with long names render properly
+        composeTestRule.onNodeWithText("Supermarket, Piață & Băcănie").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Restaurante, Cafenele & Fast-Food").assertIsDisplayed()
+
+        // Management actions are accessible
+        composeTestRule.onNodeWithTag("edit_category_group_Alimente & Băuturi de zi cu zi").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("delete_category_group_Alimente & Băuturi de zi cu zi").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("edit_subcategory_cat_l1").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("delete_subcategory_cat_l1").assertIsDisplayed()
+    }
+
+    // =========================================================================
+    // 22. LONG CATEGORY NAMES ON TABLET 600DP+ (WIDE BALANCED ROW)
+    // =========================================================================
+
+    @Test
+    fun test22_longCategoryNamesOnTablet600dp() {
+        val longCategories = listOf(
+            CategoryEntity(id = "cat_l1", name = "Alimente & Băuturi de zi cu zi", type = "Expense", subCategory = "Supermarket", householdId = "hh_1")
+        )
+
+        composeTestRule.setContent {
+            FinTrackTheme {
+                Box(modifier = Modifier.width(720.dp)) {
+                    CategoriesScreen(
+                        categories = longCategories,
+                        canManageCategories = true,
+                        onAddCategory = { _, _, _ -> },
+                        onUpdateCategoryGroup = { _, _, _ -> },
+                        onDeleteCategoryGroup = { _, _ -> },
+                        onUpdateSubcategory = { _, _ -> },
+                        onDeleteSubcategory = { _ -> }
+                    )
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText("Alimente & Băuturi de zi cu zi").assertIsDisplayed()
+        composeTestRule.onNodeWithText("1 subcategory").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("edit_category_group_Alimente & Băuturi de zi cu zi").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("delete_category_group_Alimente & Băuturi de zi cu zi").assertIsDisplayed()
+    }
+
+    // =========================================================================
+    // 23. MEMBER MODE ON COMPACT SCREEN (CLEAN READ-ONLY ROW)
+    // =========================================================================
+
+    @Test
+    fun test23_memberModeResponsiveLayoutNoActionOverlap() {
+        val longCategories = listOf(
+            CategoryEntity(id = "cat_l1", name = "Bonusuri și alte venituri", type = "Expense", subCategory = "Tichete de masă", householdId = "hh_1")
+        )
+
+        composeTestRule.setContent {
+            FinTrackTheme {
+                Box(modifier = Modifier.width(360.dp)) {
+                    CategoriesScreen(
+                        categories = longCategories,
+                        canManageCategories = false, // Member mode
+                        onAddCategory = { _, _, _ -> },
+                        onUpdateCategoryGroup = { _, _, _ -> },
+                        onDeleteCategoryGroup = { _, _ -> },
+                        onUpdateSubcategory = { _, _ -> },
+                        onDeleteSubcategory = { _ -> }
+                    )
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText("Bonusuri și alte venituri").assertIsDisplayed()
+        composeTestRule.onNodeWithText("1 subcategory").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Tichete de masă").assertIsDisplayed()
+        // No management buttons displayed for member
+        composeTestRule.onAllNodesWithTag("edit_category_group_Bonusuri și alte venituri").assertCountEquals(0)
+        composeTestRule.onAllNodesWithTag("delete_category_group_Bonusuri și alte venituri").assertCountEquals(0)
+    }
+
+    // =========================================================================
+    // 24. SHORT VIEWPORT 320DP X 470DP (NO FAB OVERLAP ON OWNER ACTIONS)
+    // =========================================================================
+
+    @Test
+    fun test24_shortViewport320dpNoFabActionOverlap() {
+        var subcategoryDeleted = false
+        val categories = listOf(
+            CategoryEntity(id = "cat_1", name = "Housing", type = "Expense", subCategory = "Rent", householdId = "hh_1")
+        )
+
+        composeTestRule.setContent {
+            FinTrackTheme {
+                Box(modifier = Modifier.size(width = 320.dp, height = 470.dp)) {
+                    CategoriesScreen(
+                        categories = categories,
+                        canManageCategories = true,
+                        onAddCategory = { _, _, _ -> },
+                        onUpdateCategoryGroup = { _, _, _ -> },
+                        onDeleteCategoryGroup = { _, _ -> },
+                        onUpdateSubcategory = { _, _ -> },
+                        onDeleteSubcategory = { _ -> subcategoryDeleted = true }
+                    )
+                }
+            }
+        }
+
+        // Verify category card and subcategory are displayed
+        composeTestRule.onNodeWithText("Housing").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Rent").assertIsDisplayed()
+
+        // FAB should be displayed in the short viewport
+        composeTestRule.onNodeWithTag("fab_add_category").assertIsDisplayed()
+
+        // Clicking the subcategory delete button must successfully trigger onDeleteSubcategory,
+        // proving it is NOT occluded or intercepted by the FloatingActionButton
+        composeTestRule.onNodeWithTag("delete_subcategory_cat_1").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("delete_subcategory_cat_1").performClick()
+        assertTrue("Subcategory delete should be clicked without FAB occlusion", subcategoryDeleted)
+    }
+
+    // =========================================================================
+    // 25. CATEGORY WITH NO SUBCATEGORIES (EXPRESSIVE EMPTY STATE)
+    // =========================================================================
+
+    @Test
+    fun test25_categoryWithNoSubcategoriesExpressiveEmptyState() {
+        val emptySubCategories = listOf(
+            CategoryEntity(id = "cat_empty", name = "Miscellaneous", type = "Expense", subCategory = "", householdId = "hh_1")
+        )
+
+        composeTestRule.setContent {
+            FinTrackTheme {
+                CategoriesScreen(
+                    categories = emptySubCategories,
+                    canManageCategories = true,
+                    onAddCategory = { _, _, _ -> },
+                    onUpdateCategoryGroup = { _, _, _ -> },
+                    onDeleteCategoryGroup = { _, _ -> },
+                    onUpdateSubcategory = { _, _ -> },
+                    onDeleteSubcategory = { _ -> }
+                )
+            }
+        }
+
+        // Category card rendered with 0 subcategories badge
+        composeTestRule.onNodeWithText("Miscellaneous").assertIsDisplayed()
+        composeTestRule.onNodeWithText("0 subcategories").assertIsDisplayed()
+
+        // Expressive empty state helper text rendered inside expanded accordion
+        composeTestRule.onNodeWithText("No subcategories yet. Tap '+ Sub' to add one.").assertIsDisplayed()
+    }
+
+    // =========================================================================
+    // 26. SEGMENTED CONTROL SPRING SELECTION TOGGLE
+    // =========================================================================
+
+    @Test
+    fun test26_segmentedControlSpringSelectionToggle() {
+        composeTestRule.setContent {
+            FinTrackTheme {
+                CategoriesScreen(
+                    categories = sampleCategories(),
+                    canManageCategories = true,
+                    onAddCategory = { _, _, _ -> },
+                    onUpdateCategoryGroup = { _, _, _ -> },
+                    onDeleteCategoryGroup = { _, _ -> },
+                    onUpdateSubcategory = { _, _ -> },
+                    onDeleteSubcategory = { _ -> }
+                )
+            }
+        }
+
+        // Initially Expense Categories is selected, Income is not
+        composeTestRule.onNodeWithText("Expense Categories").assertIsSelected()
+        composeTestRule.onNodeWithText("Income Categories").assertIsNotSelected()
+
+        // Switch to Income Categories
+        composeTestRule.onNodeWithText("Income Categories").performClick()
+        composeTestRule.waitForIdle()
+
+        // Income Categories is now selected, Expense is not
+        composeTestRule.onNodeWithText("Income Categories").assertIsSelected()
+        composeTestRule.onNodeWithText("Expense Categories").assertIsNotSelected()
+
+        // Switch back to Expense Categories
+        composeTestRule.onNodeWithText("Expense Categories").performClick()
+        composeTestRule.waitForIdle()
+
+        // Expense Categories is selected again
+        composeTestRule.onNodeWithText("Expense Categories").assertIsSelected()
+        composeTestRule.onNodeWithText("Income Categories").assertIsNotSelected()
     }
 }

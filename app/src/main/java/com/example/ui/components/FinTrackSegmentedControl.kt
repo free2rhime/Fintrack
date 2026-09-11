@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.snap
 import com.example.ui.theme.CobaltBlue
 import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.LabelBadgeMedium
@@ -32,6 +33,8 @@ import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.Space2
 import com.example.ui.theme.Space4
+import com.example.ui.theme.isReducedMotionEnabled
+import com.example.ui.theme.tactilePress
 
 /**
  * Reusable segmented control for mutually exclusive choices in FinTrack Design System v1.
@@ -49,6 +52,10 @@ fun FinTrackSegmentedControl(
     modifier: Modifier = Modifier,
     isCompact: Boolean = false
 ) {
+    val reducedMotion = isReducedMotionEnabled()
+    val selectionSpringSpec: androidx.compose.animation.core.AnimationSpec<Color> =
+        if (reducedMotion) snap() else FinTrackMotion.selectionSpring()
+
     if (isCompact) {
         Box(
             modifier = modifier
@@ -75,13 +82,13 @@ fun FinTrackSegmentedControl(
 
                     val pillBgColor by animateColorAsState(
                         targetValue = if (isSelected) CobaltBlue else Color.Transparent,
-                        animationSpec = FinTrackMotion.standardTween(),
+                        animationSpec = selectionSpringSpec,
                         label = "segmented_control_compact_pill_bg"
                     )
 
                     val textColor by animateColorAsState(
                         targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        animationSpec = FinTrackMotion.standardTween(),
+                        animationSpec = selectionSpringSpec,
                         label = "segmented_control_compact_text_color"
                     )
 
@@ -89,6 +96,7 @@ fun FinTrackSegmentedControl(
                         modifier = Modifier
                             .weight(1f)
                             .defaultMinSize(minHeight = 48.dp)
+                            .tactilePress()
                             .clickable(role = Role.Tab) { onItemSelected(index) }
                             .semantics {
                                 this.selected = isSelected
@@ -130,13 +138,13 @@ fun FinTrackSegmentedControl(
 
                 val pillBgColor by animateColorAsState(
                     targetValue = if (isSelected) CobaltBlue else Color.Transparent,
-                    animationSpec = FinTrackMotion.standardTween(),
+                    animationSpec = selectionSpringSpec,
                     label = "segmented_control_pill_bg"
                 )
 
                 val textColor by animateColorAsState(
                     targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    animationSpec = FinTrackMotion.standardTween(),
+                    animationSpec = selectionSpringSpec,
                     label = "segmented_control_text_color"
                 )
 
@@ -146,6 +154,7 @@ fun FinTrackSegmentedControl(
                         .defaultMinSize(minHeight = 48.dp)
                         .clip(RoundedCornerShape(RadiusSmall))
                         .background(pillBgColor)
+                        .tactilePress()
                         .clickable(role = Role.Tab) { onItemSelected(index) }
                         .semantics {
                             this.selected = isSelected
