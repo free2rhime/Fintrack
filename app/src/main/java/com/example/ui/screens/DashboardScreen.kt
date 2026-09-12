@@ -1,5 +1,11 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.data.model.FilterSettings
 import com.example.data.model.TransactionEntity
@@ -46,7 +54,9 @@ import com.example.ui.components.FinancialPulseCard
 import com.example.ui.components.MonthlyCashFlowSplineChart
 import com.example.ui.components.RecentActivitySection
 import com.example.ui.components.UnifiedHeroCanvas
+import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.FinTrackTheme
+import com.example.ui.theme.MaxContentWidthTablet
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusMedium
@@ -57,6 +67,7 @@ import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space24
 import com.example.ui.theme.Space4
+import com.example.ui.theme.isReducedMotionEnabled
 import com.example.ui.theme.Space8
 
 @Composable
@@ -74,6 +85,8 @@ fun DashboardScreen(
     syncStatus: SyncStatus = SyncStatus.SignedOut,
     modifier: Modifier = Modifier
 ) {
+    val isReducedMotion = isReducedMotionEnabled()
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -84,7 +97,7 @@ fun DashboardScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 680.dp)
+                .widthIn(max = MaxContentWidthTablet)
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = Space24)
         ) {
@@ -99,7 +112,8 @@ fun DashboardScreen(
                 Text(
                     text = "Dashboard",
                     style = SectionHeadline,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.semantics { heading() }
                 )
                 CurrencyToggle(
                     selectedCurrency = filterSettings.selectedCurrency,
@@ -131,41 +145,47 @@ fun DashboardScreen(
             }
 
             // Optional EUR / BNR Incomplete Warning
-            if (metrics.hasIncompleteEurData) {
-                Spacer(modifier = Modifier.height(Space12))
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Space16)
-                        .testTag("eur_incomplete_warning_card"),
-                    shape = RoundedCornerShape(RadiusMedium),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    border = BorderStroke(1.dp, FinTrackTheme.colors.healthWarning.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(Space12),
-                        verticalAlignment = Alignment.CenterVertically
+            AnimatedVisibility(
+                visible = metrics.hasIncompleteEurData,
+                enter = if (isReducedMotion) fadeIn(snap()) else fadeIn(FinTrackMotion.contentEntranceSpec()) + expandVertically(FinTrackMotion.contentEntranceSpec()),
+                exit = if (isReducedMotion) fadeOut(snap()) else fadeOut(FinTrackMotion.contentChangeSpec()) + shrinkVertically(FinTrackMotion.contentChangeSpec())
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(Space12))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Space16)
+                            .testTag("eur_incomplete_warning_card"),
+                        shape = RoundedCornerShape(RadiusMedium),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        border = BorderStroke(1.dp, FinTrackTheme.colors.healthWarning.copy(alpha = 0.3f))
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(FinTrackTheme.colors.healthWarning.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.padding(Space12),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "Warning",
-                                tint = FinTrackTheme.colors.healthWarning,
-                                modifier = Modifier.size(16.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(FinTrackTheme.colors.healthWarning.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Warning",
+                                    tint = FinTrackTheme.colors.healthWarning,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(Space12))
+                            Text(
+                                text = "EUR totals are incomplete: ${metrics.excludedNonOfficialCount} transaction(s) pending or unverified BNR exchange rate excluded. Complete RON data remains available.",
+                                style = MicroMetadata,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        Spacer(modifier = Modifier.width(Space12))
-                        Text(
-                            text = "EUR totals are incomplete: ${metrics.excludedNonOfficialCount} transaction(s) pending or unverified BNR exchange rate excluded. Complete RON data remains available.",
-                            style = MicroMetadata,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
                     }
                 }
             }
@@ -216,7 +236,8 @@ fun DashboardScreen(
                         Text(
                             text = "Monthly Cash Flow",
                             style = SectionHeadline,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.semantics { heading() }
                         )
                     }
 
@@ -260,7 +281,8 @@ fun DashboardScreen(
                         Text(
                             text = "Spending by Category",
                             style = SectionHeadline,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.semantics { heading() }
                         )
                     }
 

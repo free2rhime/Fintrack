@@ -299,7 +299,7 @@ fun FinancialPulseCard(
                                 label = "velocity_progress"
                             )
 
-                            val velocityColor = if (velocityValue > 80.0 || velocityValue > 20.0) {
+                            val velocityColor = if (velocityValue > 80.0) {
                                 FinTrackTheme.colors.healthWarning
                             } else {
                                 FinTrackTheme.colors.healthPositive

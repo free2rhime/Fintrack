@@ -37,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,11 +50,10 @@ import com.example.ui.components.FinTrackDropdownSelector
 import com.example.ui.components.FinTrackEmptyState
 import com.example.ui.components.SingleSeriesSplineChart
 import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.FinTrackMotion
-import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadge
+import com.example.ui.theme.MaxContentWidthTablet
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.SectionHeadline
 import com.example.ui.theme.ShapeBadgeOrganic
@@ -66,7 +67,6 @@ import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.WarningAmber
 import com.example.ui.theme.isReducedMotionEnabled
 import java.util.Locale
 
@@ -106,7 +106,7 @@ fun AnalyticsScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 680.dp)
+                .widthIn(max = MaxContentWidthTablet)
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 96.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -138,13 +138,13 @@ fun AnalyticsScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(ShapeSquircleIcon)
-                                .background(CobaltBlue.copy(alpha = 0.14f)),
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Analytics,
                                 contentDescription = null,
-                                tint = CobaltBlue,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -162,7 +162,8 @@ fun AnalyticsScreen(
                         text = "Analytics",
                         style = SectionHeadline,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
                     )
                     Spacer(modifier = Modifier.height(Space4))
                     Text(
@@ -187,7 +188,7 @@ fun AnalyticsScreen(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(CobaltBlue)
+                                    .background(MaterialTheme.colorScheme.primary)
                             )
                             Spacer(modifier = Modifier.width(Space8))
                             Text(
@@ -210,8 +211,8 @@ fun AnalyticsScreen(
                         .padding(horizontal = Space16)
                         .testTag("analytics_eur_incomplete_warning_card"),
                     shape = ShapeGroupedItemSingle,
-                    color = WarningAmber.copy(alpha = 0.10f),
-                    border = BorderStroke(1.dp, WarningAmber.copy(alpha = 0.25f))
+                    color = FinTrackTheme.colors.warning.copy(alpha = 0.10f),
+                    border = BorderStroke(1.dp, FinTrackTheme.colors.warning.copy(alpha = 0.25f))
                 ) {
                     Row(
                         modifier = Modifier.padding(Space16),
@@ -221,13 +222,13 @@ fun AnalyticsScreen(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(ShapeSquircleIcon)
-                                .background(WarningAmber.copy(alpha = 0.15f)),
+                                .background(FinTrackTheme.colors.warning.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "Warning",
-                                tint = WarningAmber,
+                                tint = FinTrackTheme.colors.warning,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -268,13 +269,13 @@ fun AnalyticsScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(ShapeSquircleIcon)
-                                    .background(CobaltBlue.copy(alpha = 0.12f)),
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ShowChart,
                                     contentDescription = null,
-                                    tint = CobaltBlue,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -284,7 +285,8 @@ fun AnalyticsScreen(
                                 style = SectionHeadline,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.semantics { heading() }
                             )
                         }
 
@@ -302,7 +304,7 @@ fun AnalyticsScreen(
                     Spacer(modifier = Modifier.height(Space16))
 
                     val isIncome = analyticsUiState.incomeExpenseSelection.equals("Income", ignoreCase = true)
-                    val lineColor = if (isIncome) IncomeEmerald else ExpenseCoral
+                    val lineColor = if (isIncome) FinTrackTheme.colors.income else FinTrackTheme.colors.expense
 
                     AnimatedContent(
                         targetState = analyticsUiState.incomeExpenseSelection,
@@ -383,13 +385,13 @@ fun AnalyticsScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(ShapeSquircleIcon)
-                                    .background(ExpenseCoral.copy(alpha = 0.12f)),
+                                    .background(FinTrackTheme.colors.expense.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PieChart,
                                     contentDescription = null,
-                                    tint = ExpenseCoral,
+                                    tint = FinTrackTheme.colors.expense,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -399,7 +401,8 @@ fun AnalyticsScreen(
                                 style = SectionHeadline,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.semantics { heading() }
                             )
                         }
 
@@ -450,7 +453,7 @@ fun AnalyticsScreen(
                                 SingleSeriesSplineChart(
                                     dataPoints = expResult.dataPoints,
                                     currency = expResult.currency,
-                                    lineColor = ExpenseCoral
+                                    lineColor = FinTrackTheme.colors.expense
                                 )
 
                                 Spacer(modifier = Modifier.height(Space16))
@@ -473,7 +476,7 @@ fun AnalyticsScreen(
                                             Text(
                                                 text = "${NumberFormatter.formatAmount(expResult.total)} ${expResult.currency} · $selectedCategoryName · $monthCountText",
                                                 style = CardTitleAmount,
-                                                color = ExpenseCoral,
+                                                color = FinTrackTheme.colors.expense,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -495,7 +498,7 @@ fun AnalyticsScreen(
                                             Text(
                                                 text = "${NumberFormatter.formatAmount(expResult.monthlyAverage)} ${expResult.currency} / month · $selectedCategoryName",
                                                 style = CardTitleAmount,
-                                                color = ExpenseCoral,
+                                                color = FinTrackTheme.colors.expense,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -539,13 +542,13 @@ fun AnalyticsScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(ShapeSquircleIcon)
-                                    .background(IncomeEmerald.copy(alpha = 0.12f)),
+                                    .background(FinTrackTheme.colors.income.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.TrendingUp,
                                     contentDescription = null,
-                                    tint = IncomeEmerald,
+                                    tint = FinTrackTheme.colors.income,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -555,7 +558,8 @@ fun AnalyticsScreen(
                                 style = SectionHeadline,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.semantics { heading() }
                             )
                         }
 
@@ -606,7 +610,7 @@ fun AnalyticsScreen(
                                 SingleSeriesSplineChart(
                                     dataPoints = incResult.dataPoints,
                                     currency = incResult.currency,
-                                    lineColor = IncomeEmerald
+                                    lineColor = FinTrackTheme.colors.income
                                 )
 
                                 Spacer(modifier = Modifier.height(Space16))
@@ -629,7 +633,7 @@ fun AnalyticsScreen(
                                             Text(
                                                 text = "${NumberFormatter.formatAmount(incResult.total)} ${incResult.currency} · $selectedSourceName · $monthCountText",
                                                 style = CardTitleAmount,
-                                                color = IncomeEmerald,
+                                                color = FinTrackTheme.colors.income,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -651,7 +655,7 @@ fun AnalyticsScreen(
                                             Text(
                                                 text = "${NumberFormatter.formatAmount(incResult.monthlyAverage)} ${incResult.currency} / month · $selectedSourceName",
                                                 style = CardTitleAmount,
-                                                color = IncomeEmerald,
+                                                color = FinTrackTheme.colors.income,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }

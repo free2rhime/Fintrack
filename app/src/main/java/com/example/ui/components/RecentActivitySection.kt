@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,8 @@ import com.example.data.model.TransactionEntity
 import com.example.data.util.NumberFormatter
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
+import com.example.ui.theme.DividerInsetTransaction
+import com.example.ui.theme.DividerThicknessHairline
 import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadgeMedium
@@ -106,7 +109,8 @@ fun RecentActivitySection(
             Text(
                 text = "Recent Activity",
                 style = SectionHeadline,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
 
             TextButton(
@@ -324,7 +328,7 @@ private fun RecentTransactionPreviewItem(
                     text = signedAmountStr,
                     style = CardTitleAmount,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isIncome) FinTrackTheme.colors.income else MaterialTheme.colorScheme.onSurface,
+                    color = if (isIncome) FinTrackTheme.colors.income else FinTrackTheme.colors.expense,
                     maxLines = 1,
                     modifier = Modifier.testTag("recent_tx_amount_${transaction.id}")
                 )
@@ -347,9 +351,9 @@ private fun RecentTransactionPreviewItem(
 
         if (showDivider) {
             HorizontalDivider(
-                modifier = Modifier.padding(start = 68.dp, end = Space16),
+                modifier = Modifier.padding(start = DividerInsetTransaction, end = Space16),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                thickness = 0.5.dp
+                thickness = DividerThicknessHairline
             )
         }
     }

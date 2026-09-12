@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,28 +10,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.BodyRegular
-import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
+import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeSquircleIcon
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space24
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
+import com.example.ui.theme.TitleCard
+import com.example.ui.theme.isReducedMotionEnabled
+import kotlinx.coroutines.launch
 
 /**
  * Reusable empty state primitive for FinTrack Design System v1.
@@ -58,11 +64,37 @@ fun FinTrackEmptyState(
     val spacingAfterIcon = if (compact) Space8 else Space16
     val spacingAfterTitle = if (compact) Space4 else Space8
     val spacingBeforeAction = if (compact) Space12 else Space24
-    val titleStyle = if (compact) CardTitleAmount else SectionHeadline
+    val titleStyle = if (compact) TitleCard else SectionHeadline
+
+    val isReducedMotion = isReducedMotionEnabled()
+    val entranceAlpha = remember { Animatable(if (isReducedMotion) 1f else 0f) }
+    val entranceScale = remember { Animatable(if (isReducedMotion) 1f else 0.85f) }
+
+    LaunchedEffect(Unit) {
+        if (!isReducedMotion) {
+            launch {
+                entranceAlpha.animateTo(
+                    targetValue = 1f,
+                    animationSpec = FinTrackMotion.fastTween()
+                )
+            }
+            launch {
+                entranceScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = FinTrackMotion.contentEntranceSpec()
+                )
+            }
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                alpha = entranceAlpha.value
+                scaleX = entranceScale.value
+                scaleY = entranceScale.value
+            }
             .padding(containerPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -71,7 +103,7 @@ fun FinTrackEmptyState(
             Box(
                 modifier = Modifier
                     .size(iconBoxSize)
-                    .background(resolvedIconContainerColor, CircleShape),
+                    .background(resolvedIconContainerColor, ShapeSquircleIcon),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -118,7 +150,7 @@ fun FinTrackEmptyState(
 fun FinTrackLoadingState(
     message: String = "Loading...",
     modifier: Modifier = Modifier,
-    indicatorColor: Color = CobaltBlue,
+    indicatorColor: Color = MaterialTheme.colorScheme.primary,
     testTag: String = "fintrack_loading_indicator"
 ) {
     Column(
@@ -144,4 +176,3 @@ fun FinTrackLoadingState(
         )
     }
 }
-

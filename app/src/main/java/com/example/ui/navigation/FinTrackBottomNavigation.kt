@@ -298,12 +298,12 @@ fun FinTrackBottomNavigation(
 
                                 AnimatedVisibility(
                                     visible = isSelected,
-                                    enter = fadeIn(animationSpec = FinTrackMotion.microTween()) +
+                                    enter = fadeIn(animationSpec = if (reducedMotion) snap() else FinTrackMotion.microTween()) +
                                             expandHorizontally(
                                                 animationSpec = if (reducedMotion) snap() else FinTrackMotion.interactiveSpring(),
                                                 expandFrom = Alignment.Start
                                             ),
-                                    exit = fadeOut(animationSpec = FinTrackMotion.microTween()) +
+                                    exit = fadeOut(animationSpec = if (reducedMotion) snap() else FinTrackMotion.microTween()) +
                                             shrinkHorizontally(
                                                 animationSpec = if (reducedMotion) snap() else FinTrackMotion.interactiveSpring(),
                                                 shrinkTowards = Alignment.Start

@@ -25,13 +25,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.BodyRegular
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusMedium
@@ -74,7 +74,8 @@ fun InviteMemberDialog(
                 text = "Invite Household Member",
                 style = SectionHeadline,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
         },
         text = {
@@ -99,7 +100,7 @@ fun InviteMemberDialog(
                         Icon(
                             imageVector = Icons.Default.Email,
                             contentDescription = null,
-                            tint = CobaltBlue
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     },
                     singleLine = true,
@@ -109,7 +110,7 @@ fun InviteMemberDialog(
                         if (displayErr != null) {
                             Text(
                                 text = displayErr,
-                                color = ExpenseCoral,
+                                color = MaterialTheme.colorScheme.error,
                                 style = MicroMetadata
                             )
                         }
@@ -127,9 +128,9 @@ fun InviteMemberDialog(
                         .testTag("invite_email_input"),
                     shape = RoundedCornerShape(RadiusMedium),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CobaltBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        errorBorderColor = ExpenseCoral,
+                        errorBorderColor = MaterialTheme.colorScheme.error,
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -149,7 +150,7 @@ fun InviteMemberDialog(
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
                     Text("Send Invite", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)

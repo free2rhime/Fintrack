@@ -29,6 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,20 +40,23 @@ import com.example.data.model.HouseholdDto
 import com.example.data.model.HouseholdMemberDto
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.IncomeContainer
-import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
 import com.example.ui.theme.SectionHeadline
 import com.example.ui.theme.ShapeGroupedContainer
+import com.example.ui.theme.ShapeGroupedItemBottom
+import com.example.ui.theme.ShapeGroupedItemMiddle
+import com.example.ui.theme.ShapeGroupedItemSingle
+import com.example.ui.theme.ShapeGroupedItemTop
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
+import com.example.ui.theme.Space2
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.WarningAmber
+import com.example.ui.theme.TitleCard
 
 /**
  * Material 3 Expressive Household Overview Surface.
@@ -108,13 +114,13 @@ fun HouseholdOverviewCard(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(RadiusMedium))
-                            .background(CobaltBlue.copy(alpha = 0.12f)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Home,
                             contentDescription = null,
-                            tint = CobaltBlue,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -127,7 +133,9 @@ fun HouseholdOverviewCard(
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.testTag("household_name_text")
+                            modifier = Modifier
+                                .testTag("household_name_text")
+                                .semantics { heading() }
                         )
                         Text(
                             text = "Household Synchronization",
@@ -139,8 +147,8 @@ fun HouseholdOverviewCard(
 
                 val roleText = currentUserMembership?.role?.trim()?.uppercase() ?: "MEMBER"
                 val (roleBg, roleFg) = when (roleText) {
-                    "OWNER" -> IncomeContainer to IncomeEmerald
-                    "ADMIN" -> CobaltBlue.copy(alpha = 0.15f) to CobaltBlue
+                    "OWNER" -> FinTrackTheme.colors.incomeContainer to FinTrackTheme.colors.income
+                    "ADMIN" -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) to MaterialTheme.colorScheme.primary
                     else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurfaceVariant
                 }
                 Surface(
@@ -200,9 +208,10 @@ fun HouseholdOverviewCard(
 
             Text(
                 text = "Household Members",
-                style = SectionHeadline.copy(fontSize = 15.sp),
+                style = TitleCard,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
 
             Spacer(modifier = Modifier.height(Space8))
@@ -216,10 +225,10 @@ fun HouseholdOverviewCard(
                 )
             } else {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(Space8),
+                    verticalArrangement = Arrangement.spacedBy(Space2),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    sortedMembers.forEach { member ->
+                    sortedMembers.forEachIndexed { index, member ->
                         val isCurrentUser = (currentUid != null && member.uid == currentUid) ||
                             (currentUserMembership?.uid != null && member.uid == currentUserMembership.uid)
 
@@ -232,8 +241,15 @@ fun HouseholdOverviewCard(
                         val roleBadge = member.role?.trim()?.uppercase() ?: "MEMBER"
                         val statusBadge = member.status?.trim()?.uppercase() ?: "ACTIVE"
 
+                        val itemShape = when {
+                            sortedMembers.size == 1 -> ShapeGroupedItemSingle
+                            index == 0 -> ShapeGroupedItemTop
+                            index == sortedMembers.lastIndex -> ShapeGroupedItemBottom
+                            else -> ShapeGroupedItemMiddle
+                        }
+
                         Surface(
-                            shape = RoundedCornerShape(RadiusMedium),
+                            shape = itemShape,
                             color = MaterialTheme.colorScheme.surfaceContainer,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -250,12 +266,12 @@ fun HouseholdOverviewCard(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.weight(1f, fill = false)
                                 ) {
-                                    Box(
+                                     Box(
                                         modifier = Modifier
                                             .size(34.dp)
                                             .clip(CircleShape)
                                             .background(
-                                                if (isCurrentUser) CobaltBlue.copy(alpha = 0.2f)
+                                                if (isCurrentUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                                                 else MaterialTheme.colorScheme.surfaceContainerHighest
                                             ),
                                         contentAlignment = Alignment.Center
@@ -263,14 +279,16 @@ fun HouseholdOverviewCard(
                                         Icon(
                                             imageVector = Icons.Default.Person,
                                             contentDescription = null,
-                                            tint = if (isCurrentUser) CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = if (isCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
 
                                     Spacer(modifier = Modifier.width(10.dp))
 
-                                    Column {
+                                    Column(
+                                        modifier = Modifier.semantics(mergeDescendants = true) { }
+                                    ) {
                                         Text(
                                             text = memberDisplayName,
                                             style = BodyRegular,
@@ -297,9 +315,9 @@ fun HouseholdOverviewCard(
                                 ) {
                                     // Status Badge (ACTIVE / PENDING)
                                     val (statusBg, statusFg) = if (statusBadge == "ACTIVE") {
-                                        IncomeContainer to IncomeEmerald
+                                        FinTrackTheme.colors.incomeContainer to FinTrackTheme.colors.income
                                     } else {
-                                        WarningAmber.copy(alpha = 0.15f) to WarningAmber
+                                        FinTrackTheme.colors.warningContainer to FinTrackTheme.colors.warning
                                     }
                                     Surface(
                                         shape = RoundedCornerShape(RadiusSmall),
@@ -317,8 +335,8 @@ fun HouseholdOverviewCard(
 
                                     // Role Badge (OWNER / ADMIN / MEMBER)
                                     val (memRoleBg, memRoleFg) = when (roleBadge) {
-                                        "OWNER" -> IncomeContainer to IncomeEmerald
-                                        "ADMIN" -> CobaltBlue.copy(alpha = 0.15f) to CobaltBlue
+                                        "OWNER" -> FinTrackTheme.colors.incomeContainer to FinTrackTheme.colors.income
+                                        "ADMIN" -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) to MaterialTheme.colorScheme.primary
                                         else -> MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.onSurfaceVariant
                                     }
                                     Surface(

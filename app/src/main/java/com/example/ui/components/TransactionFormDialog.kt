@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -63,6 +64,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -74,16 +76,15 @@ import com.example.data.model.CategoryEntity
 import com.example.data.model.TransactionEntity
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.FinTrackMotion
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.HeroFinancialDisplay
-import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusXLarge
 import com.example.ui.theme.SectionHeadline
+import com.example.ui.theme.ShapeExtraLarge
 import com.example.ui.theme.ShapeGroupedContainer
 import com.example.ui.theme.ShapeModalSheet
 import com.example.ui.theme.ShapePill
@@ -131,17 +132,19 @@ fun ExpressiveTypeSegmentedControl(
             .padding(4.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableGroup(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Expense Tab
             val expenseBg by animateColorAsState(
-                targetValue = if (isExpense) ExpenseCoral.copy(alpha = 0.22f) else Color.Transparent,
+                targetValue = if (isExpense) FinTrackTheme.colors.expenseContainer else Color.Transparent,
                 animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
                 label = "expense_tab_bg"
             )
             val expenseTextColor by animateColorAsState(
-                targetValue = if (isExpense) ExpenseCoral else MaterialTheme.colorScheme.onSurfaceVariant,
+                targetValue = if (isExpense) FinTrackTheme.colors.expense else MaterialTheme.colorScheme.onSurfaceVariant,
                 animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
                 label = "expense_tab_text"
             )
@@ -184,12 +187,12 @@ fun ExpressiveTypeSegmentedControl(
 
             // Income Tab
             val incomeBg by animateColorAsState(
-                targetValue = if (!isExpense) IncomeEmerald.copy(alpha = 0.22f) else Color.Transparent,
+                targetValue = if (!isExpense) FinTrackTheme.colors.incomeContainer else Color.Transparent,
                 animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
                 label = "income_tab_bg"
             )
             val incomeTextColor by animateColorAsState(
-                targetValue = if (!isExpense) IncomeEmerald else MaterialTheme.colorScheme.onSurfaceVariant,
+                targetValue = if (!isExpense) FinTrackTheme.colors.income else MaterialTheme.colorScheme.onSurfaceVariant,
                 animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
                 label = "income_tab_text"
             )
@@ -341,13 +344,13 @@ fun TransactionFormDialog(
         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
         disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
         errorContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-        focusedBorderColor = CobaltBlue,
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-        errorBorderColor = ExpenseCoral,
-        focusedLabelColor = CobaltBlue,
+        errorBorderColor = MaterialTheme.colorScheme.error,
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
         unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
-        errorLabelColor = ExpenseCoral,
+        errorLabelColor = MaterialTheme.colorScheme.error,
         focusedTextColor = MaterialTheme.colorScheme.onSurface,
         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
         disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
@@ -355,7 +358,7 @@ fun TransactionFormDialog(
         focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
         unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
         disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
-        cursorColor = CobaltBlue
+        cursorColor = MaterialTheme.colorScheme.primary
     )
 
     Dialog(onDismissRequest = onDismiss) {
@@ -364,7 +367,7 @@ fun TransactionFormDialog(
                 .fillMaxWidth()
                 .widthIn(max = 540.dp)
                 .padding(vertical = Space8),
-            shape = ShapeModalSheet,
+            shape = ShapeExtraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 6.dp
         ) {
@@ -374,21 +377,6 @@ fun TransactionFormDialog(
                     .padding(Space20)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Tactile drag affordance handle
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = Space12),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(width = 36.dp, height = 4.dp)
-                            .clip(ShapePill)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
-                    )
-                }
-
                 // Expressive Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -403,9 +391,9 @@ fun TransactionFormDialog(
                         Surface(
                             shape = ShapeSquircleIcon,
                             color = when {
-                                isDuplicateMode -> CobaltBlue.copy(alpha = 0.14f)
-                                initialTransaction != null -> CobaltBlue.copy(alpha = 0.14f)
-                                else -> (if (type == "Income") IncomeEmerald else ExpenseCoral).copy(alpha = 0.14f)
+                                isDuplicateMode -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                initialTransaction != null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                else -> (if (type == "Income") FinTrackTheme.colors.income else FinTrackTheme.colors.expense).copy(alpha = 0.14f)
                             },
                             modifier = Modifier.size(44.dp)
                         ) {
@@ -418,9 +406,9 @@ fun TransactionFormDialog(
                                     },
                                     contentDescription = null,
                                     tint = when {
-                                        isDuplicateMode -> CobaltBlue
-                                        initialTransaction != null -> CobaltBlue
-                                        else -> if (type == "Income") IncomeEmerald else ExpenseCoral
+                                        isDuplicateMode -> MaterialTheme.colorScheme.primary
+                                        initialTransaction != null -> MaterialTheme.colorScheme.primary
+                                        else -> if (type == "Income") FinTrackTheme.colors.income else FinTrackTheme.colors.expense
                                     },
                                     modifier = Modifier.size(22.dp)
                                 )
@@ -436,14 +424,15 @@ fun TransactionFormDialog(
                                 },
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.semantics { heading() }
                             )
                             if (isDuplicateMode) {
                                 Spacer(modifier = Modifier.height(Space2))
                                 Text(
                                     text = "Date auto-updated to today ($todayStr)",
                                     style = MicroMetadata,
-                                    color = CobaltBlue
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             } else {
                                 Spacer(modifier = Modifier.height(Space2))
@@ -525,7 +514,7 @@ fun TransactionFormDialog(
                                 Text(
                                     text = if (type == "Income") "+ " else "- ",
                                     style = HeroFinancialDisplay,
-                                    color = if (type == "Income") IncomeEmerald else ExpenseCoral,
+                                    color = if (type == "Income") FinTrackTheme.colors.income else FinTrackTheme.colors.expense,
                                     modifier = Modifier.padding(start = Space12)
                                 )
                             },
@@ -549,13 +538,13 @@ fun TransactionFormDialog(
                                 {
                                     Text(
                                         text = "Please enter a valid amount greater than 0",
-                                        color = ExpenseCoral,
+                                        color = MaterialTheme.colorScheme.error,
                                         style = MicroMetadata
                                     )
                                 }
                             } else null,
                             textStyle = HeroFinancialDisplay.copy(
-                                color = if (type == "Income") IncomeEmerald else ExpenseCoral
+                                color = if (type == "Income") FinTrackTheme.colors.income else FinTrackTheme.colors.expense
                             ),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -563,13 +552,13 @@ fun TransactionFormDialog(
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                                 errorContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                focusedBorderColor = CobaltBlue,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                errorBorderColor = ExpenseCoral,
-                                focusedLabelColor = CobaltBlue,
+                                errorBorderColor = MaterialTheme.colorScheme.error,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
                                 unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                errorLabelColor = ExpenseCoral,
-                                cursorColor = if (type == "Income") IncomeEmerald else ExpenseCoral
+                                errorLabelColor = MaterialTheme.colorScheme.error,
+                                cursorColor = if (type == "Income") FinTrackTheme.colors.income else FinTrackTheme.colors.expense
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -599,7 +588,7 @@ fun TransactionFormDialog(
                             {
                                 Text(
                                     text = "Description is required",
-                                    color = ExpenseCoral,
+                                    color = MaterialTheme.colorScheme.error,
                                     style = MicroMetadata
                                 )
                             }
@@ -726,7 +715,7 @@ fun TransactionFormDialog(
                                     Icon(
                                         imageVector = Icons.Default.CalendarToday,
                                         contentDescription = "Select Date",
-                                        tint = CobaltBlue
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             },
@@ -799,18 +788,20 @@ fun TransactionFormDialog(
                         Spacer(modifier = Modifier.height(Space8))
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectableGroup(),
                             horizontalArrangement = Arrangement.spacedBy(Space8)
                         ) {
                             listOf("Bubu", "Piticania").forEach { destName ->
                                 val isSelected = destination == destName
                                 val destBg by animateColorAsState(
-                                    targetValue = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.surfaceContainer,
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,
                                     animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
                                     label = "dest_bg_$destName"
                                 )
                                 val destTextColor by animateColorAsState(
-                                    targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     animationSpec = if (reducedMotion) snap() else FinTrackMotion.selectionSpring(),
                                     label = "dest_text_$destName"
                                 )
@@ -854,7 +845,7 @@ fun TransactionFormDialog(
                     Surface(
                         onClick = { showDeleteConfirmation = true },
                         shape = ShapePill,
-                        color = ExpenseCoral.copy(alpha = 0.12f),
+                        color = MaterialTheme.colorScheme.errorContainer,
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 48.dp)
@@ -873,7 +864,7 @@ fun TransactionFormDialog(
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
                                 contentDescription = null,
-                                tint = ExpenseCoral,
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(Space8))
@@ -881,7 +872,7 @@ fun TransactionFormDialog(
                                 text = "Delete Transaction",
                                 style = LabelBadgeMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = ExpenseCoral
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
                     }
@@ -950,14 +941,14 @@ fun TransactionFormDialog(
             icon = {
                 Surface(
                     shape = ShapeSquircleIcon,
-                    color = ExpenseCoral.copy(alpha = 0.14f),
+                    color = MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.size(48.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = null,
-                            tint = ExpenseCoral,
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -1014,7 +1005,7 @@ fun TransactionFormDialog(
                         showDatePicker = false
                     }
                 ) {
-                    Text("OK", color = CobaltBlue)
+                    Text("OK", color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {

@@ -64,6 +64,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -81,13 +82,10 @@ import com.example.ui.components.FinTrackStatusBadge
 import com.example.ui.components.resolveCategoryIcon
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseContainer
-import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.FinTrackMotion
-import com.example.ui.theme.IncomeContainer
-import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MaxContentWidthTablet
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
@@ -167,8 +165,8 @@ fun CategoriesScreen(
                         addDialogPreFilledCategory = ""
                         showAddDialog = true
                     },
-                    containerColor = CobaltBlue,
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = ShapeFloatingActionButton,
                     modifier = Modifier
                         .defaultMinSize(minWidth = 56.dp, minHeight = 56.dp)
@@ -191,7 +189,7 @@ fun CategoriesScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = 680.dp)
+                    .widthIn(max = MaxContentWidthTablet)
                     .padding(horizontal = Space16)
             ) {
                 Spacer(modifier = Modifier.height(Space8))
@@ -212,13 +210,13 @@ fun CategoriesScreen(
                                     modifier = Modifier
                                         .size(42.dp)
                                         .clip(ShapeSquircleIcon)
-                                        .background(CobaltBlue.copy(alpha = 0.12f)),
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Category,
                                         contentDescription = null,
-                                        tint = CobaltBlue,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
@@ -229,7 +227,8 @@ fun CategoriesScreen(
                                         style = SectionHeadline,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        softWrap = true
+                                        softWrap = true,
+                                        modifier = Modifier.semantics { heading() }
                                     )
                                     Text(
                                         text = "Organize household transactions by type",
@@ -260,13 +259,13 @@ fun CategoriesScreen(
                                     modifier = Modifier
                                         .size(42.dp)
                                         .clip(ShapeSquircleIcon)
-                                        .background(CobaltBlue.copy(alpha = 0.12f)),
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Category,
                                         contentDescription = null,
-                                        tint = CobaltBlue,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
@@ -277,7 +276,8 @@ fun CategoriesScreen(
                                         style = SectionHeadline,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        softWrap = true
+                                        softWrap = true,
+                                        modifier = Modifier.semantics { heading() }
                                     )
                                     Text(
                                         text = "Organize household transactions by type",
@@ -316,7 +316,7 @@ fun CategoriesScreen(
                 if (groupedCategories.isEmpty()) {
                     FinTrackEmptyState(
                         icon = Icons.Default.Category,
-                        iconTint = CobaltBlue,
+                        iconTint = MaterialTheme.colorScheme.primary,
                         title = if (selectedType == "Expense") "No Expense Categories" else "No Income Categories",
                         description = if (canManageCategories) {
                             "Create category groups and subcategories to organize your transactions."
@@ -345,8 +345,8 @@ fun CategoriesScreen(
                             val subList = groupedCategories[catName] ?: emptyList()
                             val isIncome = selectedType == "Income"
                             val iconVector = resolveCategoryIcon(catName, isIncome)
-                            val iconBg = if (isIncome) IncomeContainer else ExpenseContainer
-                            val iconTint = if (isIncome) IncomeEmerald else ExpenseCoral
+                            val iconBg = if (isIncome) FinTrackTheme.colors.incomeContainer else FinTrackTheme.colors.expenseContainer
+                            val iconTint = if (isIncome) FinTrackTheme.colors.income else FinTrackTheme.colors.expense
                             val isExpanded = collapsedCategories[catName] != true
 
                             val cardBgColor by animateColorAsState(
@@ -356,7 +356,7 @@ fun CategoriesScreen(
                             )
 
                             val chevronTint by animateColorAsState(
-                                targetValue = if (isExpanded) CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                                targetValue = if (isExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 animationSpec = if (reducedMotion) snap() else FinTrackMotion.interactiveSpring(),
                                 label = "chevronTint_$catName"
                             )
@@ -486,7 +486,7 @@ fun CategoriesScreen(
                                                     // Quick Action Pill "+ Sub" with Tactile Press
                                                     Surface(
                                                         shape = ShapePill,
-                                                        color = CobaltBlue.copy(alpha = 0.12f),
+                                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                                         modifier = Modifier
                                                             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                             .clip(ShapePill)
@@ -506,7 +506,7 @@ fun CategoriesScreen(
                                                             Icon(
                                                                 imageVector = Icons.Default.Add,
                                                                 contentDescription = "Add Subcategory",
-                                                                tint = CobaltBlue,
+                                                                tint = MaterialTheme.colorScheme.primary,
                                                                 modifier = Modifier.size(16.dp)
                                                             )
                                                             Spacer(modifier = Modifier.width(Space4))
@@ -514,7 +514,7 @@ fun CategoriesScreen(
                                                                 text = "+ Sub",
                                                                 style = LabelBadgeMedium,
                                                                 fontWeight = FontWeight.Bold,
-                                                                color = CobaltBlue
+                                                                color = MaterialTheme.colorScheme.primary
                                                             )
                                                         }
                                                     }
@@ -551,7 +551,7 @@ fun CategoriesScreen(
                                                             Icon(
                                                                 imageVector = Icons.Default.Delete,
                                                                 contentDescription = "Delete Category Group",
-                                                                tint = ExpenseCoral,
+                                                                tint = MaterialTheme.colorScheme.error,
                                                                 modifier = Modifier.size(18.dp)
                                                             )
                                                         }
@@ -633,7 +633,7 @@ fun CategoriesScreen(
                                                         // Quick Action Pill "+ Sub" with Tactile Press
                                                         Surface(
                                                             shape = ShapePill,
-                                                            color = CobaltBlue.copy(alpha = 0.12f),
+                                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                                             modifier = Modifier
                                                                 .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                                 .clip(ShapePill)
@@ -653,7 +653,7 @@ fun CategoriesScreen(
                                                                 Icon(
                                                                     imageVector = Icons.Default.Add,
                                                                     contentDescription = "Add Subcategory",
-                                                                    tint = CobaltBlue,
+                                                                    tint = MaterialTheme.colorScheme.primary,
                                                                     modifier = Modifier.size(16.dp)
                                                                 )
                                                                 Spacer(modifier = Modifier.width(Space4))
@@ -661,7 +661,7 @@ fun CategoriesScreen(
                                                                     text = "+ Sub",
                                                                     style = LabelBadgeMedium,
                                                                     fontWeight = FontWeight.Bold,
-                                                                    color = CobaltBlue
+                                                                    color = MaterialTheme.colorScheme.primary
                                                                 )
                                                             }
                                                         }
@@ -695,7 +695,7 @@ fun CategoriesScreen(
                                                             Icon(
                                                                 imageVector = Icons.Default.Delete,
                                                                 contentDescription = "Delete Category Group",
-                                                                tint = ExpenseCoral,
+                                                                tint = MaterialTheme.colorScheme.error,
                                                                 modifier = Modifier.size(18.dp)
                                                             )
                                                         }
@@ -827,7 +827,7 @@ fun CategoriesScreen(
                                                                             Icon(
                                                                                 imageVector = Icons.Default.Delete,
                                                                                 contentDescription = "Delete Subcategory",
-                                                                                tint = ExpenseCoral,
+                                                                                tint = MaterialTheme.colorScheme.error,
                                                                                 modifier = Modifier.size(16.dp)
                                                                             )
                                                                         }
@@ -1001,13 +1001,13 @@ private fun CategoryHeaderEditDialog(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(ShapeSquircleIcon)
-                            .background(CobaltBlue.copy(alpha = 0.12f)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = null,
-                            tint = CobaltBlue,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -1030,7 +1030,7 @@ private fun CategoryHeaderEditDialog(
                     isError = isError,
                     supportingText = {
                         if (isError) {
-                            Text("Category group name cannot be empty", color = ExpenseCoral, style = MicroMetadata)
+                            Text("Category group name cannot be empty", color = MaterialTheme.colorScheme.error, style = MicroMetadata)
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -1040,11 +1040,11 @@ private fun CategoryHeaderEditDialog(
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        focusedBorderColor = CobaltBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        errorBorderColor = ExpenseCoral,
-                        errorLabelColor = ExpenseCoral,
-                        cursorColor = CobaltBlue
+                        errorBorderColor = MaterialTheme.colorScheme.error,
+                        errorLabelColor = MaterialTheme.colorScheme.error,
+                        cursorColor = MaterialTheme.colorScheme.primary
                     )
                 )
                 Spacer(modifier = Modifier.height(Space20))
@@ -1107,13 +1107,13 @@ private fun SubcategoryEditDialog(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(ShapeSquircleIcon)
-                            .background(CobaltBlue.copy(alpha = 0.12f)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = null,
-                            tint = CobaltBlue,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -1136,7 +1136,7 @@ private fun SubcategoryEditDialog(
                     isError = isError,
                     supportingText = {
                         if (isError) {
-                            Text("Subcategory name cannot be empty", color = ExpenseCoral, style = MicroMetadata)
+                            Text("Subcategory name cannot be empty", color = MaterialTheme.colorScheme.error, style = MicroMetadata)
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -1146,11 +1146,11 @@ private fun SubcategoryEditDialog(
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        focusedBorderColor = CobaltBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        errorBorderColor = ExpenseCoral,
-                        errorLabelColor = ExpenseCoral,
-                        cursorColor = CobaltBlue
+                        errorBorderColor = MaterialTheme.colorScheme.error,
+                        errorLabelColor = MaterialTheme.colorScheme.error,
+                        cursorColor = MaterialTheme.colorScheme.primary
                     )
                 )
                 Spacer(modifier = Modifier.height(Space20))
@@ -1232,13 +1232,13 @@ private fun CategoryFormDialog(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(ShapeSquircleIcon)
-                                .background(CobaltBlue.copy(alpha = 0.12f)),
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Category,
                                 contentDescription = null,
-                                tint = CobaltBlue,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -1291,7 +1291,7 @@ private fun CategoryFormDialog(
                     isError = isError,
                     supportingText = {
                         if (isError) {
-                            Text("Category name cannot be empty", color = ExpenseCoral, style = MicroMetadata)
+                            Text("Category name cannot be empty", color = MaterialTheme.colorScheme.error, style = MicroMetadata)
                         }
                     },
                     modifier = Modifier
@@ -1303,11 +1303,11 @@ private fun CategoryFormDialog(
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        focusedBorderColor = CobaltBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        errorBorderColor = ExpenseCoral,
-                        errorLabelColor = ExpenseCoral,
-                        cursorColor = CobaltBlue
+                        errorBorderColor = MaterialTheme.colorScheme.error,
+                        errorLabelColor = MaterialTheme.colorScheme.error,
+                        cursorColor = MaterialTheme.colorScheme.primary
                     )
                 )
 
@@ -1330,9 +1330,9 @@ private fun CategoryFormDialog(
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        focusedBorderColor = CobaltBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        cursorColor = CobaltBlue
+                        cursorColor = MaterialTheme.colorScheme.primary
                     )
                 )
 
@@ -1354,7 +1354,7 @@ private fun CategoryFormDialog(
                             text = "Add Prefix to $targetFieldForEmoji:",
                             style = MicroMetadata,
                             fontWeight = FontWeight.Bold,
-                            color = CobaltBlue
+                            color = MaterialTheme.colorScheme.primary
                         )
 
                         Row {
@@ -1362,7 +1362,7 @@ private fun CategoryFormDialog(
                                 text = "Category",
                                 style = MicroMetadata,
                                 fontWeight = if (targetFieldForEmoji == "Category") FontWeight.Bold else FontWeight.Normal,
-                                color = if (targetFieldForEmoji == "Category") CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (targetFieldForEmoji == "Category") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
                                     .clickable { targetFieldForEmoji = "Category" }
                                     .padding(horizontal = Space4)
@@ -1372,7 +1372,7 @@ private fun CategoryFormDialog(
                                 text = "Subcategory",
                                 style = MicroMetadata,
                                 fontWeight = if (targetFieldForEmoji == "Subcategory") FontWeight.Bold else FontWeight.Normal,
-                                color = if (targetFieldForEmoji == "Subcategory") CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (targetFieldForEmoji == "Subcategory") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
                                     .clickable { targetFieldForEmoji = "Subcategory" }
                                     .padding(horizontal = Space4)

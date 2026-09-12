@@ -19,8 +19,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import com.example.data.model.TransactionEntity
 import com.example.data.util.NumberFormatter
-import com.example.ui.theme.ExpenseCoral
-import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.ShapeGroupedItemSingle
 
 /**
@@ -113,7 +111,6 @@ fun TransactionCardItem(
         statusLabel = statusLabel,
         statusVariant = statusVariant,
         categoryIcon = categoryIcon,
-        categoryColor = if (isIncome) IncomeEmerald else ExpenseCoral,
         shape = shape,
         containerColor = containerColor,
         showDivider = showDivider,

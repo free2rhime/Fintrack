@@ -101,6 +101,26 @@ val BrandAccentLight = Color(0xFF2563EB)          // Cobalt Core
 val BrandAccentDark = Color(0xFF60A5FA)           // Cobalt Soft
 
 // -----------------------------------------------------------------------------
+// 3b. CHART PALETTE TOKENS (Material 3 Expressive Financial Charts)
+// -----------------------------------------------------------------------------
+val ChartCategoryAmber = Color(0xFFF59E0B)
+val ChartCategoryPink = Color(0xFFEC4899)
+val ChartCategoryPurple = Color(0xFF8B5CF6)
+val ChartCategoryTeal = Color(0xFF14B8A6)
+val ChartCategoryIndigo = Color(0xFF6366F1)
+val ChartCategoryLime = Color(0xFF84CC16)
+val ChartCategoryOther = Color(0xFF94A3B8)
+
+val FinTrackChartPalette: List<Color> = listOf(
+    ChartCategoryAmber,
+    ChartCategoryPink,
+    ChartCategoryPurple,
+    ChartCategoryTeal,
+    ChartCategoryIndigo,
+    ChartCategoryLime
+)
+
+// -----------------------------------------------------------------------------
 // 4. EXTENDED SEMANTIC COLOR CONTRACT (FinTrackColors)
 // -----------------------------------------------------------------------------
 @Immutable
@@ -135,6 +155,8 @@ data class FinTrackColors(
     val chartFillExpense: Color,
     val chartGrid: Color,
     val chartIndicatorLine: Color,
+    val chartPalette: List<Color> = FinTrackChartPalette,
+    val chartOther: Color = ChartCategoryOther,
     val isDark: Boolean,
     // --- Material 3 Expressive Surface Hierarchy ---
     val background: Color = pageBackground,

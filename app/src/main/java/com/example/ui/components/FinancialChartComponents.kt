@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -68,6 +70,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,17 +83,12 @@ import com.example.domain.analytics.CategoryExpenseShare
 import com.example.domain.analytics.MonthlyDataPoint
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.FinTrackTheme
-import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
-import com.example.ui.theme.PrimaryGreen
 import com.example.ui.theme.RadiusLarge
 import com.example.ui.theme.RadiusSmall
-import com.example.ui.theme.SecondaryBlue
 import com.example.ui.theme.Space12
 import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
@@ -156,17 +156,26 @@ fun MonthlyCashFlowSplineChart(
 
     val maxVal = (dataPoints.maxOfOrNull { maxOf(it.income, it.expense) } ?: 100.0).coerceAtLeast(10.0)
     val activePoint = dataPoints.getOrNull(selectedIndex) ?: dataPoints.lastOrNull()
+    val incomeColor = FinTrackTheme.colors.income
+    val expenseColor = FinTrackTheme.colors.expense
+
+    val chartA11yDescription = if (dataPoints.isNotEmpty()) {
+        val totalIncome = dataPoints.sumOf { it.income }
+        val totalExpense = dataPoints.sumOf { it.expense }
+        "Monthly cash flow spline chart over ${dataPoints.size} months. Total income: ${NumberFormatter.formatAmount(totalIncome)} $currency, total expense: ${NumberFormatter.formatAmount(totalExpense)} $currency."
+    } else {
+        "Empty monthly cash flow chart"
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Contextual HUD: Month, Net Cash Flow, Income & Expense
         if (activePoint != null) {
             Surface(
+                shape = RoundedCornerShape(RadiusSmall),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("cash_flow_hud"),
-                shape = RoundedCornerShape(RadiusMedium),
-                color = FinTrackTheme.colors.surfaceSecondary,
-                border = BorderStroke(1.dp, FinTrackTheme.colors.borderSubtle)
+                    .testTag("cash_flow_hud")
             ) {
                 AnimatedContent(
                     targetState = activePoint,
@@ -182,7 +191,7 @@ fun MonthlyCashFlowSplineChart(
                 ) { point ->
                     val netVal = point.income - point.expense
                     val netSign = if (netVal >= 0) "+" else ""
-                    val netColor = if (netVal >= 0) IncomeEmerald else ExpenseCoral
+                    val netColor = if (netVal >= 0) incomeColor else expenseColor
 
                     Row(
                         modifier = Modifier
@@ -216,13 +225,13 @@ fun MonthlyCashFlowSplineChart(
                                     modifier = Modifier
                                         .size(8.dp)
                                         .clip(CircleShape)
-                                        .background(IncomeEmerald)
+                                        .background(incomeColor)
                                 )
                                 Spacer(modifier = Modifier.width(Space4))
                                 Text(
                                     text = "+${NumberFormatter.formatAmount(point.income)} $currency",
                                     style = MicroMetadata,
-                                    color = IncomeEmerald,
+                                    color = incomeColor,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -231,13 +240,13 @@ fun MonthlyCashFlowSplineChart(
                                     modifier = Modifier
                                         .size(8.dp)
                                         .clip(CircleShape)
-                                        .background(ExpenseCoral)
+                                        .background(expenseColor)
                                 )
                                 Spacer(modifier = Modifier.width(Space4))
                                 Text(
                                     text = "-${NumberFormatter.formatAmount(point.expense)} $currency",
                                     style = MicroMetadata,
-                                    color = ExpenseCoral,
+                                    color = expenseColor,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -256,6 +265,7 @@ fun MonthlyCashFlowSplineChart(
                 .fillMaxWidth()
                 .height(160.dp)
                 .testTag("cash_flow_spline_canvas")
+                .semantics { contentDescription = chartA11yDescription }
                 .pointerInput(dataPoints) {
                     detectTapGestures { offset ->
                         if (dataPoints.isNotEmpty()) {
@@ -394,7 +404,7 @@ fun MonthlyCashFlowSplineChart(
                 drawPath(
                     path = incomeAreaPath,
                     brush = Brush.verticalGradient(
-                        colors = listOf(IncomeEmerald.copy(alpha = 0.25f), Color.Transparent),
+                        colors = listOf(incomeColor.copy(alpha = 0.25f), Color.Transparent),
                         startY = 0f,
                         endY = availableHeight
                     )
@@ -403,7 +413,7 @@ fun MonthlyCashFlowSplineChart(
                 // Draw Income spline line
                 drawPath(
                     path = incomePath,
-                    color = IncomeEmerald,
+                    color = incomeColor,
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
@@ -445,7 +455,7 @@ fun MonthlyCashFlowSplineChart(
                 drawPath(
                     path = expenseAreaPath,
                     brush = Brush.verticalGradient(
-                        colors = listOf(ExpenseCoral.copy(alpha = 0.20f), Color.Transparent),
+                        colors = listOf(expenseColor.copy(alpha = 0.20f), Color.Transparent),
                         startY = 0f,
                         endY = availableHeight
                     )
@@ -454,7 +464,7 @@ fun MonthlyCashFlowSplineChart(
                 // Draw Expense spline line
                 drawPath(
                     path = expensePath,
-                    color = ExpenseCoral,
+                    color = expenseColor,
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
@@ -478,8 +488,8 @@ fun MonthlyCashFlowSplineChart(
                 val haloAlpha = 0.20f + 0.15f * pointFocus
                 val coreRadius = 3.dp.toPx() + 2.dp.toPx() * pointFocus
 
-                drawCircle(color = IncomeEmerald.copy(alpha = haloAlpha), radius = haloRadius, center = pt)
-                drawCircle(color = IncomeEmerald, radius = coreRadius, center = pt)
+                drawCircle(color = incomeColor.copy(alpha = haloAlpha), radius = haloRadius, center = pt)
+                drawCircle(color = incomeColor, radius = coreRadius, center = pt)
                 if (pointFocus > 0.05f) {
                     drawCircle(color = Color.White, radius = 2.dp.toPx() * pointFocus, center = pt)
                 }
@@ -493,8 +503,8 @@ fun MonthlyCashFlowSplineChart(
                 val haloAlpha = 0.20f + 0.15f * pointFocus
                 val coreRadius = 3.dp.toPx() + 2.dp.toPx() * pointFocus
 
-                drawCircle(color = ExpenseCoral.copy(alpha = haloAlpha), radius = haloRadius, center = pt)
-                drawCircle(color = ExpenseCoral, radius = coreRadius, center = pt)
+                drawCircle(color = expenseColor.copy(alpha = haloAlpha), radius = haloRadius, center = pt)
+                drawCircle(color = expenseColor, radius = coreRadius, center = pt)
                 if (pointFocus > 0.05f) {
                     drawCircle(color = Color.White, radius = 2.dp.toPx() * pointFocus, center = pt)
                 }
@@ -517,6 +527,7 @@ fun MonthlyCashFlowSplineChart(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                         .clickable {
                             if (selectedIndex != index) {
                                 selectedIndex = index
@@ -560,7 +571,7 @@ fun MonthlyCashFlowSplineChart(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(IncomeEmerald)
+                    .background(incomeColor)
             )
             Spacer(modifier = Modifier.width(Space4))
             Text(
@@ -576,7 +587,7 @@ fun MonthlyCashFlowSplineChart(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(ExpenseCoral)
+                    .background(expenseColor)
             )
             Spacer(modifier = Modifier.width(Space4))
             Text(
@@ -609,20 +620,201 @@ fun MonthlyCashFlowBarChart(
         return
     }
 
+    var selectedIndex by remember(dataPoints) {
+        mutableStateOf(dataPoints.indices.lastOrNull() ?: 0)
+    }
+
+    val haptic = LocalHapticFeedback.current
+    val reducedMotion = isReducedMotionEnabled()
+
+    val transitionProgress = remember { Animatable(if (reducedMotion) 1f else 0f) }
+    LaunchedEffect(dataPoints) {
+        if (reducedMotion) {
+            transitionProgress.snapTo(1f)
+        } else {
+            transitionProgress.snapTo(0f)
+            transitionProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = FinTrackMotion.DurationV2Emphasized,
+                    easing = FinTrackMotion.StandardDecelerate
+                )
+            )
+        }
+    }
+
     val maxVal = (dataPoints.maxOfOrNull { maxOf(it.income, it.expense) } ?: 100.0).coerceAtLeast(10.0)
     val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val incomeColor = FinTrackTheme.colors.income
+    val expenseColor = FinTrackTheme.colors.expense
+    val selectionHighlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+    val activePoint = dataPoints.getOrNull(selectedIndex) ?: dataPoints.lastOrNull()
+
+    val barChartA11yDescription = if (dataPoints.isNotEmpty()) {
+        val totalIncome = dataPoints.sumOf { it.income }
+        val totalExpense = dataPoints.sumOf { it.expense }
+        "Monthly cash flow bar chart over ${dataPoints.size} months. Total income: ${NumberFormatter.formatAmount(totalIncome)} $currency, total expense: ${NumberFormatter.formatAmount(totalExpense)} $currency."
+    } else {
+        "Empty monthly cash flow bar chart"
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
+        // Contextual HUD
+        if (activePoint != null) {
+            Surface(
+                shape = RoundedCornerShape(RadiusSmall),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("cash_flow_bar_hud")
+            ) {
+                AnimatedContent(
+                    targetState = activePoint,
+                    transitionSpec = {
+                        if (reducedMotion) {
+                            fadeIn(animationSpec = snap()) togetherWith fadeOut(animationSpec = snap())
+                        } else {
+                            fadeIn(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate)) togetherWith
+                                fadeOut(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate))
+                        }
+                    },
+                    label = "cash_flow_bar_hud_content"
+                ) { point ->
+                    val netVal = point.income - point.expense
+                    val netSign = if (netVal >= 0) "+" else ""
+                    val netColor = if (netVal >= 0) incomeColor else expenseColor
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Space12, vertical = Space8),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = point.monthYearLabel,
+                                style = LabelBadgeMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Net: $netSign${NumberFormatter.formatAmount(netVal)} $currency",
+                                style = MicroMetadata,
+                                color = netColor,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(Space12),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(incomeColor)
+                                )
+                                Spacer(modifier = Modifier.width(Space4))
+                                Text(
+                                    text = "+${NumberFormatter.formatAmount(point.income)} $currency",
+                                    style = MicroMetadata,
+                                    color = incomeColor,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(expenseColor)
+                                )
+                                Spacer(modifier = Modifier.width(Space4))
+                                Text(
+                                    text = "-${NumberFormatter.formatAmount(point.expense)} $currency",
+                                    style = MicroMetadata,
+                                    color = expenseColor,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(Space8))
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp)
+                .testTag("cash_flow_bar_canvas")
+                .semantics { contentDescription = barChartA11yDescription }
+                .pointerInput(dataPoints) {
+                    detectTapGestures { offset ->
+                        if (dataPoints.isNotEmpty()) {
+                            val count = dataPoints.size
+                            val groupW = size.width.toFloat() / count
+                            val tappedIndex = if (groupW > 0f) {
+                                (offset.x / groupW).toInt().coerceIn(0, count - 1)
+                            } else 0
+                            if (tappedIndex != selectedIndex) {
+                                selectedIndex = tappedIndex
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                        }
+                    }
+                }
+                .pointerInput(dataPoints) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { offset ->
+                            if (dataPoints.isNotEmpty()) {
+                                val count = dataPoints.size
+                                val groupW = size.width.toFloat() / count
+                                val newIndex = if (groupW > 0f) {
+                                    (offset.x / groupW).toInt().coerceIn(0, count - 1)
+                                } else 0
+                                if (newIndex != selectedIndex) {
+                                    selectedIndex = newIndex
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { change, _ ->
+                            if (dataPoints.isNotEmpty()) {
+                                val count = dataPoints.size
+                                val groupW = size.width.toFloat() / count
+                                val newIndex = if (groupW > 0f) {
+                                    (change.position.x / groupW).toInt().coerceIn(0, count - 1)
+                                } else 0
+                                if (newIndex != selectedIndex) {
+                                    selectedIndex = newIndex
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+                        }
+                    )
+                }
         ) {
             val width = size.width
             val height = size.height
             val numGroups = dataPoints.size
             val groupWidth = width / numGroups
             val barWidth = (groupWidth * 0.3f).coerceAtMost(20.dp.toPx())
+
+            if (selectedIndex in dataPoints.indices) {
+                val selLeft = groupWidth * selectedIndex
+                drawRoundRect(
+                    color = selectionHighlightColor,
+                    topLeft = Offset(selLeft, 0f),
+                    size = Size(groupWidth, height),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx(), 8.dp.toPx())
+                )
+            }
 
             for (i in 1..3) {
                 val y = height * (i / 4f)
@@ -634,29 +826,31 @@ fun MonthlyCashFlowBarChart(
                 )
             }
 
+            val animProgress = transitionProgress.value
+
             dataPoints.forEachIndexed { index, dp ->
                 val centerX = groupWidth * index + groupWidth / 2f
 
-                val incHeight = ((dp.income / maxVal) * (height - 20.dp.toPx())).toFloat()
-                val expHeight = ((dp.expense / maxVal) * (height - 20.dp.toPx())).toFloat()
+                val incHeight = (((dp.income / maxVal) * (height - 20.dp.toPx())).toFloat() * animProgress).coerceAtLeast(0f)
+                val expHeight = (((dp.expense / maxVal) * (height - 20.dp.toPx())).toFloat() * animProgress).coerceAtLeast(0f)
 
                 val incLeft = centerX - barWidth - 2.dp.toPx()
                 val expLeft = centerX + 2.dp.toPx()
 
-                // Income bar (Emerald)
+                // Income bar
                 drawRoundRect(
-                    color = IncomeEmerald,
+                    color = incomeColor,
                     topLeft = Offset(incLeft, height - incHeight),
                     size = Size(barWidth, incHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx(), 6.dp.toPx())
                 )
 
-                // Expense bar (Coral)
+                // Expense bar
                 drawRoundRect(
-                    color = ExpenseCoral,
+                    color = expenseColor,
                     topLeft = Offset(expLeft, height - expHeight),
                     size = Size(barWidth, expHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx(), 6.dp.toPx())
                 )
             }
         }
@@ -665,24 +859,35 @@ fun MonthlyCashFlowBarChart(
 
         // Month X-Axis labels — wraps vertically
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableGroup(),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            dataPoints.forEach { dp ->
+            dataPoints.forEachIndexed { index, dp ->
                 val parts = dp.monthYearLabel.trim().split(" ")
                 val monthPart = parts.firstOrNull() ?: dp.monthYearLabel
                 val yearPart = if (parts.size > 1) parts.drop(1).joinToString(" ") else ""
+                val isSelected = index == selectedIndex
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 2.dp)
+                    modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .clickable(role = Role.Tab) {
+                            if (selectedIndex != index) {
+                                selectedIndex = index
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                        }
+                        .padding(horizontal = 2.dp)
                 ) {
                     Text(
                         text = monthPart,
                         style = MicroMetadata,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                     if (yearPart.isNotEmpty()) {
@@ -691,7 +896,7 @@ fun MonthlyCashFlowBarChart(
                             style = MicroMetadata,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center
                         )
                     }
@@ -711,7 +916,7 @@ fun MonthlyCashFlowBarChart(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(IncomeEmerald)
+                    .background(incomeColor)
             )
             Spacer(modifier = Modifier.width(Space4))
             Text(
@@ -727,7 +932,7 @@ fun MonthlyCashFlowBarChart(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(ExpenseCoral)
+                    .background(expenseColor)
             )
             Spacer(modifier = Modifier.width(Space4))
             Text(
@@ -822,31 +1027,40 @@ fun CategoryDistributionChart(
     val haptic = LocalHapticFeedback.current
     val reducedMotion = isReducedMotionEnabled()
 
-    val sweepFraction by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = if (reducedMotion) snap() else tween(
-            durationMillis = FinTrackMotion.DurationChartSweep,
-            easing = FinTrackMotion.StandardDecelerate
-        ),
-        label = "donut_sweep"
-    )
+    val sweepProgress = remember { Animatable(if (reducedMotion) 1f else 0f) }
+    LaunchedEffect(categoryShares) {
+        if (reducedMotion) {
+            sweepProgress.snapTo(1f)
+        } else {
+            sweepProgress.snapTo(0f)
+            sweepProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = FinTrackMotion.DurationChartSweep,
+                    easing = FinTrackMotion.StandardDecelerate
+                )
+            )
+        }
+    }
 
     val palette = listOf(
-        CobaltBlue,
-        IncomeEmerald,
-        Color(0xFFF59E0B), // Amber
-        Color(0xFFEC4899), // Pink
-        Color(0xFF8B5CF6), // Purple
-        Color(0xFF14B8A6), // Teal
-        Color(0xFF6366F1), // Indigo
-        Color(0xFF84CC16)  // Lime
-    )
+        FinTrackTheme.colors.brandPrimary,
+        FinTrackTheme.colors.income
+    ) + FinTrackTheme.colors.chartPalette
+    val chartOtherColor = FinTrackTheme.colors.chartOther
 
     val activeShare = if (selectedCategoryIndex != null && selectedCategoryIndex!! in displayShares.indices) {
         displayShares[selectedCategoryIndex!!]
     } else null
 
     val totalSpending = remember(displayShares) { displayShares.sumOf { it.totalAmount } }
+
+    val donutA11yDescription = if (displayShares.isNotEmpty()) {
+        val topShares = displayShares.take(3).joinToString(", ") { "${it.categoryName}: ${it.displayPercentage}%" }
+        "Spending by category donut chart with ${displayShares.size} categories. Total: ${NumberFormatter.formatAmount(totalSpending)} $currency. Top categories: $topShares."
+    } else {
+        "Empty spending by category chart"
+    }
 
     val strokeBase = 16.dp
     val strokeSelected = 22.dp
@@ -871,22 +1085,30 @@ fun CategoryDistributionChart(
         alpha to strokeDp
     }
 
-    Column(
+    BoxWithConstraints(
         modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        contentAlignment = Alignment.Center
     ) {
-        // Interactive Donut Chart with Center HUD
-        Box(
-            modifier = Modifier
-                .size(170.dp)
-                .testTag("category_donut_box"),
-            contentAlignment = Alignment.Center
+        val isTabletWidth = maxWidth >= 480.dp
+        val donutSize = if (isTabletWidth) 210.dp else 170.dp
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Canvas(
+            // Interactive Donut Chart with Center HUD
+            Box(
                 modifier = Modifier
-                    .size(170.dp)
-                    .testTag("category_donut_canvas")
-                    .pointerInput(displayShares) {
+                    .size(donutSize)
+                    .testTag("category_donut_box"),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .size(donutSize)
+                        .testTag("category_donut_canvas")
+                        .semantics { contentDescription = donutA11yDescription }
+                        .pointerInput(displayShares) {
                         detectTapGestures { offset ->
                             val centerX = size.width / 2f
                             val centerY = size.height / 2f
@@ -932,12 +1154,12 @@ fun CategoryDistributionChart(
                 val gapAngle = if (displayShares.size > 1) 3f else 0f
 
                 displayShares.forEachIndexed { index, share ->
-                    val color = if (share.isOther) Color(0xFF94A3B8) else palette[index % palette.size]
+                    val color = if (share.isOther) chartOtherColor else palette[index % palette.size]
                     val (alpha, strokeDpValue) = animatedSegments[index]
                     val strokeWidth = strokeDpValue.dp.toPx()
 
                     val fullSweep = (share.displayPercentage / 100f) * 360f
-                    val effectiveSweep = ((fullSweep - gapAngle).coerceAtLeast(0.5f)) * sweepFraction
+                    val effectiveSweep = ((fullSweep - gapAngle).coerceAtLeast(0.5f)) * sweepProgress.value
 
                     if (effectiveSweep > 0f) {
                         drawArc(
@@ -1023,7 +1245,7 @@ fun CategoryDistributionChart(
             verticalArrangement = Arrangement.spacedBy(Space8)
         ) {
             displayShares.forEachIndexed { index, share ->
-                val color = if (share.isOther) Color(0xFF94A3B8) else palette[index % palette.size]
+                val color = if (share.isOther) chartOtherColor else palette[index % palette.size]
                 val formattedAmount = NumberFormatter.formatAmount(share.totalAmount)
                 val isSelected = selectedCategoryIndex == index
 
@@ -1050,6 +1272,7 @@ fun CategoryDistributionChart(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
                         .testTag("category_share_item_$index")
                         .clickable {
                             selectedCategoryIndex = if (selectedCategoryIndex == index) null else index
@@ -1117,6 +1340,7 @@ fun CategoryDistributionChart(
         }
     }
 }
+}
 
 @Composable
 fun SavingsTrendLineChart(
@@ -1152,16 +1376,154 @@ fun SavingsTrendLineChart(
         return
     }
 
+    var selectedIndex by remember(dataPoints) {
+        mutableStateOf(dataPoints.indices.lastOrNull() ?: 0)
+    }
+
+    val haptic = LocalHapticFeedback.current
+    val reducedMotion = isReducedMotionEnabled()
+
+    val transitionProgress = remember { Animatable(if (reducedMotion) 1f else 0f) }
+    LaunchedEffect(dataPoints) {
+        if (reducedMotion) {
+            transitionProgress.snapTo(1f)
+        } else {
+            transitionProgress.snapTo(0f)
+            transitionProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = FinTrackMotion.DurationV2Emphasized,
+                    easing = FinTrackMotion.StandardDecelerate
+                )
+            )
+        }
+    }
+
     val balances = dataPoints.map { it.balance }
     val maxBal = balances.maxOrNull() ?: 100.0
     val minBal = balances.minOrNull() ?: 0.0
     val range = (maxBal - minBal).coerceAtLeast(10.0)
+    val incomeColor = FinTrackTheme.colors.income
+    val activePoint = dataPoints.getOrNull(selectedIndex) ?: dataPoints.lastOrNull()
+
+    val trendA11yDescription = if (dataPoints.size >= 2) {
+        val startBal = dataPoints.first().balance
+        val endBal = dataPoints.last().balance
+        val diff = endBal - startBal
+        val trendWord = if (diff >= 0) "increased" else "decreased"
+        "Savings trend line chart over ${dataPoints.size} months. Balance $trendWord by ${NumberFormatter.formatAmount(kotlin.math.abs(diff))} $currency, from ${NumberFormatter.formatAmount(startBal)} to ${NumberFormatter.formatAmount(endBal)} $currency."
+    } else {
+        "Empty savings trend line chart"
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
+        // Contextual HUD
+        if (activePoint != null) {
+            Surface(
+                shape = RoundedCornerShape(RadiusSmall),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("savings_trend_hud")
+            ) {
+                AnimatedContent(
+                    targetState = activePoint,
+                    transitionSpec = {
+                        if (reducedMotion) {
+                            fadeIn(animationSpec = snap()) togetherWith fadeOut(animationSpec = snap())
+                        } else {
+                            fadeIn(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate)) togetherWith
+                                fadeOut(animationSpec = tween(durationMillis = FinTrackMotion.DurationMicro, easing = FinTrackMotion.StandardDecelerate))
+                        }
+                    },
+                    label = "savings_trend_hud_content"
+                ) { point ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Space12, vertical = Space8),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = point.monthYearLabel,
+                                style = LabelBadgeMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Balance: ${NumberFormatter.formatAmount(point.balance)} $currency",
+                                style = MicroMetadata,
+                                color = incomeColor,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        val net = point.income - point.expense
+                        Text(
+                            text = "Net: ${if (net >= 0) "+" else ""}${NumberFormatter.formatAmount(net)} $currency",
+                            style = MicroMetadata,
+                            color = if (net >= 0) incomeColor else FinTrackTheme.colors.expense,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(Space8))
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(140.dp)
+                .testTag("savings_trend_canvas")
+                .semantics { contentDescription = trendA11yDescription }
+                .pointerInput(dataPoints) {
+                    detectTapGestures { offset ->
+                        if (dataPoints.isNotEmpty()) {
+                            val count = dataPoints.size
+                            val stepX = if (count > 1) size.width.toFloat() / (count - 1) else size.width.toFloat() / 2f
+                            val tappedIndex = if (count > 1 && stepX > 0f) {
+                                ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, count - 1)
+                            } else 0
+                            if (tappedIndex != selectedIndex) {
+                                selectedIndex = tappedIndex
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                        }
+                    }
+                }
+                .pointerInput(dataPoints) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { offset ->
+                            if (dataPoints.isNotEmpty()) {
+                                val count = dataPoints.size
+                                val stepX = if (count > 1) size.width.toFloat() / (count - 1) else size.width.toFloat() / 2f
+                                val newIndex = if (count > 1 && stepX > 0f) {
+                                    ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, count - 1)
+                                } else 0
+                                if (newIndex != selectedIndex) {
+                                    selectedIndex = newIndex
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { change, _ ->
+                            if (dataPoints.isNotEmpty()) {
+                                val count = dataPoints.size
+                                val stepX = if (count > 1) size.width.toFloat() / (count - 1) else size.width.toFloat() / 2f
+                                val newIndex = if (count > 1 && stepX > 0f) {
+                                    ((change.position.x + stepX / 2f) / stepX).toInt().coerceIn(0, count - 1)
+                                } else 0
+                                if (newIndex != selectedIndex) {
+                                    selectedIndex = newIndex
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+                        }
+                    )
+                }
         ) {
             val width = size.width
             val height = size.height
@@ -1177,6 +1539,9 @@ fun SavingsTrendLineChart(
                 )
             }
 
+            val animProgress = transitionProgress.value
+            val baselineY = height - 15.dp.toPx()
+
             val path = Path()
             val areaPath = Path()
             val stepX = width / (dataPoints.size - 1)
@@ -1186,8 +1551,9 @@ fun SavingsTrendLineChart(
             dataPoints.forEachIndexed { index, dp ->
                 val x = index * stepX
                 val normalizedY = ((dp.balance - minBal) / range).toFloat()
-                val y = height - (normalizedY * (height - 30.dp.toPx())) - 15.dp.toPx()
-                points.add(Offset(x, y))
+                val targetY = height - (normalizedY * (height - 30.dp.toPx())) - 15.dp.toPx()
+                val animatedY = baselineY - (baselineY - targetY) * animProgress
+                points.add(Offset(x, animatedY))
             }
 
             if (points.isNotEmpty()) {
@@ -1212,7 +1578,7 @@ fun SavingsTrendLineChart(
                 drawPath(
                     path = areaPath,
                     brush = Brush.verticalGradient(
-                        colors = listOf(IncomeEmerald.copy(alpha = 0.25f), Color.Transparent),
+                        colors = listOf(incomeColor.copy(alpha = 0.25f * animProgress), Color.Transparent),
                         startY = 0f,
                         endY = height
                     )
@@ -1221,36 +1587,63 @@ fun SavingsTrendLineChart(
                 // Draw Smooth Spline Stroke
                 drawPath(
                     path = path,
-                    color = IncomeEmerald,
+                    color = incomeColor,
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
 
-                // Draw Glowing Dots
-                points.forEach { pt ->
-                    drawCircle(color = IncomeEmerald.copy(alpha = 0.30f), radius = 6.dp.toPx(), center = pt)
-                    drawCircle(color = IncomeEmerald, radius = 3.5.dp.toPx(), center = pt)
+                // Draw vertical indicator line for selected index
+                if (selectedIndex in points.indices) {
+                    val selPt = points[selectedIndex]
+                    drawLine(
+                        color = incomeColor.copy(alpha = 0.4f),
+                        start = Offset(selPt.x, 0f),
+                        end = Offset(selPt.x, height),
+                        strokeWidth = 1.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                    )
+                }
+
+                // Draw Dots
+                points.forEachIndexed { idx, pt ->
+                    val isSelected = idx == selectedIndex
+                    val glowRadius = if (isSelected) 8.dp.toPx() else 6.dp.toPx()
+                    val dotRadius = if (isSelected) 5.dp.toPx() else 3.5.dp.toPx()
+                    drawCircle(color = incomeColor.copy(alpha = if (isSelected) 0.50f else 0.30f), radius = glowRadius, center = pt)
+                    drawCircle(color = incomeColor, radius = dotRadius, center = pt)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Space8))
 
         // Month X-Axis labels
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableGroup(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            dataPoints.forEach { dp ->
+            dataPoints.forEachIndexed { index, dp ->
+                val isSelected = index == selectedIndex
                 Text(
                     text = dp.monthYearLabel,
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .clickable(role = Role.Tab) {
+                            if (selectedIndex != index) {
+                                selectedIndex = index
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                        }
+                        .padding(horizontal = 2.dp, vertical = 4.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Space8))
 
         // Legend
         Row(
@@ -1262,7 +1655,7 @@ fun SavingsTrendLineChart(
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(IncomeEmerald)
+                    .background(incomeColor)
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
@@ -1285,7 +1678,7 @@ fun SavingsTrendLineChart(
 fun SingleSeriesSplineChart(
     dataPoints: List<SingleSeriesDataPoint>,
     currency: String,
-    lineColor: Color,
+    lineColor: Color = MaterialTheme.colorScheme.primary,
     modifier: Modifier = Modifier
 ) {
     if (dataPoints.isEmpty()) {
@@ -1397,10 +1790,18 @@ fun SingleSeriesSplineChart(
         val gridColor = MaterialTheme.colorScheme.outlineVariant
         val indicatorColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
 
+        val singleSeriesA11yDescription = if (dataPoints.isNotEmpty()) {
+            val total = dataPoints.sumOf { it.value }
+            "Spline trend chart showing ${dataPoints.size} data points in $currency. Total: ${NumberFormatter.formatAmount(total)} $currency."
+        } else {
+            "Empty spline trend chart"
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp)
+                .semantics { contentDescription = singleSeriesA11yDescription }
                 .pointerInput(dataPoints) {
                     detectTapGestures { offset ->
                         if (dataPoints.isNotEmpty()) {
@@ -1581,6 +1982,7 @@ fun SingleSeriesSplineChart(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                         .clickable {
                             if (selectedIndex != index) {
                                 selectedIndex = index
@@ -1691,14 +2093,14 @@ fun <T> FinTrackDropdownSelector(
                                 text = displayDropdownText,
                                 style = LabelBadgeMedium,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) CobaltBlue else MaterialTheme.colorScheme.onSurface,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
                             if (isSelected) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
-                                    tint = CobaltBlue,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }

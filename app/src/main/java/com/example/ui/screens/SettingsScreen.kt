@@ -3,6 +3,12 @@ package com.example.ui.screens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,6 +56,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -76,10 +84,10 @@ import com.example.ui.components.HouseholdOverviewCard
 import com.example.ui.components.InviteMemberDialog
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseCoral
-import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.FinTrackMotion
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadgeMedium
+import com.example.ui.theme.MaxContentWidthTablet
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusMedium
 import com.example.ui.theme.RadiusSmall
@@ -91,7 +99,8 @@ import com.example.ui.theme.Space16
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.WarningAmber
+import com.example.ui.theme.SpacingBottomNavContent
+import com.example.ui.theme.isReducedMotionEnabled
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -141,6 +150,7 @@ fun SettingsScreen(
     syncStatus: SyncStatus = SyncStatus.SignedOut,
     modifier: Modifier = Modifier
 ) {
+    val isReducedMotion = isReducedMotionEnabled()
     var showInviteDialog by remember { mutableStateOf(false) }
     var showCreateHouseholdDialog by remember { mutableStateOf(false) }
     var showSyncDiagnosticDialog by remember { mutableStateOf(false) }
@@ -172,7 +182,6 @@ fun SettingsScreen(
             errorMessage = invitationError,
             onSendInvite = { email ->
                 onSendInvite(email)
-                showInviteDialog = false
             },
             onDismiss = {
                 showInviteDialog = false
@@ -190,16 +199,17 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .testTag("settings_screen_root"),
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 680.dp)
+                .fillMaxSize()
+                .widthIn(max = MaxContentWidthTablet)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = Space16, vertical = Space20)
-                .padding(bottom = 80.dp),
+                .padding(horizontal = Space16, vertical = Space8)
+                .padding(bottom = SpacingBottomNavContent),
             verticalArrangement = Arrangement.spacedBy(Space16)
         ) {
             // EXPRESSIVE HEADER
@@ -211,13 +221,13 @@ fun SettingsScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(RadiusMedium))
-                        .background(CobaltBlue.copy(alpha = 0.12f)),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = null,
-                        tint = CobaltBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -227,13 +237,14 @@ fun SettingsScreen(
                         text = "Settings",
                         style = SectionHeadline,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
                     )
                     Text(
                         text = "Preferences & System",
                         style = MicroMetadata,
                         fontWeight = FontWeight.SemiBold,
-                        color = CobaltBlue
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = "Account, household sync, and data preferences",
@@ -275,13 +286,13 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(RoundedCornerShape(RadiusSmall))
-                                .background(CobaltBlue.copy(alpha = 0.12f)),
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Palette,
                                 contentDescription = null,
-                                tint = CobaltBlue,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -291,7 +302,8 @@ fun SettingsScreen(
                                 text = "Appearance Theme",
                                 style = CardTitleAmount,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.semantics { heading() }
                             )
                             Text(
                                 text = "Light / Dark / System visual styling",
@@ -381,13 +393,13 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(RoundedCornerShape(RadiusSmall))
-                                    .background(CobaltBlue.copy(alpha = 0.12f)),
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
-                                    tint = CobaltBlue,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -397,7 +409,8 @@ fun SettingsScreen(
                                     text = "Account Identity & Security",
                                     style = CardTitleAmount,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.semantics { heading() }
                                 )
                                 Text(
                                     text = "Authentication and session controls",
@@ -415,29 +428,33 @@ fun SettingsScreen(
                         }
                     }
 
-                    // User Identity Box
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(RadiusMedium),
-                        color = MaterialTheme.colorScheme.surfaceContainer
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(Space12)) {
-                            Text(
-                                text = "Firebase UID: ${currentUid ?: "Not Signed In"}",
-                                style = MicroMetadata,
-                                fontWeight = FontWeight.Bold,
-                                color = CobaltBlue,
-                                modifier = Modifier.testTag("account_uid_text")
-                            )
-
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Space12),
+                            verticalArrangement = Arrangement.spacedBy(Space4)
+                        ) {
                             if (!currentUserEmail.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.height(Space4))
                                 Text(
                                     text = "Email: $currentUserEmail",
                                     style = BodyRegular,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.testTag("user_email_text")
                                 )
                             }
+                            Text(
+                                text = "Firebase UID: ${currentUid ?: "Anonymous"}",
+                                style = MicroMetadata,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .testTag("account_uid_text")
+                                    .testTag("user_uid_text")
+                            )
                         }
                     }
 
@@ -447,14 +464,7 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 48.dp)
                             .testTag("sign_out_button"),
-                        variant = ButtonVariant.DESTRUCTIVE,
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        variant = ButtonVariant.DESTRUCTIVE
                     ) {
                         Text(
                             text = "Sign Out",
@@ -466,7 +476,11 @@ fun SettingsScreen(
             }
 
             // PENDING INVITATIONS SECTION
-            if (!currentUserEmail.isNullOrBlank() && incomingInvites.isNotEmpty()) {
+            AnimatedVisibility(
+                visible = !currentUserEmail.isNullOrBlank() && incomingInvites.isNotEmpty(),
+                enter = if (isReducedMotion) fadeIn(snap()) else fadeIn(FinTrackMotion.contentEntranceSpec()) + expandVertically(FinTrackMotion.contentEntranceSpec()),
+                exit = if (isReducedMotion) fadeOut(snap()) else fadeOut(FinTrackMotion.contentChangeSpec()) + shrinkVertically(FinTrackMotion.contentChangeSpec())
+            ) {
                 Surface(
                     shape = ShapeGroupedContainer,
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -488,13 +502,13 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(RoundedCornerShape(RadiusSmall))
-                                    .background(CobaltBlue.copy(alpha = 0.12f)),
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Email,
                                     contentDescription = null,
-                                    tint = CobaltBlue,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -559,7 +573,7 @@ fun SettingsScreen(
                                         Text(
                                             text = "Expires: $formattedExpiry",
                                             style = MicroMetadata,
-                                            color = WarningAmber,
+                                            color = FinTrackTheme.colors.warning,
                                             modifier = Modifier.testTag("invite_expires_at")
                                         )
 
@@ -651,13 +665,13 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(RoundedCornerShape(RadiusMedium))
-                                    .background(CobaltBlue.copy(alpha = 0.12f)),
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Home,
                                     contentDescription = null,
-                                    tint = CobaltBlue,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -725,13 +739,13 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(RoundedCornerShape(RadiusMedium))
-                                .background(CobaltBlue.copy(alpha = 0.12f)),
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FileDownload,
                                 contentDescription = null,
-                                tint = CobaltBlue,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -741,7 +755,8 @@ fun SettingsScreen(
                                 text = "Data Export & Reports",
                                 style = CardTitleAmount,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.semantics { heading() }
                             )
                             Text(
                                 text = "Export and import transaction data",
@@ -813,13 +828,13 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(RoundedCornerShape(RadiusSmall))
-                                .background(CobaltBlue.copy(alpha = 0.12f)),
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Sync,
                                 contentDescription = null,
-                                tint = CobaltBlue,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -887,13 +902,13 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(RoundedCornerShape(RadiusSmall))
-                                .background(CobaltBlue.copy(alpha = 0.12f)),
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Sync,
                                 contentDescription = null,
-                                tint = CobaltBlue,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -903,7 +918,8 @@ fun SettingsScreen(
                                 text = "System & Diagnostics",
                                 style = CardTitleAmount,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.semantics { heading() }
                             )
                             Text(
                                 text = "Network synchronization and debug tools",
@@ -1090,7 +1106,7 @@ fun SettingsScreen(
                             title = "No Sync Errors",
                             description = "No sync errors currently recorded in this session.",
                             icon = Icons.Default.CheckCircle,
-                            iconTint = IncomeEmerald,
+                            iconTint = FinTrackTheme.colors.income,
                             compact = true,
                             modifier = Modifier.fillMaxWidth().padding(vertical = Space16)
                         )
@@ -1098,7 +1114,7 @@ fun SettingsScreen(
                         val record = diagnosticRecord!!
                         Text("• Timestamp: ${record.formattedTime}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Text("• Operation: ${record.operation}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Text("• Exception Code: ${record.exceptionCode ?: "N/A"}", style = MicroMetadata, color = ExpenseCoral, fontWeight = FontWeight.Bold)
+                        Text("• Exception Code: ${record.exceptionCode ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                         Text("• User UID: ${record.userUid ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("• Household ID: ${record.householdId ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("• Message: ${record.exceptionMessage ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1121,7 +1137,7 @@ fun SettingsScreen(
                         if (copiedToast) {
                             Text(
                                 text = "Copied to clipboard!",
-                                color = CobaltBlue,
+                                color = MaterialTheme.colorScheme.primary,
                                 style = LabelBadgeMedium,
                                 fontWeight = FontWeight.Bold
                             )

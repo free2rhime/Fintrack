@@ -16,16 +16,22 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 
@@ -299,14 +305,31 @@ fun Modifier.tactilePress(
 ): Modifier = composed {
     if (!enabled || isReducedMotionEnabled()) return@composed this
     val source = interactionSource ?: remember { MutableInteractionSource() }
-    val isPressed by source.collectIsPressedAsState()
+    val isSourcePressed by source.collectIsPressedAsState()
+    var isPointerPressed by remember { mutableStateOf(false) }
+    val isPressed = isSourcePressed || isPointerPressed
     val scale by animateFloatAsState(
         targetValue = if (isPressed) targetScale else 1.0f,
         animationSpec = FinTrackMotion.InteractiveSpring,
         label = "tactilePressScale"
     )
-    this.graphicsLayer {
-        scaleX = scale
-        scaleY = scale
-    }
+    this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .then(
+            if (interactionSource == null && enabled) {
+                Modifier.pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        isPointerPressed = true
+                        waitForUpOrCancellation()
+                        isPointerPressed = false
+                    }
+                }
+            } else {
+                Modifier
+            }
+        )
 }

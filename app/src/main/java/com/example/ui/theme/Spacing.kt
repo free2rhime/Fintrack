@@ -72,7 +72,9 @@ val SpacingCardInsets: Dp = 16.dp
 val SpacingHeroInsets: Dp = 20.dp
 val SpacingListItemPadding: Dp = 14.dp
 val DividerInsetHairline: Dp = 56.dp
+val DividerInsetTransaction: Dp = 68.dp
 val DividerThicknessHairline: Dp = 1.dp
+val SpacingBottomNavContent: Dp = 80.dp
 
 // -----------------------------------------------------------------------------
 // 4. FINTRACK SPACING CONTRACT
@@ -105,7 +107,8 @@ data class FinTrackSpacing(
     val listItemPadding: Dp = SpacingListItemPadding,
     val hairlineDividerInset: Dp = DividerInsetHairline,
     val hairlineDividerThickness: Dp = DividerThicknessHairline,
-    val touchTargetMin: Dp = MinTouchTargetSize
+    val touchTargetMin: Dp = MinTouchTargetSize,
+    val bottomNavContentSpacing: Dp = SpacingBottomNavContent
 )
 
 val LocalFinTrackSpacing = staticCompositionLocalOf { FinTrackSpacing() }

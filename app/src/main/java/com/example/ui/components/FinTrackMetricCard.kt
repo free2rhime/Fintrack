@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CardTitleAmount
 import com.example.ui.theme.HeroFinancialDisplay
@@ -57,7 +58,7 @@ fun FinTrackMetricCard(
         contentPadding = Space16,
         onClick = onClick
     ) {
-        Column {
+        Column(modifier = Modifier.semantics(mergeDescendants = true) { }) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()

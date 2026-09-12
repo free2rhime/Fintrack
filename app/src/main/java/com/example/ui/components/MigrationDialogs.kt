@@ -39,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -47,10 +49,7 @@ import com.example.ui.MigrationPreviewState
 import com.example.ui.MigrationProgressState
 import com.example.ui.MigrationResultState
 import com.example.ui.theme.BodyRegular
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseContainer
-import com.example.ui.theme.ExpenseCoral
-import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusLarge
@@ -99,7 +98,7 @@ fun MigrationPreviewDialog(
             Icon(
                 imageVector = Icons.Default.CloudUpload,
                 contentDescription = "Cloud Migration Preview",
-                tint = CobaltBlue,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
         },
@@ -108,7 +107,8 @@ fun MigrationPreviewDialog(
                 text = "Migration Preview",
                 style = SectionHeadline,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
         },
         text = {
@@ -154,7 +154,7 @@ fun MigrationPreviewDialog(
                                 text = displayName,
                                 style = BodyRegular,
                                 fontWeight = FontWeight.Bold,
-                                color = CobaltBlue,
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.testTag("preview_household_name")
                             )
                         }
@@ -192,7 +192,7 @@ fun MigrationPreviewDialog(
                                 text = previewState.userRole,
                                 style = BodyRegular,
                                 fontWeight = FontWeight.SemiBold,
-                                color = CobaltBlue,
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.testTag("preview_user_role")
                             )
                         }
@@ -239,7 +239,7 @@ fun MigrationPreviewDialog(
                                 text = "${previewState.totalRecords}",
                                 style = BodyRegular,
                                 fontWeight = FontWeight.Bold,
-                                color = CobaltBlue
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -265,7 +265,7 @@ fun MigrationPreviewDialog(
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = "Backup Validated",
-                                tint = IncomeEmerald,
+                                tint = FinTrackTheme.colors.income,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(Space8))
@@ -276,7 +276,6 @@ fun MigrationPreviewDialog(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
-
                         Text(
                             text = "Created: $formattedBackupTime",
                             style = BodyRegular,
@@ -295,7 +294,7 @@ fun MigrationPreviewDialog(
                     }
                 }
 
-                // Explicit Confirmation Checkbox (Safety acknowledgment)
+                // Stage 7 Step 4: Explicit Confirmation Checkbox
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -317,9 +316,9 @@ fun MigrationPreviewDialog(
                             onCheckedChange = { isAcknowledged = it },
                             modifier = Modifier.testTag("migration_acknowledgment_checkbox"),
                             colors = CheckboxDefaults.colors(
-                                checkedColor = CobaltBlue,
+                                checkedColor = MaterialTheme.colorScheme.primary,
                                 uncheckedColor = MaterialTheme.colorScheme.outlineVariant,
-                                checkmarkColor = Color.White
+                                checkmarkColor = MaterialTheme.colorScheme.onPrimary
                             )
                         )
                         Spacer(modifier = Modifier.width(Space8))
@@ -396,7 +395,7 @@ fun MigrationConflictDialog(
             Icon(
                 imageVector = Icons.Default.Warning,
                 contentDescription = "Migration Conflict",
-                tint = ExpenseCoral,
+                tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(32.dp)
             )
         },
@@ -405,7 +404,8 @@ fun MigrationConflictDialog(
                 text = "Migration Blocked",
                 style = SectionHeadline,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
         },
         text = {
@@ -424,7 +424,7 @@ fun MigrationConflictDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = ExpenseContainer
+                        containerColor = MaterialTheme.colorScheme.errorContainer
                     ),
                     shape = RoundedCornerShape(RadiusLarge)
                 ) {
@@ -438,7 +438,7 @@ fun MigrationConflictDialog(
                             text = conflictState.reason,
                             style = LabelBadgeMedium,
                             fontWeight = FontWeight.Bold,
-                            color = ExpenseCoral
+                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Text(
                             text = conflictState.details,
@@ -491,7 +491,7 @@ fun MigrationProgressDialog(
             Icon(
                 imageVector = Icons.Default.Sync,
                 contentDescription = "Migration In Progress",
-                tint = CobaltBlue,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
         },
@@ -500,7 +500,8 @@ fun MigrationProgressDialog(
                 text = "Migrating to Household Cloud",
                 style = SectionHeadline,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
         },
         text = {
@@ -513,7 +514,7 @@ fun MigrationProgressDialog(
                     text = "Stage: ${progressState.stage}",
                     style = LabelBadgeMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = CobaltBlue
+                    color = MaterialTheme.colorScheme.primary
                 )
 
                 if (progressState.totalCount > 0) {
@@ -526,7 +527,7 @@ fun MigrationProgressDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp),
-                            color = IncomeEmerald,
+                            color = FinTrackTheme.colors.income,
                             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                         )
                         Row(
@@ -549,7 +550,7 @@ fun MigrationProgressDialog(
                     CircularProgressIndicator(
                         modifier = Modifier.size(40.dp),
                         strokeWidth = 3.dp,
-                        color = CobaltBlue
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
 
@@ -611,7 +612,7 @@ fun MigrationResultDialog(
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = "Migration Succeeded",
-                        tint = IncomeEmerald,
+                        tint = FinTrackTheme.colors.income,
                         modifier = Modifier.size(36.dp)
                     )
                 },
@@ -620,7 +621,8 @@ fun MigrationResultDialog(
                         text = "Migration Completed",
                         style = SectionHeadline,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
                     )
                 },
                 text = {
@@ -678,7 +680,7 @@ fun MigrationResultDialog(
                                         text = "${resultState.transactionsUploaded}",
                                         style = BodyRegular,
                                         fontWeight = FontWeight.Bold,
-                                        color = IncomeEmerald
+                                        color = FinTrackTheme.colors.income
                                     )
                                 }
                                 Row(
@@ -726,7 +728,7 @@ fun MigrationResultDialog(
                                         text = "${resultState.totalProcessed}",
                                         style = BodyRegular,
                                         fontWeight = FontWeight.Bold,
-                                        color = CobaltBlue
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -755,7 +757,7 @@ fun MigrationResultDialog(
                     Icon(
                         imageVector = Icons.Default.Error,
                         contentDescription = "Migration Failed",
-                        tint = ExpenseCoral,
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(36.dp)
                     )
                 },
@@ -764,7 +766,8 @@ fun MigrationResultDialog(
                         text = "Migration Failed",
                         style = SectionHeadline,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
                     )
                 },
                 text = {
@@ -783,7 +786,7 @@ fun MigrationResultDialog(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = ExpenseContainer
+                                containerColor = MaterialTheme.colorScheme.errorContainer
                             ),
                             shape = RoundedCornerShape(RadiusLarge)
                         ) {
@@ -797,7 +800,7 @@ fun MigrationResultDialog(
                                     text = "Failed Stage: ${resultState.stage}",
                                     style = LabelBadgeMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = ExpenseCoral
+                                    color = MaterialTheme.colorScheme.onErrorContainer
                                 )
                                 Text(
                                     text = resultState.sanitizedError,

@@ -47,11 +47,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.ExpenseContainer
-import com.example.ui.theme.ExpenseCoral
+import com.example.ui.theme.DividerInsetTransaction
+import com.example.ui.theme.DividerThicknessHairline
 import com.example.ui.theme.FinTrackMotion
-import com.example.ui.theme.IncomeContainer
-import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.ShapeGroupedItemSingle
 import com.example.ui.theme.ShapeSquircleIcon
@@ -61,6 +60,7 @@ import com.example.ui.theme.Space2
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
 import com.example.ui.theme.isReducedMotionEnabled
+import com.example.ui.theme.tactilePress
 
 /**
  * Reusable presentation row for transactions in FinTrack Material 3 Expressive Design System.
@@ -82,7 +82,7 @@ fun FinTrackTransactionRow(
     statusLabel: String? = null,
     statusVariant: BadgeVariant? = null,
     categoryIcon: ImageVector = Icons.Default.Receipt,
-    categoryColor: Color = if (isIncome) IncomeEmerald else ExpenseCoral,
+    categoryColor: Color = Color.Unspecified,
     shape: Shape = ShapeGroupedItemSingle,
     containerColor: Color = Color.Transparent,
     showDivider: Boolean = false,
@@ -94,6 +94,14 @@ fun FinTrackTransactionRow(
     deleteTestTag: String? = null,
     editTestTag: String? = null
 ) {
+    val resolvedCategoryColor = if (categoryColor != Color.Unspecified) {
+        categoryColor
+    } else if (isIncome) {
+        FinTrackTheme.colors.income
+    } else {
+        FinTrackTheme.colors.expense
+    }
+
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isReducedMotion = isReducedMotionEnabled()
@@ -146,14 +154,14 @@ fun FinTrackTransactionRow(
                             .size(40.dp)
                             .clip(ShapeSquircleIcon)
                             .background(
-                                color = if (isIncome) IncomeContainer else ExpenseContainer
+                                color = if (isIncome) FinTrackTheme.colors.incomeContainer else FinTrackTheme.colors.expenseContainer
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = categoryIcon,
                             contentDescription = null,
-                            tint = categoryColor,
+                            tint = resolvedCategoryColor,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -226,6 +234,7 @@ fun FinTrackTransactionRow(
                                 onClick = onDuplicateClick,
                                 modifier = Modifier
                                     .size(48.dp)
+                                    .tactilePress()
                                     .then(if (duplicateTestTag != null) Modifier.testTag(duplicateTestTag) else Modifier)
                             ) {
                                 Icon(
@@ -243,6 +252,7 @@ fun FinTrackTransactionRow(
                                 onClick = onEditClick,
                                 modifier = Modifier
                                     .size(48.dp)
+                                    .tactilePress()
                                     .then(if (editTestTag != null) Modifier.testTag(editTestTag) else Modifier)
                             ) {
                                 Icon(
@@ -260,12 +270,13 @@ fun FinTrackTransactionRow(
                                 onClick = onDeleteClick,
                                 modifier = Modifier
                                     .size(48.dp)
+                                    .tactilePress()
                                     .then(if (deleteTestTag != null) Modifier.testTag(deleteTestTag) else Modifier)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete transaction",
-                                    tint = ExpenseCoral,
+                                    tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -277,9 +288,9 @@ fun FinTrackTransactionRow(
 
         if (showDivider) {
             HorizontalDivider(
-                modifier = Modifier.padding(start = 68.dp, end = Space16),
+                modifier = Modifier.padding(start = DividerInsetTransaction, end = Space16),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                thickness = 0.5.dp
+                thickness = DividerThicknessHairline
             )
         }
     }

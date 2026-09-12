@@ -1,9 +1,13 @@
 package com.example.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -12,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
@@ -23,27 +26,26 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseContainer
-import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.FinTrackMotion
-import com.example.ui.theme.IncomeContainer
-import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadgeMedium
-import com.example.ui.theme.RadiusMedium
+import com.example.ui.theme.ShapeBadgeOrganic
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.WarningAmber
+import com.example.ui.theme.isReducedMotionEnabled
 
 enum class BadgeVariant {
     SUCCESS,
@@ -70,27 +72,27 @@ fun FinTrackStatusBadge(
     val (defaultIcon, iconColor, containerColor, textColor) = when (variant) {
         BadgeVariant.SUCCESS -> Quad(
             Icons.Default.CheckCircle,
-            IncomeEmerald,
-            IncomeContainer,
-            IncomeEmerald
+            FinTrackTheme.colors.income,
+            FinTrackTheme.colors.incomeContainer,
+            FinTrackTheme.colors.income
         )
         BadgeVariant.WARNING -> Quad(
             Icons.Default.Warning,
-            WarningAmber,
-            WarningAmber.copy(alpha = 0.15f),
-            WarningAmber
+            FinTrackTheme.colors.warning,
+            FinTrackTheme.colors.warningContainer,
+            FinTrackTheme.colors.warning
         )
         BadgeVariant.ERROR -> Quad(
             Icons.Default.Error,
-            ExpenseCoral,
-            ExpenseContainer,
-            ExpenseCoral
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.error
         )
         BadgeVariant.INFORMATIONAL -> Quad(
             Icons.Default.Info,
-            CobaltBlue,
-            CobaltBlue.copy(alpha = 0.15f),
-            CobaltBlue
+            FinTrackTheme.colors.info,
+            FinTrackTheme.colors.infoContainer,
+            FinTrackTheme.colors.info
         )
         BadgeVariant.NEUTRAL -> Quad(
             Icons.Default.Info,
@@ -100,10 +102,37 @@ fun FinTrackStatusBadge(
         )
         BadgeVariant.SYNCING -> Quad(
             Icons.Default.Sync,
-            CobaltBlue,
-            CobaltBlue.copy(alpha = 0.15f),
-            CobaltBlue
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.primary
         )
+    }
+
+    val isReducedMotion = isReducedMotionEnabled()
+    val colorSpec: AnimationSpec<Color> = if (isReducedMotion) snap() else FinTrackMotion.fastTween()
+
+    val animatedContainerColor by animateColorAsState(
+        targetValue = containerColor,
+        animationSpec = colorSpec,
+        label = "badge_container_color"
+    )
+    val animatedTextColor by animateColorAsState(
+        targetValue = textColor,
+        animationSpec = colorSpec,
+        label = "badge_text_color"
+    )
+    val animatedIconColor by animateColorAsState(
+        targetValue = iconColor,
+        animationSpec = colorSpec,
+        label = "badge_icon_color"
+    )
+
+    val scale = remember { Animatable(1f) }
+    LaunchedEffect(variant) {
+        if (!isReducedMotion && variant == BadgeVariant.SUCCESS) {
+            scale.animateTo(1.08f, animationSpec = FinTrackMotion.microTween())
+            scale.animateTo(1f, animationSpec = FinTrackMotion.interactiveSpring())
+        }
     }
 
     val displayIcon = icon ?: defaultIcon
@@ -132,8 +161,12 @@ fun FinTrackStatusBadge(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(RadiusMedium))
-            .background(containerColor)
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+            }
+            .clip(ShapeBadgeOrganic)
+            .background(animatedContainerColor)
             .padding(horizontal = Space8, vertical = Space4)
             .semantics { this.contentDescription = badgeSemantics },
         contentAlignment = Alignment.Center
@@ -144,14 +177,14 @@ fun FinTrackStatusBadge(
             Icon(
                 imageVector = displayIcon,
                 contentDescription = null, // decorative within semantic container
-                tint = iconColor,
+                tint = animatedIconColor,
                 modifier = iconModifier
             )
             Spacer(modifier = Modifier.width(Space4))
             Text(
                 text = label,
                 style = LabelBadgeMedium,
-                color = textColor
+                color = animatedTextColor
             )
         }
     }

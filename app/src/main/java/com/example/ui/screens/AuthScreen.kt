@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,8 +64,6 @@ import com.example.data.repository.GoogleSignInConfigProvider
 import com.example.ui.components.ButtonVariant
 import com.example.ui.components.FinTrackButton
 import com.example.ui.theme.BodyRegular
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseCoral
 import com.example.ui.theme.FinTrackMotion
 import com.example.ui.theme.HeroFinancialDisplay
 import com.example.ui.theme.LabelBadgeMedium
@@ -124,14 +124,14 @@ fun AuthScreen(
                 Box(
                     modifier = Modifier
                         .size(72.dp)
-                        .background(CobaltBlue.copy(alpha = 0.12f), ShapeFloatingActionButton),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), ShapeFloatingActionButton),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Lock,
                         contentDescription = "Authentication Lock",
                         modifier = Modifier.size(36.dp),
-                        tint = CobaltBlue
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
 
@@ -141,7 +141,8 @@ fun AuthScreen(
                     text = "FinTrack",
                     style = HeroFinancialDisplay,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.semantics { heading() }
                 )
 
                 Spacer(modifier = Modifier.height(Space4))
@@ -198,7 +199,7 @@ fun AuthScreen(
                                             modifier = Modifier
                                                 .size(40.dp)
                                                 .testTag("auth_signing_in_indicator"),
-                                            color = CobaltBlue,
+                                            color = MaterialTheme.colorScheme.primary,
                                             strokeWidth = 3.dp
                                         )
                                         Spacer(modifier = Modifier.height(Space16))
@@ -219,13 +220,13 @@ fun AuthScreen(
                                         Box(
                                             modifier = Modifier
                                                 .size(48.dp)
-                                                .background(ExpenseCoral.copy(alpha = 0.12f), ShapeSmall),
+                                                .background(MaterialTheme.colorScheme.errorContainer, ShapeSmall),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Filled.Warning,
                                                 contentDescription = "Auth Error",
-                                                tint = ExpenseCoral,
+                                                tint = MaterialTheme.colorScheme.error,
                                                 modifier = Modifier.size(24.dp)
                                             )
                                         }
@@ -233,7 +234,7 @@ fun AuthScreen(
                                         Text(
                                             text = "Authentication Error",
                                             style = SectionHeadline,
-                                            color = ExpenseCoral,
+                                            color = MaterialTheme.colorScheme.error,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(modifier = Modifier.height(Space8))
@@ -294,7 +295,7 @@ fun AuthScreen(
                                                     imageVector = Icons.Filled.AccountCircle,
                                                     contentDescription = "Google Icon",
                                                     modifier = Modifier.size(22.dp),
-                                                    tint = Color.White
+                                                    tint = MaterialTheme.colorScheme.onPrimary
                                                 )
                                                 Spacer(modifier = Modifier.width(Space8))
                                                 Text(
@@ -334,7 +335,7 @@ fun AuthScreen(
                                     singleLine = true,
                                     shape = RoundedCornerShape(RadiusMedium),
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = CobaltBlue,
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,

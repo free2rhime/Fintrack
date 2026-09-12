@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -42,6 +43,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,11 +54,7 @@ import com.example.data.util.CsvImportFinalResult
 import com.example.data.util.CsvPreviewData
 import com.example.ui.theme.BodyRegular
 import com.example.ui.theme.CardTitleAmount
-import com.example.ui.theme.CobaltBlue
-import com.example.ui.theme.ExpenseContainer
-import com.example.ui.theme.ExpenseCoral
-import com.example.ui.theme.IncomeContainer
-import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.FinTrackTheme
 import com.example.ui.theme.LabelBadgeMedium
 import com.example.ui.theme.MicroMetadata
 import com.example.ui.theme.RadiusLarge
@@ -69,7 +68,6 @@ import com.example.ui.theme.Space2
 import com.example.ui.theme.Space20
 import com.example.ui.theme.Space4
 import com.example.ui.theme.Space8
-import com.example.ui.theme.WarningAmber
 import java.util.Locale
 
 @Composable
@@ -97,7 +95,7 @@ fun CsvImportPreviewDialog(
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    tint = CobaltBlue,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(Space8))
@@ -105,7 +103,8 @@ fun CsvImportPreviewDialog(
                     text = "CSV Import Preview",
                     style = SectionHeadline,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.semantics { heading() }
                 )
             }
         },
@@ -129,13 +128,13 @@ fun CsvImportPreviewDialog(
                     MetricCard(
                         title = "Valid Rows",
                         value = "${previewData.validRowsCount}",
-                        textColor = IncomeEmerald,
+                        textColor = FinTrackTheme.colors.income,
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
                         title = "Invalid Rows",
                         value = "${previewData.invalidRowsCount}",
-                        textColor = if (previewData.invalidRowsCount > 0) ExpenseCoral else MaterialTheme.colorScheme.onSurface,
+                        textColor = if (previewData.invalidRowsCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -150,13 +149,13 @@ fun CsvImportPreviewDialog(
                     MetricCard(
                         title = "Total Income (RON)",
                         value = String.format(Locale.US, "%.2f RON", previewData.totalRonIncome),
-                        textColor = IncomeEmerald,
+                        textColor = FinTrackTheme.colors.income,
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
                         title = "Total Expense (RON)",
                         value = String.format(Locale.US, "%.2f RON", previewData.totalRonExpense),
-                        textColor = ExpenseCoral,
+                        textColor = FinTrackTheme.colors.expense,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -177,13 +176,15 @@ fun CsvImportPreviewDialog(
                         selected = previewData.duplicateMode == CsvDuplicateMode.SKIP_EXISTING,
                         onClick = { onDuplicateModeChanged(CsvDuplicateMode.SKIP_EXISTING) },
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        modifier = Modifier.testTag("segmented_skip_existing"),
+                        modifier = Modifier
+                            .testTag("segmented_skip_existing")
+                            .defaultMinSize(minHeight = 48.dp),
                         colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = CobaltBlue,
-                            activeContentColor = Color.White,
+                            activeContainerColor = MaterialTheme.colorScheme.primary,
+                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
                             inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                             inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            activeBorderColor = CobaltBlue,
+                            activeBorderColor = MaterialTheme.colorScheme.primary,
                             inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
                         )
                     ) {
@@ -193,13 +194,15 @@ fun CsvImportPreviewDialog(
                         selected = previewData.duplicateMode == CsvDuplicateMode.UPDATE_EXISTING,
                         onClick = { onDuplicateModeChanged(CsvDuplicateMode.UPDATE_EXISTING) },
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        modifier = Modifier.testTag("segmented_update_existing"),
+                        modifier = Modifier
+                            .testTag("segmented_update_existing")
+                            .defaultMinSize(minHeight = 48.dp),
                         colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = CobaltBlue,
-                            activeContentColor = Color.White,
+                            activeContainerColor = MaterialTheme.colorScheme.primary,
+                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
                             inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                             inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            activeBorderColor = CobaltBlue,
+                            activeBorderColor = MaterialTheme.colorScheme.primary,
                             inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
                         )
                     ) {
@@ -247,7 +250,7 @@ fun CsvImportPreviewDialog(
                                 style = BodyRegular,
                                 fontWeight = FontWeight.Bold,
                                 color = if (previewData.duplicateMode == CsvDuplicateMode.UPDATE_EXISTING && previewData.existingIdsCount > 0)
-                                    CobaltBlue else MaterialTheme.colorScheme.onSurfaceVariant
+                                    MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -268,9 +271,24 @@ fun CsvImportPreviewDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Space8)
                 ) {
-                    StatusChip("OFFICIAL: ${previewData.officialCount}", IncomeEmerald, Modifier.weight(1f))
-                    StatusChip("UNVERIFIED: ${previewData.unverifiedCount}", WarningAmber, Modifier.weight(1f))
-                    StatusChip("PENDING: ${previewData.pendingCount}", ExpenseCoral, Modifier.weight(1f))
+                    StatusChip(
+                        text = "OFFICIAL: ${previewData.officialCount}",
+                        containerColor = FinTrackTheme.colors.incomeContainer,
+                        contentColor = FinTrackTheme.colors.onIncomeContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatusChip(
+                        text = "UNVERIFIED: ${previewData.unverifiedCount}",
+                        containerColor = FinTrackTheme.colors.warningContainer,
+                        contentColor = FinTrackTheme.colors.onWarningContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatusChip(
+                        text = "PENDING: ${previewData.pendingCount}",
+                        containerColor = FinTrackTheme.colors.expenseContainer,
+                        contentColor = FinTrackTheme.colors.onExpenseContainer,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
 
                 // MISSING CATEGORIES SECTION
@@ -280,7 +298,7 @@ fun CsvImportPreviewDialog(
                         text = "New Categories / Subcategories to be Created (${previewData.missingCategories.size}):",
                         style = LabelBadgeMedium,
                         fontWeight = FontWeight.Bold,
-                        color = CobaltBlue
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(Space8))
                     Card(
@@ -306,18 +324,18 @@ fun CsvImportPreviewDialog(
                 if (previewData.rowErrors.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(Space16))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = ExpenseCoral, modifier = Modifier.size(18.dp))
+                        Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(Space8))
                         Text(
                             text = "Row Validation Errors / Exclusions (${previewData.rowErrors.size}):",
                             style = LabelBadgeMedium,
                             fontWeight = FontWeight.Bold,
-                            color = ExpenseCoral
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                     Spacer(modifier = Modifier.height(Space8))
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = ExpenseContainer),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                         shape = RoundedCornerShape(RadiusMedium),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -326,7 +344,7 @@ fun CsvImportPreviewDialog(
                                 Text(
                                     text = "Row ${err.rowNumber} [${err.field}]: ${err.message}",
                                     style = BodyRegular,
-                                    color = ExpenseCoral
+                                    color = MaterialTheme.colorScheme.onErrorContainer
                                 )
                                 Spacer(modifier = Modifier.height(Space4))
                             }
@@ -369,7 +387,13 @@ fun CsvImportPreviewDialog(
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             title = {
-                Text("Confirm Overwrite", style = SectionHeadline, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    text = "Confirm Overwrite",
+                    style = SectionHeadline,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.semantics { heading() }
+                )
             },
             text = {
                 Text(
@@ -413,16 +437,17 @@ fun CsvImportResultDialog(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (result.success) {
-                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = IncomeEmerald, modifier = Modifier.size(24.dp))
+                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = FinTrackTheme.colors.income, modifier = Modifier.size(24.dp))
                 } else {
-                    Icon(imageVector = Icons.Default.ErrorOutline, contentDescription = null, tint = ExpenseCoral, modifier = Modifier.size(24.dp))
+                    Icon(imageVector = Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp))
                 }
                 Spacer(modifier = Modifier.width(Space8))
                 Text(
                     text = if (result.success) "Import Successful" else "Import Failed",
                     style = SectionHeadline,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.semantics { heading() }
                 )
             }
         },
@@ -436,7 +461,7 @@ fun CsvImportResultDialog(
                     Text(
                         text = result.errorMessage,
                         style = BodyRegular,
-                        color = ExpenseCoral,
+                        color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(Space12))
@@ -457,16 +482,16 @@ fun CsvImportResultDialog(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(Space16)) {
-                            ResultRow("Transactions Inserted:", "${result.insertedCount}", IncomeEmerald)
-                            ResultRow("Transactions Updated:", "${result.updatedCount}", CobaltBlue)
+                            ResultRow("Transactions Inserted:", "${result.insertedCount}", FinTrackTheme.colors.income)
+                            ResultRow("Transactions Updated:", "${result.updatedCount}", MaterialTheme.colorScheme.primary)
                             ResultRow("Transactions Skipped:", "${result.skippedCount}", MaterialTheme.colorScheme.onSurfaceVariant)
-                            ResultRow("Rows Failed / Excluded:", "${result.failedCount}", if (result.failedCount > 0) ExpenseCoral else MaterialTheme.colorScheme.onSurfaceVariant)
+                            ResultRow("Rows Failed / Excluded:", "${result.failedCount}", if (result.failedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(Space8))
                             ResultRow("Categories Created:", "${result.categoriesCreatedCount}", MaterialTheme.colorScheme.onSurface)
                             ResultRow("Subcategories Created:", "${result.subcategoriesCreatedCount}", MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.height(Space8))
-                            ResultRow("Pending Conversions:", "${result.pendingCount}", ExpenseCoral)
-                            ResultRow("Unverified Conversions:", "${result.unverifiedCount}", WarningAmber)
+                            ResultRow("Pending Conversions:", "${result.pendingCount}", MaterialTheme.colorScheme.error)
+                            ResultRow("Unverified Conversions:", "${result.unverifiedCount}", FinTrackTheme.colors.warning)
                         }
                     }
 
@@ -516,17 +541,18 @@ private fun MetricCard(
 @Composable
 private fun StatusChip(
     text: String,
-    color: Color,
+    containerColor: Color,
+    contentColor: Color,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(RadiusSmall),
-        color = color.copy(alpha = 0.15f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
+        color = containerColor,
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.4f))
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = Space4, horizontal = Space4)) {
-            Text(text, style = MicroMetadata, fontWeight = FontWeight.Bold, color = color)
+            Text(text, style = MicroMetadata, fontWeight = FontWeight.Bold, color = contentColor)
         }
     }
 }
