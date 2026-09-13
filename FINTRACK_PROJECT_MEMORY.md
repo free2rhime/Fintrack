@@ -1,8 +1,10 @@
 # FINTRACK PROJECT MEMORY v2
 
 > Canonical compact operational memory for the FinTrack project.
-> Last reconciled: 2026-09-10
-> Current verified Git checkpoint: Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
+> Last reconciled: 2026-09-12
+> Current verified Git checkpoint: Material 3 Expressive Complete Polish & Verification Baseline (`2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7` - 2026-09-12)
+> Previous functional baseline: Categories Material 3 Expressive Interaction Polish (`744dd6dbebfc06a4ed4aefb90be3484a22e9b6aa` - 2026-09-11)
+> Previous functional baseline: Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
 > Previous functional baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
 > Previous functional baseline: Phase 13 Final Visual QA Clean Completion Checkpoint (Phases 1–13 Complete — GO: PHASE 13 CLEAN) / 13baf6de
 > Previous functional baseline: Phase 12 / Phase 11 / Transactions Search Bug Fix Checkpoint (`fix(fintrack): restore Transactions search filtering` - 2026-09-03) / Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
@@ -50,30 +52,40 @@ Never silently turn historical information into current state.
 
 # 2. CURRENT CHECKPOINT — VERIFIED
 
-Repository state verified on 2026-09-10:
+Repository state verified on 2026-09-12:
 
 ```text
 Branch:       main
 Remote:       https://github.com/free2rhime/Fintrack.git
-HEAD:         3e1bf3fc21bac75d041725a56839dc10f5b4f62a
+HEAD:         2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7
 Status:       Synchronized with origin/main (0 ahead, 0 behind)
 ```
 
 Current implementation baseline:
 
-Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
-- **Phase 3D / Material 3 Expressive Migration (COMPLETE & SIGNED OFF):** Full migration across M3-1 through M3-11:
-  - M3-1: Foundation tokens (Color, Shape, Type, Spacing, Motion)
-  - M3-2: Global shell & Expressive navigation
-  - M3-3: Dashboard Hero & Financial Pulse
-  - M3-4: Transactions & Recent Activity hierarchy
-  - M3-5: Add/Edit/Duplicate Transaction Expressive experience
-  - M3-6: Analytics Expressive exploration surfaces
-  - M3-7: Categories Gallery with accordions & RBAC
-  - M3-8: Settings + Household Control Center
-  - M3-9: Auth Screen Expressive hero identity & state motion
-  - M3-10: Full cross-screen verification, polish, and quality sign-off (12/12 M3FinalVerificationTest PASS, 84/84 cross-milestone PASS, full unit suite PASS, assembleDebug PASS)
-  - M3-11: Final Git release checkpoint, commit (`3e1bf3f`) and push to origin/main — COMPLETE
+Material 3 Expressive Complete Polish & Verification Baseline (`2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7` - 2026-09-12)
+- **Phase 1 Foundations:** Complete tokenization across Color (`FinTrackColors`), Shape (`FinTrackShapes`: `ShapeGroupedContainer`, `ShapeSquircleIcon`, `ShapeBadgeOrganic`, `ShapePill`), Type (`HeroFinancialDisplay`, `SectionHeadline`, `TitleCard`, `BodyRegular`), and Spacing (`SpacingCardInsets`, `SpacingHeroInsets`, `SpacingBottomNavContent = 80.dp`).
+- **Phase 2 Motion & Interaction Parity:** Tactile spring physics (`tactilePress()`, `InteractiveSpring`, `FastTween`, `SelectionSpring`), animated dropdown chevron rotation (`180f`), accessible tab semantics (`Role.Tab`), path/arc animated chart rendering (`MonthlyCashFlowBarChart`, `SavingsTrendLineChart`, `CategoryDistributionChart`).
+- **Phase 3 Expressive Polish & Consistency (P2 Fixes 3a..3l):**
+  - 3a: `AnimatedVisibility` on EUR data warning & pending invitations card with reduced-motion fallback.
+  - 3b: `heading()` semantics on all screen headers & dialog titles.
+  - 3c: `mergeDescendants` on metric cards, amounts, balance heroes, and household member cards.
+  - 3d: `AnimatedContent` with `contentFade()` on `FinTrackAmount` value changes.
+  - 3e: `Modifier.animateItem()` on `TransactionsScreen` `LazyColumn`.
+  - 3f: Upgraded `FinTrackEmptyState` with `ShapeSquircleIcon`, spring entrance, and `TitleCard` typography.
+  - 3g: Upgraded `FinTrackStatusBadge` with `ShapeBadgeOrganic`, color animations, and success pulse.
+  - 3h: Fixed `TransactionFormDialog` to `ShapeExtraLarge` (24dp rounded corners) and removed mock drag handle.
+  - 3i: Fixed `FinTrackButton` default shape to 20dp (`RoundedCornerShape(20.dp)`), `labelLarge` typography, and added `TONAL`, `OUTLINED`, and `TEXT` variants.
+  - 3j: Progressive Material 3 grouped geometry on `HouseholdOverviewCard` members.
+  - 3k: Replaced typography overrides with centralized `TitleCard` token.
+  - 3l: Hardened amber `StatusChip` contrast (`warningContainer` background + `onWarningContainer` text, ~6.8:1 ratio, WCAG AA compliant).
+- **Post-Phase 3 Extended Micro-Polish & Semantic Consistency (`2533e9f`):**
+  - Complete `selectableGroup()` semantic coverage on secondary selector rows (`TransactionFormDialog` type & destination selector, `PeriodSelectorChipRow` chip selector, `FinancialChartComponents` month labels).
+  - Tokenized bottom navigation clearance inset (`SpacingBottomNavContent = 80.dp`).
+  - Responsive centering of `FinTrackPeriodSelector` on wide viewports (>=600dp) with `Arrangement.spacedBy(Space8, Alignment.CenterHorizontally)` and `widthIn(min = maxWidth)`.
+- **Categories Responsive Redesign & WOW Polish (`744dd6d`):** Expressive category accordions, subcategory expansion chips, animated chevrons, and OWNER vs MEMBER RBAC restrictions.
+- **Analytics Exploration Surfaces & Financial Insights Removal:** Dynamic cubic splines, donut charts with adaptive sizing (210dp tablet vs 170dp compact), strict global period filter authority, and complete removal of legacy Smart Financial Insights from the Analytics UI.
+- **Phase 3D / Material 3 Expressive Migration (COMPLETE & SIGNED OFF):** Full migration across M3-1 through M3-11 (`3e1bf3f`).
 - **Adaptive Launcher Icon (5b8a82e, a59684a):** Precision 3D ribbon FT monogram vector icon with full-bleed radial gradient background, monochrome knockout for Android 13+ Themed Icons, scaled to 82% for balanced proportions.
 - **Material 3 Semantic Migration (5fb61a7):** Complete presentation-layer migration across 26 files to `MaterialTheme.colorScheme` with dual Light/Dark palette support.
 - **Transaction Description Autocomplete (1dc2fd5):** Case-insensitive prefix matching, active household scoping, excluded deleted/blank descriptions, deduplication, integration in Expense and Income forms.
@@ -2063,40 +2075,58 @@ Tags must not be renamed or removed during future UI work.
   - Transaction Description Autocomplete (`1dc2fd5`): DAO prefix query, UI dropdown, test coverage.
   - Dashboard Consolidation (`d3d5a37`, `5d06cfb`, `0c5e1bf`): Centralized period filtering, interactive cubic `FinancialSplineChart`, unified header.
   - FinTrack Adaptive Launcher Icon (`a59684a`, `5b8a82e`): Android 8.0+ adaptive icon and Android 13+ Monet monochrome theming, scaled to 82% for balanced proportions and safe zone clearance.
+- Phase 3D — Material 3 Expressive Migration (M3-1 through M3-11): STATUS: COMPLETE / SIGNED OFF (`3e1bf3f`)
+- Categories M3 Expressive Interaction Polish (`744dd6d`): STATUS: COMPLETE
+- Material 3 Expressive Phase 1 — Foundations: STATUS: COMPLETE / AUDIT VERIFIED
+- Material 3 Expressive Phase 2 — Motion & Interaction Parity: STATUS: COMPLETE / AUDIT VERIFIED
+- Material 3 Expressive Phase 3 — Polish & Consistency (3a..3l): STATUS: COMPLETE / AUDIT VERIFIED
+- Material 3 Expressive Extended Polish & Semantic Consistency (`2533e9f`): STATUS: COMPLETE / VERIFIED
+  - Tokenized bottom navigation clearance inset (`SpacingBottomNavContent = 80.dp`).
+  - Complete `selectableGroup()` semantic coverage across all secondary selector/tab rows.
+  - Responsive centering of `FinTrackPeriodSelector` on wide viewports (>=600dp).
+  - Adaptive donut chart sizing in `FinancialChartComponents` (210dp tablet vs 170dp compact).
+  - Extended `ButtonVariant` with `TONAL`, `OUTLINED`, and `TEXT` variants in `FinTrackButton`.
+  - Expense amount color parity (`FinTrackTheme.colors.expense`) in `RecentActivitySection`.
+  - Spring-driven 180° rotation on `FinTrackPeriodDropdown` chevron with reduced motion fallback.
 
 ---
 
 ## 18. CURRENT MEMORY BASELINE
 
 **CHECKPOINT NAME:**
-FinTrack — Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
+FinTrack — Material 3 Expressive Complete Polish & Verification Checkpoint (`2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7` - 2026-09-12)
 
 **PRESENTATION LAYER:**
-VERIFIED CLEAN AFTER PHASE 13 + PHASE 14 MODERNIZATION (Material 3 semantic dual-palette migration, FinancialSplineChart, description autocomplete, adaptive launcher icon).
+VERIFIED CLEAN AFTER MATERIAL 3 EXPRESSIVE MIGRATION, PHASE 1–3, CATEGORIES WOW POLISH, AND EXTENDED MICRO-POLISH. All 31 UI files refactored to consume M3 tonal surfaces, organic squircle geometry, tactile spring motion, and accessible group semantics.
 
 **DESIGN SYSTEM:**
-Material 3 Semantic Design System with complete LightColorScheme and DarkColorScheme tokens verified across 26 presentation components.
+Material 3 Expressive Design System with centralized token contracts:
+- `FinTrackColors`: semantic dynamic color mapping (income, expense, warning, neutral).
+- `FinTrackShapes`: `ShapeGroupedContainer` (24dp/12dp), `ShapeSquircleIcon` (14dp), `ShapeBadgeOrganic` (12dp, 4dp, 12dp, 12dp), `ShapePill` (50%), `ShapeExtraLarge` (24dp dialog).
+- `FinTrackTypography`: downscaled expressive typography scale (`HeroFinancialDisplay`, `SectionHeadline`, `TitleCard`, `BodyRegular`, etc.).
+- `FinTrackSpacing`: unified spatial tokens including `SpacingBottomNavContent` (80.dp).
+- `FinTrackMotion`: physics-based spring transitions (`InteractiveSpring`, `FastTween`, `SelectionSpring`), `tactilePress()` modifier, and `isReducedMotionEnabled()` fallback.
 
 **LAUNCHER ICON:**
 100% VectorDrawable adaptive icon (108dp x 108dp, 82% scale) with radiant navy background, 3D ribbon FT monogram, and Monet monochrome layer.
 
 **MOTION:**
-Centralized FinTrackMotion foundation verified.
+Centralized FinTrackMotion spring physics verified; infinite animation strictly limited to `BadgeVariant.SYNCING`. Zero unmanaged coroutines or leaks.
 
-**ACCESSIBILITY:**
-Responsive and accessibility hardening completed.
+**ACCESSIBILITY & SEMANTICS:**
+All interactive controls adhere to 48dp minimum touch targets; full `selectableGroup()` semantic coverage on secondary selector rows; `heading()` semantics on screen and dialog titles; `mergeDescendants` on metric and card composites; WCAG AA contrast compliance verified.
+
+**ANALYTICS & DOMAIN AUTHORITY:**
+Strict `GlobalPeriodFilter` authority; zero arithmetic in UI layer (`FinancialAnalyticsEngine` remains sole financial calculation authority); complete removal of legacy Smart Financial Insights from the Analytics UI.
 
 **TEST CONTRACTS:**
-Existing semantic/test tags preserved.
+Existing semantic/test tags strictly preserved.
 
 **ARCHITECTURAL LOCKS:**
-Preserved across all 10 protected domains.
+Preserved across all 10 protected domains: Room persistence, DAOs, Firestore bidirectional sync, OutboundSyncEngine FIFO queue & FAILED outbox shielding, Firebase Auth, RBAC, BNR currency conversion math, ViewModels, CSV orchestrator, and Gradle configuration.
 
-**BUSINESS LOGIC:**
-No regressions introduced; transaction autocomplete and spline visualization strictly respect domain boundaries.
-
-**SYNC / AUTH / RBAC:**
-Not modified by presentation layer modernizations.
+**TEST & BUILD STATUS:**
+All 810+ tests pass (`:app:testDebugUnitTest`), 0 failures, 0 coroutine leaks. Debug APK builds cleanly (`:app:assembleDebug` in 7s).
 
 **HISTORICAL UNRESOLVED / INVESTIGATION CONTEXT:**
-Historical technical investigation context regarding sync permission issues and coroutine lifecycle problems remains documented and preserved.
+Historical technical investigation context regarding sync permission issues, mandatory backup generation, and coroutine lifecycle handling remains documented and preserved.

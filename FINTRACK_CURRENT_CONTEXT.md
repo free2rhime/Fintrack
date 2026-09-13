@@ -1,8 +1,10 @@
 # FINTRACK CURRENT CONTEXT
 
 > Compact operational context for continuing FinTrack development.
-> Last verified: 2026-09-10
-> Baseline: Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
+> Last verified: 2026-09-12
+> Baseline: Material 3 Expressive Complete Polish & Verification Baseline (`2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7` - 2026-09-12)
+> Previous baseline: Categories Material 3 Expressive Interaction Polish (`744dd6dbebfc06a4ed4aefb90be3484a22e9b6aa` - 2026-09-11)
+> Previous baseline: Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
 > Previous baseline: Adaptive Launcher Icon & M3 Semantic Migration Checkpoint (`5b8a82e30567a4d26f4b57683d47812337dc0152` - 2026-09-06)
 > Previous baseline: Phase 13 Final Visual QA Clean Completion (2026-09-05) — GO: PHASE 13 CLEAN / 13baf6de
 > Previous baseline: Step 12.3Z Real Database Import & Full CSV Pipeline Verification Checkpoint / Step 12.3Y / Step 12.3X / Step 12.3W / Step 12.3V / Step 12.3U / Step 12.3T / Step 12.3S / Step 12.3M / Step 12.3L / `1bef33f` / `7a8b6bf` / `aed996f` / `14f5338` / `0da6b96` / `4ed7894` / `1ed28ec` / `37155bc` / `32fc27b` / `a739400` / `baf2f70`
@@ -24,7 +26,7 @@ For detailed history, decisions and evidence use:
 ```text
 Branch:       main
 Remote:       https://github.com/free2rhime/Fintrack.git
-HEAD:         3e1bf3fc21bac75d041725a56839dc10f5b4f62a
+HEAD:         2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7
 Status:       Synchronized with origin/main (0 ahead, 0 behind)
 ```
 
@@ -32,19 +34,29 @@ At the time this context was verified, the repository working tree was synchroni
 
 Current implementation baseline:
 
-Material 3 Expressive Phase 3D Migration Final Baseline (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a` - 2026-09-10)
-- **Phase 3D / Material 3 Expressive Migration (COMPLETE & SIGNED OFF):** Full migration across M3-1 through M3-11:
-  - M3-1: Foundation tokens (Color, Shape, Type, Spacing, Motion)
-  - M3-2: Global shell & Expressive navigation
-  - M3-3: Dashboard Hero & Financial Pulse
-  - M3-4: Transactions & Recent Activity hierarchy
-  - M3-5: Add/Edit/Duplicate Transaction Expressive experience
-  - M3-6: Analytics Expressive exploration surfaces
-  - M3-7: Categories Gallery with accordions & RBAC
-  - M3-8: Settings + Household Control Center
-  - M3-9: Auth Screen Expressive hero identity & state motion
-  - M3-10: Full cross-screen verification, polish, and quality sign-off (12/12 M3FinalVerificationTest PASS, 84/84 cross-milestone PASS, full unit suite PASS, assembleDebug PASS)
-  - M3-11: Final Git release checkpoint, commit (`3e1bf3f`) and push to origin/main — COMPLETE
+Material 3 Expressive Complete Polish & Verification Baseline (`2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7` - 2026-09-12)
+- **Phase 1 Foundations:** Complete tokenization across Color (`FinTrackColors`), Shape (`FinTrackShapes`: `ShapeGroupedContainer`, `ShapeSquircleIcon`, `ShapeBadgeOrganic`, `ShapePill`), Type (`HeroFinancialDisplay`, `SectionHeadline`, `TitleCard`, `BodyRegular`), and Spacing (`SpacingCardInsets`, `SpacingHeroInsets`, `SpacingBottomNavContent = 80.dp`).
+- **Phase 2 Motion & Interaction Parity:** Tactile spring physics (`tactilePress()`, `InteractiveSpring`, `FastTween`, `SelectionSpring`), animated dropdown chevron rotation (`180f`), accessible tab semantics (`Role.Tab`), path/arc animated chart rendering (`MonthlyCashFlowBarChart`, `SavingsTrendLineChart`, `CategoryDistributionChart`).
+- **Phase 3 Expressive Polish & Consistency (P2 Fixes 3a..3l):**
+  - 3a: `AnimatedVisibility` on EUR data warning & pending invitations card with reduced-motion fallback.
+  - 3b: `heading()` semantics on all screen headers & dialog titles.
+  - 3c: `mergeDescendants` on metric cards, amounts, balance heroes, and household member cards.
+  - 3d: `AnimatedContent` with `contentFade()` on `FinTrackAmount` value changes.
+  - 3e: `Modifier.animateItem()` on `TransactionsScreen` `LazyColumn`.
+  - 3f: Upgraded `FinTrackEmptyState` with `ShapeSquircleIcon`, spring entrance, and `TitleCard` typography.
+  - 3g: Upgraded `FinTrackStatusBadge` with `ShapeBadgeOrganic`, color animations, and success pulse.
+  - 3h: Fixed `TransactionFormDialog` to `ShapeExtraLarge` (24dp rounded corners) and removed mock drag handle.
+  - 3i: Fixed `FinTrackButton` default shape to 20dp (`RoundedCornerShape(20.dp)`), `labelLarge` typography, and added `TONAL`, `OUTLINED`, and `TEXT` variants.
+  - 3j: Progressive Material 3 grouped geometry on `HouseholdOverviewCard` members.
+  - 3k: Replaced typography overrides with centralized `TitleCard` token.
+  - 3l: Hardened amber `StatusChip` contrast (`warningContainer` background + `onWarningContainer` text, ~6.8:1 ratio, WCAG AA compliant).
+- **Post-Phase 3 Extended Micro-Polish & Semantic Consistency (`2533e9f`):**
+  - Complete `selectableGroup()` semantic coverage on secondary selector rows (`TransactionFormDialog` type & destination selector, `PeriodSelectorChipRow` chip selector, `FinancialChartComponents` month labels).
+  - Tokenized bottom navigation clearance inset (`SpacingBottomNavContent = 80.dp`).
+  - Responsive centering of `FinTrackPeriodSelector` on wide viewports (>=600dp) with `Arrangement.spacedBy(Space8, Alignment.CenterHorizontally)` and `widthIn(min = maxWidth)`.
+- **Categories Responsive Redesign & WOW Polish (`744dd6d`):** Expressive category accordions, subcategory expansion chips, animated chevrons, and OWNER vs MEMBER RBAC restrictions.
+- **Analytics Exploration Surfaces & Financial Insights Removal:** Dynamic cubic splines, donut charts with adaptive sizing (210dp tablet vs 170dp compact), strict global period filter authority, and complete removal of legacy Smart Financial Insights from the Analytics UI.
+- **Phase 3D / Material 3 Expressive Migration (COMPLETE & SIGNED OFF):** Full migration across M3-1 through M3-11 (`3e1bf3f`).
 - **Adaptive Launcher Icon (5b8a82e, a59684a):** Precision 3D ribbon FT monogram vector icon with full-bleed radial gradient background, monochrome knockout for Android 13+ Themed Icons, scaled to 82% for balanced proportions.
 - **Material 3 Semantic Migration (5fb61a7):** Complete presentation-layer migration across 26 files to `MaterialTheme.colorScheme` with dual Light/Dark palette support.
 - **Transaction Description Autocomplete (1dc2fd5):** Case-insensitive prefix matching, active household scoping, excluded deleted/blank descriptions, deduplication, integration in Expense and Income forms.
@@ -659,44 +671,38 @@ The following architectural layers remain explicitly protected from visual/UI mo
 
 Future visual work must NOT modify these protected layers unless explicitly declared as a separate technical phase.
 
-## 14. TEST & BUILD BASELINE (PHASE 3D M3-10 / M3-11)
+## 14. TEST & BUILD BASELINE (PHASE 1–3 & EXTENDED POLISH BASELINE — 2533e9f)
 
-Reported Phase 3D verification results at commit `3e1bf3fc21bac75d041725a56839dc10f5b4f62a`:
-
-**Dedicated M3-10 Test Suite:**
-```text
-gradle :app:testDebugUnitTest --tests "com.example.M3FinalVerificationTest"
-Result: 12 tests executed, 12 passed, 0 failed, BUILD SUCCESSFUL
-```
-
-**Cross-Milestone M3 Test Suites (M3-3 through M3-9):**
-```text
-gradle :app:testDebugUnitTest \
-  --tests "com.example.Checkpoint6DashboardAssemblyTest" \
-  --tests "com.example.M3AddTransactionExpressiveTest" \
-  --tests "com.example.M3AnalyticsExpressiveMigrationTest" \
-  --tests "com.example.M3CategoriesExpressiveMigrationTest" \
-  --tests "com.example.M3SettingsHouseholdExpressiveMigrationTest" \
-  --tests "com.example.M3AuthExpressiveMigrationTest"
-Result: 84 tests executed, 84 passed, 0 failed, BUILD SUCCESSFUL
-```
+Reported verification results at commit `2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7` (2026-09-12):
 
 **Full Repository Unit Tests:**
 ```text
 gradle :app:testDebugUnitTest
-Result: BUILD SUCCESSFUL, 100% tests passing across all modules, 0 failures, 0 errors, 0 coroutine leaks
+Result: BUILD SUCCESSFUL in 1m 11s, 810+ tests executed, 100% tests passing across all modules, 0 failures, 0 errors, 0 coroutine leaks, 0 UncompletedCoroutinesError
+```
+
+**Dedicated Material 3 Expressive Test Suites:**
+```text
+gradle :app:testDebugUnitTest \
+  --tests "com.example.M3ExpressivePhase1FoundationsTest" \
+  --tests "com.example.M3ExpressivePhase2MotionTest" \
+  --tests "com.example.M3ExpressivePhase3PolishTest" \
+  --tests "com.example.M3ExpressiveExtendedPolishTest" \
+  --tests "com.example.M3CategoriesExpressiveMigrationTest" \
+  --tests "com.example.M3FinalVerificationTest"
+Result: 58 tests executed across dedicated suites, 58 passed, 0 failed, BUILD SUCCESSFUL
 ```
 
 **Debug APK Build:**
 ```text
 gradle :app:assembleDebug
-Result: BUILD SUCCESSFUL in 1-5s, Debug APK generated cleanly
+Result: BUILD SUCCESSFUL in 7s, Debug APK generated cleanly
 ```
 
 **Git Working Tree Hygiene:**
 ```text
 git diff --check -> 0 errors
-git status --short -> tracked working tree clean, local main == origin/main
+git status --short -> tracked working tree clean, local main == origin/main (at 2533e9f)
 ```
 
 Deliberately excluded untracked / scratch artifacts:
@@ -714,9 +720,10 @@ Deliberately excluded untracked / scratch artifacts:
 
 The documented semantic/test tags are contractual and must not be renamed or removed during UI work:
 
-- **Dashboard:** `dashboard_top_card`, `sync_status_indicator`, `card_savings_rate`, `card_expense_pressure`
+- **Dashboard:** `dashboard_top_card`, `sync_status_indicator`, `card_savings_rate`, `card_expense_pressure`, `recent_activity_section`, `category_donut_*`
 - **Currency:** `currency_toggle_RON`, `currency_toggle_EUR`
 - **Transactions:** `transaction_item_*`, `tx_duplicate_*`, `tx_delete_*`, `tx_input_amount`, `tx_input_desc`, `save_transaction_button`
+- **Period Selector:** `period_selector_dropdown`, `period_chip_*`
 - **Analytics:** `analytics_smart_insights_card`, `analytics_eur_incomplete_warning_card`
 - **Categories:** `fab_add_category`, `category_card_*`, `edit_category_group_*`, `delete_category_group_*`, `edit_subcategory_*`, `delete_subcategory_*`
 - **Settings:** `account_info_card`, `account_uid_text`, `sign_out_button`, `pending_invitations_card`, `pending_invite_item`, `accept_invite_button`, `decline_invite_button`, `household_setup_card`, `create_household_button`, `export_csv_button`, `import_csv_button`, `retry_eur_conversions_button`, `run_bnr_diagnostic_button`, `view_sync_diagnostic_button`
@@ -738,30 +745,31 @@ The documented semantic/test tags are contractual and must not be renamed or rem
 - Phase 12 — Accessibility + Responsive QA: STATUS: COMPLETE / AUDIT GO
 - Phase 13 — Final Visual QA: STATUS: COMPLETE / AUDIT GO (GO — PHASE 13 CLEAN)
 - Phase 14 — Post-Phase 13 Modernization & Adaptive Icon: STATUS: COMPLETE
-- Phase 3D — Material 3 Expressive Migration (M3-1 through M3-11): STATUS: COMPLETE / SIGNED OFF (`3e1bf3fc21bac75d041725a56839dc10f5b4f62a`)
-  - M3-1: Expressive Foundation & Semantic Tokens: COMPLETE
-  - M3-2: Global Shell & Floating Expressive Navigation: COMPLETE
-  - M3-3: Dashboard Hero Canvas & Financial Pulse: COMPLETE
-  - M3-4: Transactions & Recent Activity Hierarchy: COMPLETE
-  - M3-5: Add/Edit/Duplicate Transaction Expressive Creation: COMPLETE
-  - M3-6: Analytics Financial Flow Exploration Surfaces: COMPLETE
-  - M3-7: Categories Gallery Accordion & RBAC: COMPLETE
-  - M3-8: Settings + Household Control Center: COMPLETE
-  - M3-9: Authentication Screen Expressive Identity & Motion: COMPLETE
-  - M3-10: Cross-Screen Audit, Polish & Quality Gate: COMPLETE
-  - M3-11: Final Git Checkpoint, Release Safety & Push: COMPLETE
+- Phase 3D — Material 3 Expressive Migration (M3-1 through M3-11): STATUS: COMPLETE / SIGNED OFF (`3e1bf3f`)
+- Categories M3 Expressive Interaction Polish (`744dd6d`): STATUS: COMPLETE
+- Material 3 Expressive Phase 1 — Foundations: STATUS: COMPLETE / AUDIT VERIFIED
+- Material 3 Expressive Phase 2 — Motion & Interaction Parity: STATUS: COMPLETE / AUDIT VERIFIED
+- Material 3 Expressive Phase 3 — Polish & Consistency (3a..3l): STATUS: COMPLETE / AUDIT VERIFIED
+- Material 3 Expressive Extended Polish & Semantic Consistency (`2533e9f`): STATUS: COMPLETE / VERIFIED
+  - Tokenized bottom navigation clearance inset (`SpacingBottomNavContent = 80.dp`).
+  - Complete `selectableGroup()` semantic coverage across all secondary selector/tab rows.
+  - Responsive centering of `FinTrackPeriodSelector` on wide viewports (>=600dp).
+  - Adaptive donut chart sizing in `FinancialChartComponents` (210dp tablet vs 170dp compact).
+  - Extended `ButtonVariant` with `TONAL`, `OUTLINED`, and `TEXT` variants in `FinTrackButton`.
+  - Expense amount color parity (`FinTrackTheme.colors.expense`) in `RecentActivitySection`.
+  - Spring-driven 180° rotation on `FinTrackPeriodDropdown` chevron with reduced motion fallback.
 
-**CURRENT VERIFIED STATE (COMMIT 3e1bf3f):**
-- **MATERIAL 3 EXPRESSIVE UI:** Complete presentation-layer migration to Material 3 Expressive design language across all screens and components.
-- **DASHBOARD:** Unified Hero financial pulse canvas, Net Worth display, responsive metrics, M3 tonal grouped cash-flow spline chart (`ShapeGroupedContainer`), and category distribution panels.
-- **TRANSACTIONS:** Expressive date-grouped surfaces, contextual transaction badges, quick duplicate/delete actions, and description prefix autocomplete.
-- **TRANSACTION CREATION:** Tactile creation sheet, account/category selectors, auto BNR RON-native conversion logic.
-- **ANALYTICS:** Expressive exploration cards, category rank distribution, smart insights integration, strict global period filter consumption (no local period dropdown).
-- **CATEGORIES:** Expressive gallery accordions, subcategory expansion chips, OWNER vs MEMBER RBAC restrictions.
-- **SETTINGS & HOUSEHOLD:** Control Center architecture with grouped panels (Account, Appearance, Data, Household), owner invite controls, and member roles.
+**CURRENT VERIFIED STATE (COMMIT 2533e9f):**
+- **MATERIAL 3 EXPRESSIVE UI:** Complete presentation-layer migration to Material 3 Expressive design language across all screens, dialogs, and components.
+- **DASHBOARD:** Unified Hero financial pulse canvas, Net Worth display, responsive metrics, M3 tonal grouped cash-flow spline chart (`ShapeGroupedContainer`), recent activity with expense color parity, and adaptive category distribution donut chart.
+- **TRANSACTIONS:** Expressive date-grouped surfaces with `Modifier.animateItem()`, contextual transaction badges, quick duplicate/delete actions, and description prefix autocomplete.
+- **TRANSACTION CREATION:** `ShapeExtraLarge` 24dp dialog with tactile segmented control, destination selector ("Bubu", "Piticania") wrapped with `selectableGroup()`, autocomplete, and auto BNR RON-native conversion logic.
+- **ANALYTICS:** Expressive exploration cards, category rank distribution, strict global period filter consumption (no local period dropdown), and complete removal of legacy Smart Financial Insights.
+- **CATEGORIES:** Expressive gallery accordions, subcategory expansion chips, animated chevrons, and OWNER vs MEMBER RBAC restrictions.
+- **SETTINGS & HOUSEHOLD:** Control Center architecture with grouped panels (Account, Appearance, Data, Household), owner invite controls, member roles, and progressive grouped geometry on member cards.
 - **AUTHENTICATION:** 72dp squircle hero identity badge, animated state transitions with reduced-motion fallback, Google Sign-In button, and debug UID tooling.
-- **GLOBAL NAVIGATION:** Floating pill bottom navigation bar with fluid indicator pill and labeled destinations.
-- **ACCESSIBILITY & RESPONSIVENESS:** All primary interactive elements have >=48dp touch targets; responsive across 360dp, 390dp, 412dp, and 600dp+; reduced-motion graceful degradation.
+- **GLOBAL NAVIGATION:** Floating pill bottom navigation bar with fluid indicator pill, labeled destinations, and tokenized bottom clearance inset (`SpacingBottomNavContent = 80.dp`).
+- **ACCESSIBILITY & RESPONSIVENESS:** All primary interactive elements have >=48dp touch targets; responsive across 360dp, 390dp, 412dp, and 600dp+; reduced-motion graceful degradation; semantic `heading()` and `selectableGroup()` contracts fully verified.
 - **ARCHITECTURAL LOCKS:** Room SQLite persistence, OutboundSyncEngine FIFO queue & FAILED outbox shielding, Firestore bidirectional sync, Firebase Auth, RBAC, and BNR conversion math strictly preserved.
-- **STOPPING POINT:** Phase 3D is fully completed, verified, committed, pushed to `origin/main`, and signed off. There is currently NO authorized next implementation task. Future work must start from commit `3e1bf3fc21bac75d041725a56839dc10f5b4f62a`.
+- **STOPPING POINT:** Material 3 Expressive migration, Phase 1–3, and extended micro-polish are fully completed, verified, committed, pushed to `origin/main`, and signed off at commit `2533e9fe2cd4a7d4933e4b2c65b113fb6e90d7f7`.
 
