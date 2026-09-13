@@ -110,6 +110,35 @@ fun getAccountDisplayLabel(account: String): String =
     }
 
 /**
+ * Extracts the semantic text from a subcategory string by skipping leading
+ * emojis, symbols, punctuation, and whitespace, so that items like "🍉 Alimente"
+ * and "🛠️ Altele home" sort alphabetically by their semantic text rather than
+ * their Unicode emoji code points.
+ *
+ * Variable-length code points, surrogate pairs, and variation selectors are
+ * handled correctly without relying on fixed substring lengths.
+ */
+fun extractSubcategorySemanticKey(text: String): String {
+    var offset = 0
+    val length = text.length
+    while (offset < length) {
+        val codePoint = text.codePointAt(offset)
+        if (Character.isLetterOrDigit(codePoint)) {
+            return text.substring(offset)
+        }
+        offset += Character.charCount(codePoint)
+    }
+    return text
+}
+
+val SubcategorySemanticComparator: Comparator<String> = Comparator { a, b ->
+    val keyA = extractSubcategorySemanticKey(a)
+    val keyB = extractSubcategorySemanticKey(b)
+    val cmp = keyA.compareTo(keyB, ignoreCase = true)
+    if (cmp != 0) cmp else a.compareTo(b, ignoreCase = true)
+}
+
+/**
  * Expressive segmented control for switching transaction type (Expense / Income).
  * Provides shape-morphing feedback, semantic coloration (Coral / Emerald),
  * 48dp minimum touch targets, and full accessibility semantics.
@@ -331,7 +360,11 @@ fun TransactionFormDialog(
         categories.filter { it.type == type }
     }
     val availableSubcategories = remember(availableCategoryItems) {
-        availableCategoryItems.map { it.subCategory }.filter { it.isNotBlank() }.distinct()
+        availableCategoryItems
+            .map { it.subCategory }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedWith(SubcategorySemanticComparator)
     }
 
     var subCategoryExpanded by remember { mutableStateOf(false) }

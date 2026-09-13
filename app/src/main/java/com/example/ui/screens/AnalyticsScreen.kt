@@ -23,7 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.ShowChart
@@ -123,82 +122,56 @@ fun AnalyticsScreen(
                 shape = ShapeGroupedContainer,
                 color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(Space20)
+                        .padding(Space20),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Top Row: Large Expressive Squircle Icon & CurrencyToggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(ShapeSquircleIcon)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Analytics,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-
-                        CurrencyToggle(
-                            selectedCurrency = filterSettings.selectedCurrency,
-                            onCurrencyChanged = onCurrencyChanged
+                        Text(
+                            text = "Analytics",
+                            style = SectionHeadline,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.semantics { heading() }
                         )
-                    }
-
-                    Spacer(modifier = Modifier.height(Space16))
-
-                    // Title & Contextual Subtitle
-                    Text(
-                        text = "Analytics",
-                        style = SectionHeadline,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.semantics { heading() }
-                    )
-                    Spacer(modifier = Modifier.height(Space4))
-                    Text(
-                        text = "Financial flow & category distribution",
-                        style = MicroMetadata,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(Space12))
-
-                    // Compact visual summary of the currently selected period (Organic badge)
-                    Surface(
-                        shape = ShapeBadgeOrganic,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier.testTag("analytics_active_period_badge")
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = Space12, vertical = Space4)
+                        Spacer(modifier = Modifier.height(Space8))
+                        Surface(
+                            shape = ShapeBadgeOrganic,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier.testTag("analytics_active_period_badge")
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                            Spacer(modifier = Modifier.width(Space8))
-                            Text(
-                                text = filterSettings.selectedPeriod,
-                                style = LabelBadge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = Space12, vertical = Space4)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+                                Spacer(modifier = Modifier.width(Space8))
+                                Text(
+                                    text = filterSettings.selectedPeriod,
+                                    style = LabelBadge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(Space16))
+
+                    CurrencyToggle(
+                        selectedCurrency = filterSettings.selectedCurrency,
+                        onCurrencyChanged = onCurrencyChanged
+                    )
                 }
             }
 

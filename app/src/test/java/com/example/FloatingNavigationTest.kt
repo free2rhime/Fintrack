@@ -49,8 +49,8 @@ class FloatingNavigationTest {
         composeTestRule.onNodeWithTag("bottom_nav_dashboard").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_transactions").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_analytics").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("bottom_nav_categories").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_settings").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("bottom_nav_categories").assertDoesNotExist()
 
         // Tab selection behavior
         composeTestRule.onNodeWithTag("bottom_nav_dashboard").assertIsSelected()
@@ -107,8 +107,8 @@ class FloatingNavigationTest {
         // Inactive destinations remain accessible
         composeTestRule.onNodeWithTag("bottom_nav_dashboard").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_analytics").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("bottom_nav_categories").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_settings").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("bottom_nav_categories").assertDoesNotExist()
 
         // Verify touch targets >= 48dp on 360dp
         composeTestRule.onNodeWithTag("bottom_nav_transactions").assertHeightIsAtLeast(48.dp)
@@ -135,11 +135,11 @@ class FloatingNavigationTest {
         composeTestRule.onNodeWithText("Analytics").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_analytics").assertIsSelected()
 
-        composeTestRule.onNodeWithTag("bottom_nav_categories").performClick()
+        composeTestRule.onNodeWithTag("bottom_nav_settings").performClick()
         assertEquals(3, activeTab)
 
-        composeTestRule.onNodeWithTag("bottom_nav_categories").assertHeightIsAtLeast(48.dp)
-        composeTestRule.onNodeWithTag("bottom_nav_categories").assertWidthIsAtLeast(48.dp)
+        composeTestRule.onNodeWithTag("bottom_nav_settings").assertHeightIsAtLeast(48.dp)
+        composeTestRule.onNodeWithTag("bottom_nav_settings").assertWidthIsAtLeast(48.dp)
     }
 
     @Test
@@ -148,7 +148,7 @@ class FloatingNavigationTest {
         composeTestRule.setContent {
             FinTrackTheme {
                 FinTrackBottomNavigation(
-                    selectedTabIndex = 4, // Settings active
+                    selectedTabIndex = 3, // Settings active
                     onTabSelected = {}
                 )
             }
@@ -179,8 +179,7 @@ class FloatingNavigationTest {
             0 to "bottom_nav_dashboard",
             1 to "bottom_nav_transactions",
             2 to "bottom_nav_analytics",
-            3 to "bottom_nav_categories",
-            4 to "bottom_nav_settings"
+            3 to "bottom_nav_settings"
         )
 
         destinations.forEach { (index, tag) ->
@@ -208,16 +207,14 @@ class FloatingNavigationTest {
     @Test
     fun testDestinationsEnumContract() {
         val items = BottomNavItem.values()
-        assertEquals(5, items.size)
+        assertEquals(4, items.size)
         assertEquals("Dashboard", items[0].title)
         assertEquals(0, items[0].tabIndex)
         assertEquals("Transactions", items[1].title)
         assertEquals(1, items[1].tabIndex)
         assertEquals("Analytics", items[2].title)
         assertEquals(2, items[2].tabIndex)
-        assertEquals("Categories", items[3].title)
+        assertEquals("Settings", items[3].title)
         assertEquals(3, items[3].tabIndex)
-        assertEquals("Settings", items[4].title)
-        assertEquals(4, items[4].tabIndex)
     }
 }

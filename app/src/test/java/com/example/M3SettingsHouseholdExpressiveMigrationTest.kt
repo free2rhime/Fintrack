@@ -26,6 +26,7 @@ import com.example.data.model.HouseholdMemberDto
 import com.example.data.repository.PendingRetryResult
 import com.example.data.repository.SyncStatus
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.SettingsSubView
 import com.example.ui.theme.FinTrackTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -106,8 +107,8 @@ class M3SettingsHouseholdExpressiveMigrationTest {
         }
 
         composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Preferences & System").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Account, household sync, and data preferences").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Preferences & System").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Account, household sync, and data preferences").assertDoesNotExist()
     }
 
     // =========================================================================
@@ -131,9 +132,7 @@ class M3SettingsHouseholdExpressiveMigrationTest {
         }
 
         composeTestRule.onNodeWithText("Appearance Theme").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("Display Currency").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("RON").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("EUR").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Display Currency").assertDoesNotExist()
     }
 
     @Test
@@ -184,8 +183,8 @@ class M3SettingsHouseholdExpressiveMigrationTest {
         }
 
         val tabMatcher = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
-        // 3 tabs for Theme (Dark, Light, System) + 2 tabs for Currency (RON, EUR)
-        composeTestRule.onAllNodes(tabMatcher).assertCountEquals(5)
+        // 3 tabs for Theme (Dark, Light, System) - Currency selector removed from Settings
+        composeTestRule.onAllNodes(tabMatcher).assertCountEquals(3)
     }
 
     // =========================================================================
@@ -482,6 +481,7 @@ class M3SettingsHouseholdExpressiveMigrationTest {
                     themeMode = "system",
                     currentUid = "user_owner_1",
                     currentUserEmail = "owner@example.com",
+                    initialSubView = SettingsSubView.DEVELOPER,
                     onCurrencyChanged = {},
                     onThemeModeChanged = {},
                     onExportCsv = {}
@@ -506,6 +506,7 @@ class M3SettingsHouseholdExpressiveMigrationTest {
                     themeMode = "system",
                     currentUid = "user_owner_1",
                     currentUserEmail = "owner@example.com",
+                    initialSubView = SettingsSubView.DEVELOPER,
                     onExportCsv = { exportTriggered = true },
                     onCurrencyChanged = {},
                     onThemeModeChanged = {}
@@ -528,6 +529,7 @@ class M3SettingsHouseholdExpressiveMigrationTest {
                     themeMode = "system",
                     currentUid = "user_owner_1",
                     currentUserEmail = "owner@example.com",
+                    initialSubView = SettingsSubView.DEVELOPER,
                     onRetryPendingConversions = { retryTriggered = true },
                     onCurrencyChanged = {},
                     onThemeModeChanged = {},
@@ -590,6 +592,33 @@ class M3SettingsHouseholdExpressiveMigrationTest {
         composeTestRule.onNodeWithTag("sign_out_button")
             .assertHeightIsAtLeast(48.dp)
 
+        composeTestRule.onNodeWithTag("settings_item_categories")
+            .assertHeightIsAtLeast(48.dp)
+
+        composeTestRule.onNodeWithTag("settings_item_developer")
+            .assertHeightIsAtLeast(48.dp)
+
+        composeTestRule.onNodeWithTag("invite_member_button")
+            .assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test
+    fun test20b_developerTouchTargetsMeet48dpMinimum() {
+        composeTestRule.setContent {
+            FinTrackTheme {
+                SettingsScreen(
+                    filterSettings = FilterSettings(),
+                    themeMode = "system",
+                    currentUid = "user_owner_1",
+                    currentUserEmail = "owner@example.com",
+                    initialSubView = SettingsSubView.DEVELOPER,
+                    onCurrencyChanged = {},
+                    onThemeModeChanged = {},
+                    onExportCsv = {}
+                )
+            }
+        }
+
         composeTestRule.onNodeWithTag("export_csv_button")
             .assertHeightIsAtLeast(48.dp)
 
@@ -597,9 +626,6 @@ class M3SettingsHouseholdExpressiveMigrationTest {
             .assertHeightIsAtLeast(48.dp)
 
         composeTestRule.onNodeWithTag("retry_eur_conversions_button")
-            .assertHeightIsAtLeast(48.dp)
-
-        composeTestRule.onNodeWithTag("invite_member_button")
             .assertHeightIsAtLeast(48.dp)
     }
 
@@ -621,7 +647,7 @@ class M3SettingsHouseholdExpressiveMigrationTest {
 
         // Header and cards provide unambiguous text hierarchy
         composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Preferences & System").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Preferences & System").assertDoesNotExist()
     }
 
     @Test

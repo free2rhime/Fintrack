@@ -40,8 +40,8 @@ class Checkpoint1P0CorrectnessTest {
         composeTestRule.onNodeWithText("Dashboard").assertIsDisplayed()
         composeTestRule.onNodeWithText("Transactions").assertIsDisplayed()
         composeTestRule.onNodeWithText("Analytics").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Categories").assertIsDisplayed()
         composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Categories").assertDoesNotExist()
     }
 
     @Test

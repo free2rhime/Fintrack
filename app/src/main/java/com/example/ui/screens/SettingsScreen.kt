@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -10,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,21 +29,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,6 +68,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.model.CategoryEntity
 import com.example.data.model.FilterSettings
 import com.example.data.model.HouseholdDto
 import com.example.data.model.HouseholdInviteDto
@@ -74,7 +81,6 @@ import com.example.ui.HouseholdCreationUiState
 import com.example.ui.components.BadgeVariant
 import com.example.ui.components.ButtonVariant
 import com.example.ui.components.CreateHouseholdDialog
-import com.example.ui.components.CurrencyToggle
 import com.example.ui.components.FinTrackButton
 import com.example.ui.components.FinTrackEmptyState
 import com.example.ui.components.FinTrackSegmentedControl
@@ -105,6 +111,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+enum class SettingsSubView {
+    ROOT,
+    CATEGORIES,
+    DEVELOPER
+}
+
 /**
  * Material 3 Expressive Settings & Household Control Center.
  *
@@ -132,7 +144,7 @@ fun SettingsScreen(
     onDeclineInvite: (String) -> Unit = {},
     onClearInviteError: () -> Unit = {},
     onSignOut: () -> Unit = {},
-    onCurrencyChanged: (String) -> Unit,
+    onCurrencyChanged: (String) -> Unit = {},
     onThemeModeChanged: (String) -> Unit,
     onExportCsv: () -> Unit,
     onImportCsv: (Uri) -> Unit = {},
@@ -148,12 +160,42 @@ fun SettingsScreen(
     onCreateHousehold: (String) -> Unit = {},
     onResetHouseholdCreationState: () -> Unit = {},
     syncStatus: SyncStatus = SyncStatus.SignedOut,
+    categories: List<CategoryEntity> = emptyList(),
+    canManageCategories: Boolean? = null,
+    isOwner: Boolean? = null,
+    onAddCategory: (name: String, type: String, subCategory: String) -> Unit = { _, _, _ -> },
+    onUpdateCategoryGroup: (oldName: String, newName: String, type: String) -> Unit = { _, _, _ -> },
+    onDeleteCategoryGroup: (name: String, type: String) -> Unit = { _, _ -> },
+    onUpdateSubcategory: (id: String, newSubCategory: String) -> Unit = { _, _ -> },
+    onDeleteSubcategory: (id: String) -> Unit = {},
+    initialSubView: SettingsSubView = SettingsSubView.ROOT,
     modifier: Modifier = Modifier
 ) {
+    val effectiveIsOwner = if (isOwner != null) {
+        isOwner
+    } else if (currentHousehold != null) {
+        currentUserMembership?.role?.trim()?.equals("OWNER", ignoreCase = true) == true ||
+            currentUserMembership?.role?.trim()?.equals("ADMIN", ignoreCase = true) == true
+    } else {
+        currentUserMembership?.role?.trim()?.equals("MEMBER", ignoreCase = true) != true
+    }
+
+    val effectiveCanManageCategories = canManageCategories ?: effectiveIsOwner
+
+    var currentSubView by remember { mutableStateOf(initialSubView) }
+
+    LaunchedEffect(currentSubView, effectiveIsOwner, effectiveCanManageCategories) {
+        if (currentSubView == SettingsSubView.CATEGORIES && !effectiveCanManageCategories) {
+            currentSubView = SettingsSubView.ROOT
+        }
+        if (currentSubView == SettingsSubView.DEVELOPER && !effectiveIsOwner) {
+            currentSubView = SettingsSubView.ROOT
+        }
+    }
+
     val isReducedMotion = isReducedMotionEnabled()
     var showInviteDialog by remember { mutableStateOf(false) }
     var showCreateHouseholdDialog by remember { mutableStateOf(false) }
-    var showSyncDiagnosticDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(householdCreationUiState) {
         if (householdCreationUiState is HouseholdCreationUiState.Success) {
@@ -190,19 +232,53 @@ fun SettingsScreen(
         )
     }
 
-    val csvPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { onImportCsv(it) }
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .testTag("settings_screen_root"),
-        contentAlignment = Alignment.TopCenter
-    ) {
+    when (currentSubView) {
+        SettingsSubView.CATEGORIES -> {
+            if (effectiveCanManageCategories) {
+                BackHandler {
+                    currentSubView = SettingsSubView.ROOT
+                }
+                CategoriesScreen(
+                    categories = categories,
+                    canManageCategories = effectiveCanManageCategories,
+                    onAddCategory = onAddCategory,
+                    onUpdateCategoryGroup = onUpdateCategoryGroup,
+                    onDeleteCategoryGroup = onDeleteCategoryGroup,
+                    onUpdateSubcategory = onUpdateSubcategory,
+                    onDeleteSubcategory = onDeleteSubcategory,
+                    onBackClick = { currentSubView = SettingsSubView.ROOT },
+                    modifier = modifier
+                )
+            }
+        }
+        SettingsSubView.DEVELOPER -> {
+            if (effectiveIsOwner) {
+                BackHandler {
+                    currentSubView = SettingsSubView.ROOT
+                }
+                DeveloperSettingsView(
+                    onBackClick = { currentSubView = SettingsSubView.ROOT },
+                    onExportCsv = onExportCsv,
+                    onImportCsv = onImportCsv,
+                    onRetryPendingConversions = onRetryPendingConversions,
+                    pendingRetryResult = pendingRetryResult,
+                    onDismissRetryResult = onDismissRetryResult,
+                    onRunBnrDiagnostic = onRunBnrDiagnostic,
+                    debugDiagnosticResult = debugDiagnosticResult,
+                    onDismissDebugDiagnostic = onDismissDebugDiagnostic,
+                    isRetryingPending = isRetryingPending,
+                    modifier = modifier
+                )
+            }
+        }
+        SettingsSubView.ROOT -> {
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .testTag("settings_screen_root"),
+                contentAlignment = Alignment.TopCenter
+            ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -212,47 +288,16 @@ fun SettingsScreen(
                 .padding(bottom = SpacingBottomNavContent),
             verticalArrangement = Arrangement.spacedBy(Space16)
         ) {
-            // EXPRESSIVE HEADER
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(RadiusMedium))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(Space12))
-                Column {
-                    Text(
-                        text = "Settings",
-                        style = SectionHeadline,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.semantics { heading() }
-                    )
-                    Text(
-                        text = "Preferences & System",
-                        style = MicroMetadata,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Account, household sync, and data preferences",
-                        style = MicroMetadata,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            // HEADER
+            Text(
+                text = "Settings",
+                style = SectionHeadline,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { heading() }
+            )
 
             // SYSTEM SYNC STATUS
             Row(
@@ -333,39 +378,6 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
-
-                    Spacer(modifier = Modifier.height(Space4))
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        thickness = 1.dp
-                    )
-                    Spacer(modifier = Modifier.height(Space4))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f, fill = false)) {
-                            Text(
-                                text = "Display Currency",
-                                style = CardTitleAmount,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(Space4))
-                            Text(
-                                text = "Primary transactions recorded in RON",
-                                style = MicroMetadata,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        CurrencyToggle(
-                            selectedCurrency = filterSettings.selectedCurrency,
-                            onCurrencyChanged = onCurrencyChanged
-                        )
-                    }
                 }
             }
 
@@ -722,6 +734,526 @@ fun SettingsScreen(
                 }
             }
 
+            // MANAGEMENT SECTION (OWNER ONLY)
+            if (effectiveCanManageCategories) {
+                Surface(
+                    shape = ShapeGroupedContainer,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("management_section_card")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Space16),
+                        verticalArrangement = Arrangement.spacedBy(Space12)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(RadiusMedium))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Category,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(Space12))
+                            Column {
+                                Text(
+                                    text = "Management",
+                                    style = CardTitleAmount,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.semantics { heading() }
+                                )
+                                Text(
+                                    text = "Category structure and taxonomy",
+                                    style = MicroMetadata,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(RadiusMedium),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(RadiusMedium))
+                                .clickable { currentSubView = SettingsSubView.CATEGORIES }
+                                .testTag("settings_item_categories")
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .padding(horizontal = Space16, vertical = Space12),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Category,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(Space12))
+                                    Column {
+                                        Text(
+                                            text = "Categories",
+                                            style = CardTitleAmount,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Manage transaction categories & subcategories",
+                                            style = MicroMetadata,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // DEVELOPER & ADVANCED SECTION (OWNER ONLY)
+            if (effectiveIsOwner) {
+                Surface(
+                    shape = ShapeGroupedContainer,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("developer_section_card")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Space16),
+                        verticalArrangement = Arrangement.spacedBy(Space12)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(RadiusMedium))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Code,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(Space12))
+                            Column {
+                                Text(
+                                    text = "Developer & Advanced",
+                                    style = CardTitleAmount,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.semantics { heading() }
+                                )
+                                Text(
+                                    text = "Export, exchange rates, and system diagnostics",
+                                    style = MicroMetadata,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(RadiusMedium),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(RadiusMedium))
+                                .clickable { currentSubView = SettingsSubView.DEVELOPER }
+                                .testTag("settings_item_developer")
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .padding(horizontal = Space16, vertical = Space12),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Storage,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(Space12))
+                                    Column {
+                                        Text(
+                                            text = "Developer Settings",
+                                            style = CardTitleAmount,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Data export, BNR rate sync, diagnostics",
+                                            style = MicroMetadata,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+}
+
+    // Pending Retry Result Dialog
+    if (pendingRetryResult != null) {
+        AlertDialog(
+            onDismissRequest = onDismissRetryResult,
+            shape = ShapeExtraLarge,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            title = {
+                Text(
+                    text = "EUR Conversions Retry Result",
+                    style = CardTitleAmount,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Space8)) {
+                    Text(
+                        text = "• Pending before retry: ${pendingRetryResult.pendingBefore}",
+                        style = BodyRegular,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "• Converted successfully: ${pendingRetryResult.convertedSuccessfully}",
+                        style = BodyRegular,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "• Still pending: ${pendingRetryResult.stillPending}",
+                        style = BodyRegular,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "• Failed: ${pendingRetryResult.failedCount}",
+                        style = BodyRegular,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "• Main failure reason: ${pendingRetryResult.mainFailureReason ?: "None"}",
+                        style = BodyRegular,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                FinTrackButton(
+                    onClick = onDismissRetryResult,
+                    variant = ButtonVariant.PRIMARY
+                ) {
+                    Text("OK", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // Debug BNR Diagnostic Result Dialog
+    if (debugDiagnosticResult != null) {
+        AlertDialog(
+            onDismissRequest = onDismissDebugDiagnostic,
+            shape = ShapeExtraLarge,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            title = {
+                Text(
+                    text = "BNR Endpoint Diagnostic (Debug)",
+                    style = CardTitleAmount,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(Space4)
+                ) {
+                    Text("• Reachable: ${debugDiagnosticResult.isReachable}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• HTTP Status: ${debugDiagnosticResult.httpStatus}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Failure Category: ${debugDiagnosticResult.failureCategory}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Publication Dates Parsed: ${debugDiagnosticResult.publicationDatesParsed}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• EUR Rate Found: ${debugDiagnosticResult.eurRateFound}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Latest Publication Date: ${debugDiagnosticResult.latestPublicationDate ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Requested URL: ${debugDiagnosticResult.requestedUrl}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Final URL: ${debugDiagnosticResult.finalUrl}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Content-Type: ${debugDiagnosticResult.contentType ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Content-Encoding: ${debugDiagnosticResult.contentEncoding ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Response Size: ${debugDiagnosticResult.responseByteCount} bytes", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Is HTML: ${debugDiagnosticResult.isHtml}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• XML Declaration: ${debugDiagnosticResult.hasXmlDeclaration}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Root Element: ${debugDiagnosticResult.rootLocalName ?: "N/A"} (NS: ${debugDiagnosticResult.rootNamespaceUri ?: "None"})", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Element Counts: Cubes=${debugDiagnosticResult.cubeElementCount}, Rates=${debugDiagnosticResult.rateElementCount}, EUR=${debugDiagnosticResult.eurRateElementCount}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Stages: A:${if (debugDiagnosticResult.stageA_httpConnection) "PASS" else "FAIL"} B:${if (debugDiagnosticResult.stageB_bodyObtained) "PASS" else "FAIL"} C:${if (debugDiagnosticResult.stageC_xmlOpened) "PASS" else "FAIL"} D:${if (debugDiagnosticResult.stageD_cubeFound) "PASS" else "FAIL"} E:${if (debugDiagnosticResult.stageE_rateFound) "PASS" else "FAIL"} F:${if (debugDiagnosticResult.stageF_eurFound) "PASS" else "FAIL"} G:${if (debugDiagnosticResult.stageG_validRatesProduced) "PASS" else "FAIL"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!debugDiagnosticResult.sanitizedPreview.isNullOrBlank()) {
+                        Text("• Preview: ${debugDiagnosticResult.sanitizedPreview}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = {
+                FinTrackButton(
+                    onClick = onDismissDebugDiagnostic,
+                    variant = ButtonVariant.PRIMARY
+                ) {
+                    Text("OK", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SyncDiagnosticDialog(
+    onDismiss: () -> Unit
+) {
+    val diagnosticRecord by SyncDiagnosticsHolder.lastError.collectAsStateWithLifecycle()
+    val clipboardManager = LocalClipboardManager.current
+    var copiedToast by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = {
+            onDismiss()
+            copiedToast = false
+        },
+        shape = ShapeExtraLarge,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        title = {
+            Text(
+                text = "Sync Diagnostics (Debug)",
+                style = CardTitleAmount,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Space8)
+            ) {
+                if (diagnosticRecord == null) {
+                    FinTrackEmptyState(
+                        title = "No Sync Errors",
+                        description = "No sync errors currently recorded in this session.",
+                        icon = Icons.Default.CheckCircle,
+                        iconTint = FinTrackTheme.colors.income,
+                        compact = true,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = Space16)
+                    )
+                } else {
+                    val record = diagnosticRecord!!
+                    Text("• Timestamp: ${record.formattedTime}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text("• Operation: ${record.operation}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text("• Exception Code: ${record.exceptionCode ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    Text("• User UID: ${record.userUid ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Household ID: ${record.householdId ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("• Message: ${record.exceptionMessage ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!record.stackTraceSnippet.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(Space4))
+                        Text("• Stack Trace Snippet:", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Surface(
+                            shape = RoundedCornerShape(RadiusSmall),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = record.stackTraceSnippet,
+                                style = MicroMetadata,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(Space8)
+                            )
+                        }
+                    }
+                    if (copiedToast) {
+                        Text(
+                            text = "Copied to clipboard!",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = LabelBadgeMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(Space8)) {
+                if (diagnosticRecord != null) {
+                    val fullText = buildString {
+                        val r = diagnosticRecord!!
+                        appendLine("--- FinTrack Sync Diagnostics ---")
+                        appendLine("Timestamp: ${r.formattedTime}")
+                        appendLine("Operation: ${r.operation}")
+                        appendLine("Exception Code: ${r.exceptionCode}")
+                        appendLine("User UID: ${r.userUid}")
+                        appendLine("Household ID: ${r.householdId}")
+                        appendLine("Message: ${r.exceptionMessage}")
+                        appendLine("Stack Trace:\n${r.stackTraceSnippet}")
+                    }
+                    FinTrackButton(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(fullText))
+                            copiedToast = true
+                        },
+                        variant = ButtonVariant.PRIMARY
+                    ) {
+                        Text("Copy", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+                FinTrackButton(
+                    onClick = {
+                        onDismiss()
+                        copiedToast = false
+                    },
+                    variant = ButtonVariant.SECONDARY
+                ) {
+                    Text("Close", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun DeveloperSettingsView(
+    onBackClick: () -> Unit,
+    onExportCsv: () -> Unit,
+    onImportCsv: (Uri) -> Unit = {},
+    onRetryPendingConversions: () -> Unit = {},
+    pendingRetryResult: PendingRetryResult? = null,
+    onDismissRetryResult: () -> Unit = {},
+    onRunBnrDiagnostic: () -> Unit = {},
+    debugDiagnosticResult: BnrDiagnosticResult? = null,
+    onDismissDebugDiagnostic: () -> Unit = {},
+    isRetryingPending: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    var showSyncDiagnosticDialog by remember { mutableStateOf(false) }
+
+    val csvPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { onImportCsv(it) }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .testTag("developer_settings_screen_root"),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = MaxContentWidthTablet)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Space16, vertical = Space8)
+                .padding(bottom = SpacingBottomNavContent),
+            verticalArrangement = Arrangement.spacedBy(Space16)
+        ) {
+            // EXPRESSIVE HEADER WITH BACK BUTTON
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .testTag("btn_developer_back")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.width(Space8))
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(RadiusMedium))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Code,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(Space12))
+                Column {
+                    Text(
+                        text = "Developer Settings",
+                        style = SectionHeadline,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
+                    )
+                    Text(
+                        text = "Technical & Admin Tools",
+                        style = MicroMetadata,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Data export, BNR rate sync, and diagnostics",
+                        style = MicroMetadata,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             // DATA EXPORT & REPORTS SECTION
             Surface(
                 shape = ShapeGroupedContainer,
@@ -965,221 +1497,7 @@ fun SettingsScreen(
         }
     }
 
-    // Pending Retry Result Dialog
-    if (pendingRetryResult != null) {
-        AlertDialog(
-            onDismissRequest = onDismissRetryResult,
-            shape = ShapeExtraLarge,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            title = {
-                Text(
-                    text = "EUR Conversions Retry Result",
-                    style = CardTitleAmount,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Space8)) {
-                    Text(
-                        text = "• Pending before retry: ${pendingRetryResult.pendingBefore}",
-                        style = BodyRegular,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "• Converted successfully: ${pendingRetryResult.convertedSuccessfully}",
-                        style = BodyRegular,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "• Still pending: ${pendingRetryResult.stillPending}",
-                        style = BodyRegular,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "• Failed: ${pendingRetryResult.failedCount}",
-                        style = BodyRegular,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "• Main failure reason: ${pendingRetryResult.mainFailureReason ?: "None"}",
-                        style = BodyRegular,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                FinTrackButton(
-                    onClick = onDismissRetryResult,
-                    variant = ButtonVariant.PRIMARY
-                ) {
-                    Text("OK", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
-    // Debug BNR Diagnostic Result Dialog
-    if (debugDiagnosticResult != null) {
-        AlertDialog(
-            onDismissRequest = onDismissDebugDiagnostic,
-            shape = ShapeExtraLarge,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            title = {
-                Text(
-                    text = "BNR Endpoint Diagnostic (Debug)",
-                    style = CardTitleAmount,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(Space4)
-                ) {
-                    Text("• Reachable: ${debugDiagnosticResult.isReachable}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• HTTP Status: ${debugDiagnosticResult.httpStatus}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Failure Category: ${debugDiagnosticResult.failureCategory}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Publication Dates Parsed: ${debugDiagnosticResult.publicationDatesParsed}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• EUR Rate Found: ${debugDiagnosticResult.eurRateFound}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Latest Publication Date: ${debugDiagnosticResult.latestPublicationDate ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Requested URL: ${debugDiagnosticResult.requestedUrl}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Final URL: ${debugDiagnosticResult.finalUrl}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Content-Type: ${debugDiagnosticResult.contentType ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Content-Encoding: ${debugDiagnosticResult.contentEncoding ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Response Size: ${debugDiagnosticResult.responseByteCount} bytes", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Is HTML: ${debugDiagnosticResult.isHtml}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• XML Declaration: ${debugDiagnosticResult.hasXmlDeclaration}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Root Element: ${debugDiagnosticResult.rootLocalName ?: "N/A"} (NS: ${debugDiagnosticResult.rootNamespaceUri ?: "None"})", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Element Counts: Cubes=${debugDiagnosticResult.cubeElementCount}, Rates=${debugDiagnosticResult.rateElementCount}, EUR=${debugDiagnosticResult.eurRateElementCount}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("• Stages: A:${if (debugDiagnosticResult.stageA_httpConnection) "PASS" else "FAIL"} B:${if (debugDiagnosticResult.stageB_bodyObtained) "PASS" else "FAIL"} C:${if (debugDiagnosticResult.stageC_xmlOpened) "PASS" else "FAIL"} D:${if (debugDiagnosticResult.stageD_cubeFound) "PASS" else "FAIL"} E:${if (debugDiagnosticResult.stageE_rateFound) "PASS" else "FAIL"} F:${if (debugDiagnosticResult.stageF_eurFound) "PASS" else "FAIL"} G:${if (debugDiagnosticResult.stageG_validRatesProduced) "PASS" else "FAIL"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (!debugDiagnosticResult.sanitizedPreview.isNullOrBlank()) {
-                        Text("• Preview: ${debugDiagnosticResult.sanitizedPreview}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            },
-            confirmButton = {
-                FinTrackButton(
-                    onClick = onDismissDebugDiagnostic,
-                    variant = ButtonVariant.PRIMARY
-                ) {
-                    Text("OK", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
-    // Sync Diagnostic Dialog
     if (showSyncDiagnosticDialog) {
-        val diagnosticRecord by SyncDiagnosticsHolder.lastError.collectAsStateWithLifecycle()
-        val clipboardManager = LocalClipboardManager.current
-        var copiedToast by remember { mutableStateOf(false) }
-
-        AlertDialog(
-            onDismissRequest = {
-                showSyncDiagnosticDialog = false
-                copiedToast = false
-            },
-            shape = ShapeExtraLarge,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            title = {
-                Text(
-                    text = "Sync Diagnostics (Debug)",
-                    style = CardTitleAmount,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(Space8)
-                ) {
-                    if (diagnosticRecord == null) {
-                        FinTrackEmptyState(
-                            title = "No Sync Errors",
-                            description = "No sync errors currently recorded in this session.",
-                            icon = Icons.Default.CheckCircle,
-                            iconTint = FinTrackTheme.colors.income,
-                            compact = true,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = Space16)
-                        )
-                    } else {
-                        val record = diagnosticRecord!!
-                        Text("• Timestamp: ${record.formattedTime}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Text("• Operation: ${record.operation}", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Text("• Exception Code: ${record.exceptionCode ?: "N/A"}", style = MicroMetadata, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                        Text("• User UID: ${record.userUid ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("• Household ID: ${record.householdId ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("• Message: ${record.exceptionMessage ?: "None"}", style = MicroMetadata, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (!record.stackTraceSnippet.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(Space4))
-                            Text("• Stack Trace Snippet:", style = MicroMetadata, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Surface(
-                                shape = RoundedCornerShape(RadiusSmall),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = record.stackTraceSnippet,
-                                    style = MicroMetadata,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(Space8)
-                                )
-                            }
-                        }
-                        if (copiedToast) {
-                            Text(
-                                text = "Copied to clipboard!",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = LabelBadgeMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(Space8)) {
-                    if (diagnosticRecord != null) {
-                        val fullText = buildString {
-                            val r = diagnosticRecord!!
-                            appendLine("--- FinTrack Sync Diagnostics ---")
-                            appendLine("Timestamp: ${r.formattedTime}")
-                            appendLine("Operation: ${r.operation}")
-                            appendLine("Exception Code: ${r.exceptionCode}")
-                            appendLine("User UID: ${r.userUid}")
-                            appendLine("Household ID: ${r.householdId}")
-                            appendLine("Message: ${r.exceptionMessage}")
-                            appendLine("Stack Trace:\n${r.stackTraceSnippet}")
-                        }
-                        FinTrackButton(
-                            onClick = {
-                                clipboardManager.setText(AnnotatedString(fullText))
-                                copiedToast = true
-                            },
-                            variant = ButtonVariant.PRIMARY
-                        ) {
-                            Text("Copy", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    FinTrackButton(
-                        onClick = {
-                            showSyncDiagnosticDialog = false
-                            copiedToast = false
-                        },
-                        variant = ButtonVariant.SECONDARY
-                    ) {
-                        Text("Close", style = LabelBadgeMedium, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        )
+        SyncDiagnosticDialog(onDismiss = { showSyncDiagnosticDialog = false })
     }
 }

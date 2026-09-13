@@ -143,7 +143,8 @@ data class DiscrepancyReport(
 )
 
 data class MainUiState(
-    val selectedTab: Int = 0, // 0: Dashboard, 1: Transactions, 2: Analytics, 3: Categories, 4: Settings
+    val selectedTab: Int = 0, // 0: Dashboard, 1: Transactions, 2: Analytics, 3: Settings
+    val showTransactionFilters: Boolean = true,
     val activeTransactionForEdit: TransactionEntity? = null,
     val showTransactionDialog: Boolean = false,
     val isDuplicateMode: Boolean = false,
@@ -605,7 +606,16 @@ class MainViewModel(
     }
 
     fun selectTab(index: Int) {
-        _uiState.value = _uiState.value.copy(selectedTab = index)
+        val validIndex = index.coerceIn(0, 3)
+        _uiState.value = _uiState.value.copy(selectedTab = validIndex)
+    }
+
+    fun toggleTransactionFilters() {
+        _uiState.value = _uiState.value.copy(showTransactionFilters = !_uiState.value.showTransactionFilters)
+    }
+
+    fun setTransactionFiltersVisible(visible: Boolean) {
+        _uiState.value = _uiState.value.copy(showTransactionFilters = visible)
     }
 
     fun openNewTransactionDialog(defaultType: String = "Expense") {

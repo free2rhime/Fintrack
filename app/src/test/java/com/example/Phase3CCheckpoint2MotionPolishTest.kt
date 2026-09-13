@@ -99,8 +99,9 @@ class Phase3CCheckpoint2MotionPolishTest {
         }
 
         composeTestRule.onNodeWithTag("bottom_navigation_bar").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("bottom_nav_categories").assertIsSelected()
-        composeTestRule.onNodeWithText("Categories").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("bottom_nav_settings").assertIsSelected()
+        composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("bottom_nav_categories").assertDoesNotExist()
     }
 
     @Test

@@ -41,7 +41,6 @@ import com.example.ui.components.TransactionFormDialog
 import com.example.ui.navigation.FinTrackBottomNavigation
 import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.AuthScreen
-import com.example.ui.screens.CategoriesScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TransactionsScreen
@@ -162,7 +161,9 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         onAddTransactionClicked = { viewModel.openNewTransactionDialog("Expense") },
                         onDuplicateClicked = { tx -> viewModel.openDuplicateTransactionDialog(tx) },
                         onEditClicked = { tx -> viewModel.openEditTransactionDialog(tx) },
-                        onDeleteClicked = { tx -> viewModel.deleteTransaction(tx) }
+                        onDeleteClicked = { tx -> viewModel.deleteTransaction(tx) },
+                        showFilters = uiState.showTransactionFilters,
+                        onToggleFilters = { viewModel.toggleTransactionFilters() }
                     )
 
                     2 -> AnalyticsScreen(
@@ -176,17 +177,7 @@ fun FinTrackApp(viewModel: MainViewModel) {
                         onIncomeSourceSelectionChanged = { viewModel.updateAnalyticsIncomeSourceSelection(it) }
                     )
 
-                    3 -> CategoriesScreen(
-                        categories = categories,
-                        canManageCategories = canManageCategories,
-                        onAddCategory = { name, type, sub -> viewModel.addCategory(name, type, sub) },
-                        onUpdateCategoryGroup = { oldName, newName, type -> viewModel.updateCategoryGroup(oldName, newName, type) },
-                        onDeleteCategoryGroup = { name, type -> viewModel.deleteCategoryGroup(name, type) },
-                        onUpdateSubcategory = { id, sub -> viewModel.updateSubcategory(id, sub) },
-                        onDeleteSubcategory = { id -> viewModel.deleteSubcategory(id) }
-                    )
-
-                    4 -> {
+                    3 -> {
                         val context = LocalContext.current
                         val allTxs by viewModel.allTransactions.collectAsStateWithLifecycle()
                         val currentHousehold by viewModel.currentHousehold.collectAsStateWithLifecycle()
@@ -227,7 +218,14 @@ fun FinTrackApp(viewModel: MainViewModel) {
                             onStartMigration = { viewModel.startMigrationPreflight() },
                             householdCreationUiState = householdCreationUiState,
                             onCreateHousehold = { name -> viewModel.createHousehold(name) },
-                            onResetHouseholdCreationState = { viewModel.resetHouseholdCreationState() }
+                            onResetHouseholdCreationState = { viewModel.resetHouseholdCreationState() },
+                            categories = categories,
+                            canManageCategories = canManageCategories,
+                            onAddCategory = { name, type, sub -> viewModel.addCategory(name, type, sub) },
+                            onUpdateCategoryGroup = { oldName, newName, type -> viewModel.updateCategoryGroup(oldName, newName, type) },
+                            onDeleteCategoryGroup = { name, type -> viewModel.deleteCategoryGroup(name, type) },
+                            onUpdateSubcategory = { id, sub -> viewModel.updateSubcategory(id, sub) },
+                            onDeleteSubcategory = { id -> viewModel.deleteSubcategory(id) }
                         )
                     }
                 }

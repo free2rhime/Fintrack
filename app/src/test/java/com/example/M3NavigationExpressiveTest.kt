@@ -78,12 +78,12 @@ class M3NavigationExpressiveTest {
         // Verify root container
         composeTestRule.onNodeWithTag("bottom_navigation_bar").assertIsDisplayed()
 
-        // Verify all 5 destination test tags
+        // Verify all 4 destination test tags
         composeTestRule.onNodeWithTag("bottom_nav_dashboard").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_transactions").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_analytics").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("bottom_nav_categories").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_settings").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("bottom_nav_categories").assertDoesNotExist()
     }
 
     // =========================================================================
@@ -148,13 +148,9 @@ class M3NavigationExpressiveTest {
         composeTestRule.onNodeWithTag("bottom_nav_analytics").performClick()
         assertEquals(2, selectedTab.value)
 
-        // Click on Categories
-        composeTestRule.onNodeWithTag("bottom_nav_categories").performClick()
-        assertEquals(3, selectedTab.value)
-
         // Click on Settings
         composeTestRule.onNodeWithTag("bottom_nav_settings").performClick()
-        assertEquals(4, selectedTab.value)
+        assertEquals(3, selectedTab.value)
 
         // Click back to Dashboard
         composeTestRule.onNodeWithTag("bottom_nav_dashboard").performClick()
@@ -168,7 +164,7 @@ class M3NavigationExpressiveTest {
     @Test
     fun test04_DestinationsEnumAndDualStateIconContract() {
         val items = BottomNavItem.values()
-        assertEquals(5, items.size)
+        assertEquals(4, items.size)
 
         assertEquals("Dashboard", items[0].title)
         assertEquals(0, items[0].tabIndex)
@@ -185,22 +181,16 @@ class M3NavigationExpressiveTest {
         assertNotNull(items[2].icon)
         assertNotNull(items[2].unselectedIcon)
 
-        assertEquals("Categories", items[3].title)
+        assertEquals("Settings", items[3].title)
         assertEquals(3, items[3].tabIndex)
         assertNotNull(items[3].icon)
         assertNotNull(items[3].unselectedIcon)
-
-        assertEquals("Settings", items[4].title)
-        assertEquals(4, items[4].tabIndex)
-        assertNotNull(items[4].icon)
-        assertNotNull(items[4].unselectedIcon)
 
         // Verify filled vs outlined distinction
         assertNotEquals(items[0].icon, items[0].unselectedIcon)
         assertNotEquals(items[1].icon, items[1].unselectedIcon)
         assertNotEquals(items[2].icon, items[2].unselectedIcon)
         assertNotEquals(items[3].icon, items[3].unselectedIcon)
-        assertNotEquals(items[4].icon, items[4].unselectedIcon)
     }
 
     // =========================================================================
@@ -345,7 +335,7 @@ class M3NavigationExpressiveTest {
         composeTestRule.onNodeWithText("Analytics").assertIsDisplayed()
         composeTestRule.onNodeWithTag("bottom_nav_analytics").assertIsSelected()
 
-        composeTestRule.onNodeWithTag("bottom_nav_categories").performClick()
+        composeTestRule.onNodeWithTag("bottom_nav_settings").performClick()
         assertEquals(3, activeTab)
     }
 
@@ -359,7 +349,7 @@ class M3NavigationExpressiveTest {
         composeTestRule.setContent {
             FinTrackTheme {
                 FinTrackBottomNavigation(
-                    selectedTabIndex = 4, // Settings
+                    selectedTabIndex = 3, // Settings
                     onTabSelected = {}
                 )
             }
@@ -423,14 +413,14 @@ class M3NavigationExpressiveTest {
         composeTestRule.setContent {
             FinTrackTheme {
                 FinTrackBottomNavigation(
-                    selectedTabIndex = 3, // Categories
+                    selectedTabIndex = 3, // Settings
                     onTabSelected = {}
                 )
             }
         }
 
-        composeTestRule.onNodeWithTag("bottom_nav_categories").assertIsSelected()
-        composeTestRule.onNodeWithText("Categories").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("bottom_nav_settings").assertIsSelected()
+        composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
     }
 
     // =========================================================================

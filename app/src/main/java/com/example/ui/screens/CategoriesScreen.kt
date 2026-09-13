@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Category
@@ -130,6 +131,7 @@ fun CategoriesScreen(
     onUpdateSubcategory: (id: String, newSubCategory: String) -> Unit,
     onDeleteSubcategory: (id: String) -> Unit,
     canManageCategories: Boolean = true,
+    onBackClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedType by remember { mutableStateOf("Expense") }
@@ -206,6 +208,21 @@ fun CategoriesScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
+                                if (onBackClick != null) {
+                                    IconButton(
+                                        onClick = onBackClick,
+                                        modifier = Modifier
+                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                            .testTag("btn_categories_back")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(Space8))
+                                }
                                 Box(
                                     modifier = Modifier
                                         .size(42.dp)
@@ -255,6 +272,21 @@ fun CategoriesScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.weight(1f, fill = false)
                             ) {
+                                if (onBackClick != null) {
+                                    IconButton(
+                                        onClick = onBackClick,
+                                        modifier = Modifier
+                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                            .testTag("btn_categories_back")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(Space8))
+                                }
                                 Box(
                                     modifier = Modifier
                                         .size(42.dp)

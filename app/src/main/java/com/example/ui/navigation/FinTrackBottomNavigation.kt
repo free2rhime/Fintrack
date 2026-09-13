@@ -32,11 +32,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Analytics
-import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -97,8 +95,7 @@ enum class BottomNavItem(
     Dashboard("Dashboard", Icons.Default.Dashboard, 0, Icons.Outlined.Dashboard),
     Transactions("Transactions", Icons.AutoMirrored.Filled.ReceiptLong, 1, Icons.AutoMirrored.Outlined.ReceiptLong),
     Analytics("Analytics", Icons.Default.Analytics, 2, Icons.Outlined.Analytics),
-    Categories("Categories", Icons.Default.Category, 3, Icons.Outlined.Category),
-    Settings("Settings", Icons.Default.Settings, 4, Icons.Outlined.Settings)
+    Settings("Settings", Icons.Default.Settings, 3, Icons.Outlined.Settings)
 }
 
 /**
@@ -186,7 +183,7 @@ fun FinTrackBottomNavigation(
                     )
                 }
 
-                // Row of 5 Primary Destinations (Strictly Preserved Order)
+                // Row of 4 Primary Destinations (Strictly Preserved Order)
                 Row(
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.SpaceBetween,

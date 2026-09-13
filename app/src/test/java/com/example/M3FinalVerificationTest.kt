@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.example.data.model.CategoryEntity
@@ -278,7 +279,8 @@ class M3FinalVerificationTest {
         composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
         composeTestRule.onNodeWithTag("account_info_card").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("household_summary_card").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithTag("export_csv_button").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("settings_item_categories").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("settings_item_developer").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("sync_status_indicator").performScrollTo().assertIsDisplayed()
     }
 

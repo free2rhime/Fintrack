@@ -79,7 +79,7 @@ class M3AnalyticsExpressiveMigrationTest {
     )
 
     @Test
-    fun test1_analyticsScreenRendersWithHeaderAndSubtitle() {
+    fun test1_analyticsScreenRendersHeaderWithoutSubtitle() {
         composeTestRule.setContent {
             FinTrackTheme {
                 AnalyticsScreen(
@@ -90,7 +90,7 @@ class M3AnalyticsExpressiveMigrationTest {
         }
 
         composeTestRule.onNodeWithText("Analytics").assertExists()
-        composeTestRule.onNodeWithText("Financial flow & category distribution").assertExists()
+        composeTestRule.onNodeWithText("Financial flow & category distribution").assertDoesNotExist()
     }
 
     @Test
