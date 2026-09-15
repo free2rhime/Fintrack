@@ -64,8 +64,8 @@ class Stage3BUiTest {
         composeTestRule.onNodeWithText("Clear All Local Data").assertDoesNotExist()
 
         // Verify remaining essential settings cards are present
-        composeTestRule.onNodeWithText("Preferences & System").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Data Export & Reports").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Appearance Theme").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Account Identity & Security").performScrollTo().assertIsDisplayed()
     }
 
     @Test
